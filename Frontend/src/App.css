@@ -1,0 +1,272 @@
+/* Alapbeállítások: Szép betűtípus és világosszürke háttér */
+body {
+  background-color: #f0f2f5;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+  color: #333;
+}
+
+/* --- App.css MÓDOSÍTÁSOK --- */
+
+.container {
+  max-width: 95%; /* Szélesebb legyen, hogy elférjen a két oszlop */
+  margin: 20px auto;
+  padding: 20px;
+}
+
+/* Ez az új rács, ami kettéosztja a képernyőt */
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: 2fr 2fr; /* Bal oldal: 2 egység, Jobb oldal: 1 egység */
+  gap: 12.5px; /* Hely a két oszlop között */
+  align-items: start; /* Tetejére igazítva */
+}
+
+/* Ha mobilon nézzük, legyen egymás alatt */
+@media (max-width: 768px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Naptár stílusok a jobb oldalra */
+.calendar-card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  border-left: 3px solid #3498db; /* Kék csík jelzi, hogy ez naptár */
+}
+
+.appointment-item {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  font-size: 0.9rem;
+}
+
+.appointment-date {
+  font-weight: bold;
+  color: #e67e22; /* Narancssárga dátum */
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* Címsor */
+.header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.header h1 {
+  font-size: 2.5rem;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.status-msg {
+  font-weight: bold;
+  margin-top: 10px;
+  display: inline-block;
+  padding: 5px 15px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+}
+
+/* Kártya stílus (a fehér dobozokhoz) */
+.card {
+  background: white;
+  padding: 25px;
+  border-radius: 12px; /* Lekerekített sarkok */
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05); /* Finom árnyék */
+  margin-bottom: 30px;
+}
+
+.card h3 {
+  margin-top: 0;
+  border-bottom: 2px solid #f0f2f5;
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+  color: #444;
+}
+
+/* Űrlap elemek */
+.form-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Két oszlop */
+  gap: 15px;
+}
+
+input, select {
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.3s;
+}
+
+input:focus, select:focus {
+  border-color: #3498db; /* Kék keret kattintáskor */
+  outline: none;
+}
+
+/* Gombok */
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  transition: transform 0.1s, opacity 0.2s;
+}
+
+button:active {
+  transform: scale(0.98); /* Pici nyomódás effekt */
+}
+
+.btn-add {
+  background-color: #27ae60; /* Zöld */
+  color: white;
+  padding: 12px;
+  grid-column: span 2; /* Teljes szélesség */
+  font-size: 1.1rem;
+}
+
+.btn-add:hover {
+  background-color: #219150;
+}
+
+.btn-delete {
+  background-color: #e74c3c; /* Piros */
+  color: white;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+}
+
+.btn-delete:hover {
+  background-color: #c0392b;
+}
+
+/* Jármű lista */
+.vehicle-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.vehicle-item {
+  display: flex;
+  justify-content: space-between; /* Szétolja a szöveget és a gombot */
+  align-items: center;
+  padding: 15px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.vehicle-item:last-child {
+  border-bottom: none;
+}
+
+.vehicle-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.vehicle-owner {
+  font-size: 0.85rem;
+  color: #7f8c8d;
+  margin-top: 4px;
+}
+
+/* --- MODAL (Nagyítás) STÍLUSOK --- */
+
+/* A sötét háttér, ami mindent eltakar */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000; /* 1. Szint */
+  animation: fadeIn 0.2s;
+}
+
+.modal-on-top {
+  z-index: 2000 !important; /* 2. Szint - Mindig a naptár fölött! */
+  background-color: rgba(0, 0, 0, 0.8); /* Kicsit sötétebb, hogy látszódjon a fókusz */
+}
+
+/* Maga a fehér ablak */
+.modal-content {
+  background: white;
+  width: 90%; /* Képernyő 90%-a */
+  height: 90%; /* Magasság 90%-a */
+  padding: 20px;
+  border-radius: 12px;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+}
+
+/* A bezáró X gomb a jobb felső sarokban */
+.close-modal-btn {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #555;
+  font-weight: bold;
+  z-index: 1001;
+}
+
+.close-modal-btn:hover {
+  color: red;
+}
+
+/* Animáció a megjelenéshez */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* --- DINAMIKUS MODAL (AZ IDŐPONT ABLAKHOZ) --- */
+
+.modal-dynamic {
+  /* Szélesség: Mobilon majdnem teljes, de gépen max 600px (hogy szép legyen) */
+  width: 95%;
+  max-width: 600px;
+  
+  /* Magasság: Automata! Addig nő, amíg van tartalom */
+  height: auto;
+  
+  /* DE! Ha túl hosszú lenne (kilógna a képernyőről), akkor álljon meg */
+  max-height: 90vh; /* A képernyő 90%-a */
+  
+  /* És ilyenkor jelenjen meg oldalt a görgetősáv */
+  overflow-y: auto; 
+  
+  display: block; /* Fontos a görgetéshez */
+}
+
+/* Kicsit szellősebbé tesszük a zöld dobozt */
+.new-customer-box {
+  border: 2px solid #27ae60;
+  background-color: #f9fff9;
+  padding: 15px;
+  border-radius: 8px;
+  margin-top: 10px;
+  margin-bottom: 15px;
+  animation: slideDown 0.3s ease-out;
+}
+
+/* Animáció, hogy szépen csússzon le a zöld doboz */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

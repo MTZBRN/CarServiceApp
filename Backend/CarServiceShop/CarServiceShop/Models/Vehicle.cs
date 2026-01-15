@@ -10,6 +10,7 @@ public class Vehicle
     public string Model { get; set; } = string.Empty; // Típus (pl. Focus)
     public int Year { get; set; }
     public string? VIN { get; set; } // Alvázszám (opcionális)
+    public DateTime? MOTExpiry { get; set; }
 
     // ITT AZ ÚJ MEZŐ: Műszaki vizsga lejárata
     public DateTime? TechnicalExamExpiry { get; set; }

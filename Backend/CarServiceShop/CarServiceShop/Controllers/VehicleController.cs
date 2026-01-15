@@ -22,9 +22,10 @@ public class VehicleController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Vehicle>>> GetVehicles()
     {
-        // Az Include(c => c.Customer) azért kell, hogy a tulaj adatait is betöltse!
+        // A trükk: .Include(v => v.Customer)
+        // Ez mondja meg az adatbázisnak, hogy "hozd a gazdáját is!"
         return await _context.Vehicles
-            .Include(v => v.Customer)
+            .Include(v => v.Customer) 
             .ToListAsync();
     }
 
