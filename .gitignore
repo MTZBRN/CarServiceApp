@@ -161,8 +161,14 @@ packages/
 *.pdb
 *.lib
 *.sbr
+*.db
+.idea/
+bin/
+obj/
+*.log
+.DS_Store
+
 appsettings.Development.json  # Ha vannak benne titkos kulcsok!
 
-# --- OS Files ---
-.DS_Store
+# --- OS Files --x.DS_Store
 Thumbs.db
