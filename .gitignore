@@ -137,3 +137,32 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+
+# --- BACKEND (.NET / C#) ---
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+packages/
+*_i.c
+*_p.c
+*.ncb
+*.suo
+*.tlb
+*.tlh
+*.bak
+*.cache
+*.ilk
+*.log
+*.pdb
+*.lib
+*.sbr
+appsettings.Development.json  # Ha vannak benne titkos kulcsok!
+
+# --- OS Files ---
+.DS_Store
+Thumbs.db
