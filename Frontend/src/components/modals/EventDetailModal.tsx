@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarEvent } from '../types';
+import { CalendarEvent } from '../../types';
 import { Trash2, Wrench, X, Calendar, User, Clock, FileText } from 'lucide-react';
 
 interface Props {

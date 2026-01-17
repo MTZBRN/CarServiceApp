@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { apiService } from '../api/apiservice';
-import { Customer } from '../types';
+import { apiService } from '../../api/apiservice';
+import { Customer } from '../../types';
 
 interface Props {
     customers: Customer[];

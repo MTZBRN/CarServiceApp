@@ -12,6 +12,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Appointment> Appointments { get; set; }
     public DbSet<ServiceJob> ServiceJobs { get; set; }
     public DbSet<JobPart> JobParts { get; set; }
+    public DbSet<Part> Parts { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

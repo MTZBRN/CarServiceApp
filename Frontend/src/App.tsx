@@ -1,29 +1,32 @@
 import React, { useState, useCallback } from 'react';
 import './App.css';
 
-// Ikonok (Lucide React)
-import { Calendar as CalIcon, Car, User, AlertTriangle, Search, Trash2, History, Wrench, Plus } from 'lucide-react';
+// Ikonok
+import { Calendar as CalIcon, Car, User, AlertTriangle, Search, Trash2, History, Plus } from 'lucide-react';
+
+// Komponensek
+import Sidebar from './components/Sidebar'; // <--- ÚJ IMPORT
+import AppointmentModal from './components/modals/AppointmentModal';
+import EventDetailModal from './components/modals/EventDetailModal';
+import WorksheetModal from './components/modals/WorksheetModal';
+import VehicleHistoryModal from './components/modals/VehicleHistoryModal';
+import AddVehicleModal from './components/modals/AddVehicleModal';
+
+import Inventory from './components/Pages/Inventory';
 
 // Hook és API
 import { useCarService } from './hooks/useCarService';
 import { apiService } from './api/apiservice';
 import { CalendarEvent } from './types';
 
-// Naptár cuccok
+// Naptár
 import { Calendar, dateFnsLocalizer, View, SlotInfo } from 'react-big-calendar';
 import format from 'date-fns/format';
 import parse from 'date-fns/parse';
-import {startOfWeek} from 'date-fns/startOfWeek';
+import {startOfWeek }from 'date-fns/startOfWeek';
 import {getDay} from 'date-fns/getDay';
-import {hu }from 'date-fns/locale/hu';
+import {hu} from 'date-fns/locale/hu';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-
-// Komponensek
-import AppointmentModal from './modals/AppointmentModal';
-import EventDetailModal from './modals/EventDetailModal';
-import WorksheetModal from './modals/WorksheetModal';
-import VehicleHistoryModal from './modals/VehicleHistoryModal';
-import AddVehicleModal from './modals/AddVehicleModal';
 
 const locales = { 'hu': hu };
 const localizer = dateFnsLocalizer({ format, parse, startOfWeek, getDay, locales });
@@ -35,12 +38,14 @@ function App() {
   } = useCarService();
 
   // --- STATEK ---
+  const [activeTab, setActiveTab] = useState('dashboard'); // Menü állapota
+  
   const [date, setDate] = useState<Date>(new Date());
   const [view, setView] = useState<View>('month');
   const [showBigCalendar, setShowBigCalendar] = useState(false);
-  const [showAddVehicleModal, setShowAddVehicleModal] = useState(false);
   
   // Modálok state-jei
+  const [showAddVehicleModal, setShowAddVehicleModal] = useState(false);
   const [showApptModal, setShowApptModal] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<Date | null>(null);
   
@@ -53,10 +58,7 @@ function App() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [historyVehicle, setHistoryVehicle] = useState<{id: number, plate: string} | null>(null);
 
-  // Bal oldali űrlap és keresés
-  const [form, setForm] = useState({ 
-    licensePlate: '', make: '', model: '', year: 2024, customerId: '', motExpiry: '' 
-  });
+  // Keresés
   const [searchTerm, setSearchTerm] = useState('');
 
   // --- FÜGGVÉNYEK ---
@@ -85,28 +87,12 @@ function App() {
     setShowHistoryModal(true);
   };
 
-  const handleMainSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessage('Mentés...');
-    const d: any = { ...form };
-    if (!d.motExpiry) d.motExpiry = null;
-    
-    try {
-      await apiService.createVehicle(d);
-      setMessage('Sikeres mentés! ✅');
-      refreshAll();
-      setForm({ licensePlate: '', make: '', model: '', year: 2024, customerId: '', motExpiry: '' });
-      setTimeout(() => setMessage(''), 3000);
-    } catch { setMessage('Hiba!'); }
-  };
-
   const getStatusColor = (d: string | null | undefined) => {
     if (!d) return '#fff';
     const days = (new Date(d).getTime() - new Date().getTime()) / 86400000;
     return days < 0 ? '#ffcccc' : days < 30 ? '#fff3cd' : '#d4edda';
   };
 
-  // Keresés logika
   const filteredVehicles = vehicles.filter(v => {
       const search = searchTerm.toLowerCase();
       const plate = v.licensePlate.toLowerCase();
@@ -116,150 +102,166 @@ function App() {
 
   const eventStyleGetter = (ev: CalendarEvent) => ({
     style: {
-      backgroundColor: ev.type === 'mot' ? '#ef4444' : '#3b82f6',
-      borderRadius: '4px', opacity: 0.9, color: 'white', display: 'block', border: 'none'
+      backgroundColor: ev.type === 'mot' ? 'rgba(239, 68, 68, 0.8)' : 'rgba(59, 130, 246, 0.8)',
+      borderRadius: '4px', color: 'white', border: 'none', display: 'block'
     }
   });
 
-return (
+  return (
     <div className="container">
-      {/* HEADER: Kisebb, kompaktabb */}
-      <div className="header" style={{marginBottom: '20px', paddingBottom: '15px'}}>
-        <h1 style={{fontSize: '1.5rem'}}>GTA Szerviz 🚘</h1>
-        
-        {/* A STATISZTIKA MOST A HEADERBEN VAN (Mini kártyák) */}
-        <div style={{display: 'flex', gap: '15px'}}>
-            <div className="mini-stat">
-                <span className="mini-stat-label">📅 Ma:</span>
-                <span className="mini-stat-value">{appointments.filter(a => new Date(a.startTime).toDateString() === new Date().toDateString()).length}</span>
-            </div>
-            <div className="mini-stat" style={{borderColor: '#ef4444'}}>
-                <span className="mini-stat-label" style={{color: '#ef4444'}}>⚠️ Lejárt:</span>
-                <span className="mini-stat-value" style={{color: '#ef4444'}}>{vehicles.filter(v => getStatusColor(v.motExpiry) === '#ffcccc').length}</span>
-            </div>
-        </div>
-      </div>
+      
+      {/* 1. SIDEBAR (BAL OLDAL) */}
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <div className="dashboard-layout" style={{height: 'calc(100vh - 100px)'}}> {/* Teljes magasság! */}
-        
-        {/* --- BAL OSZLOP: Csak a lista és a kereső --- */}
-        <div className="main-content" style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
+      {/* 2. TARTALOM (JOBB OLDAL) */}
+      {/* 2. TARTALOM (JOBB OLDAL) - CSERÉLD LE EZT A BLOKKOT */}
+      <div className="content-area">
+
+        {/* HEADER (Dinamikus címmel) */}
+        <div className="header">
+          <div>
+            <h1 style={{textTransform: 'capitalize'}}>
+              {activeTab === 'dashboard' ? 'Áttekintés 🚘' : 
+               activeTab === 'schedule' ? 'Szerviz Naptár 📅' : 
+               activeTab === 'vehicles' ? 'Járművek Listája 🚙' : 
+               activeTab === 'inventory' ? 'Raktárkészlet 📦' : 'Beállítások ⚙️'}
+            </h1>
+          </div>
           
-          {/* A KÁRTYA MOST MÁR KITÖLTI A BAL SÁVOT */}
-          {/* A KÁRTYA CSS-e most már kezeli a felosztást */}
-          <div className="card" style={{padding: 0}}> 
-            
-            {/* 1. FEJLÉC SZEKCIÓ (Gomb + Kereső) */}
-            <div className="card-header-section">
-                <button 
-                    onClick={() => setShowAddVehicleModal(true)} 
-                    style={{
-                        width: '100%', 
-                        padding: '12px', 
-                        background: 'var(--accent-blue)', 
-                        color: 'white', 
-                        border: 'none', 
-                        borderRadius: '6px', 
-                        fontSize: '1rem', 
-                        marginBottom: '15px',
-                        display: 'flex', 
-                        justifyContent: 'center', 
-                        alignItems: 'center', 
-                        gap: '8px'
-                    }}>
-                    <Plus size={18} /> Új Jármű Felvétele
-                </button>
-
-                <div style={{position: 'relative'}}>
-                    <Search size={16} style={{position: 'absolute', left: '12px', top: '12px', color: '#666'}} />
-                    <input 
-                        type="text" 
-                        placeholder="Keresés..." 
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{paddingLeft: '35px', background: '#27272a', border: '1px solid #3f3f46'}}
-                    />
+          {/* Statisztikák (Csak a Dashboardon látszódjanak) */}
+          {activeTab === 'dashboard' && (
+            <div style={{display: 'flex', gap: '15px'}}>
+                <div className="mini-stat">
+                    <span className="mini-stat-label">📅 Ma:</span>
+                    <span className="mini-stat-value">{appointments.filter(a => new Date(a.startTime).toDateString() === new Date().toDateString()).length}</span>
+                </div>
+                <div className="mini-stat" style={{borderColor: '#ef4444'}}>
+                    <span className="mini-stat-label" style={{color: '#ef4444'}}>⚠️ Lejárt:</span>
+                    <span className="mini-stat-value" style={{color: '#ef4444'}}>{vehicles.filter(v => getStatusColor(v.motExpiry) === '#ffcccc').length}</span>
                 </div>
             </div>
-
-            {/* 2. LISTA SZEKCIÓ (Görgethető) */}
-            <div className="card-list-section">
-                <div className="vehicle-list-header">Garázs ({filteredVehicles.length})</div>
-                <ul className="vehicle-list">
-                  {/* ... itt jön a .map(...) rész, az maradhat a régi ... */}
-                  {filteredVehicles.map(v => {
-                      /* ... a lista renderelés kódja ... */
-                      const statusColor = getStatusColor(v.motExpiry);
-                      let statusText = "OK";
-                      let statusIcon = <div style={{width: 6, height: 6, borderRadius: '50%', background: '#10b981'}}></div>;
-                      
-                      if (statusColor === '#ffcccc') { 
-                          statusText = "Lejárt"; 
-                          statusIcon = <AlertTriangle size={12} color="#ef4444" />;
-                      } else if (statusColor === '#fff3cd') { 
-                          statusText = "Hamarosan"; 
-                          statusIcon = <AlertTriangle size={12} color="#f59e0b" />;
-                      }
-
-                      return (
-                        <li key={v.id} className="stitch-vehicle-card">
-                          <div className="vehicle-icon-box">
-                              <Car size={20} color="#e4e4e7" />
-                          </div>
-                          <div className="vehicle-info">
-                              <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                                  <span className="plate-number">{v.licensePlate}</span>
-                              </div>
-                              <div className="owner-name">
-                                  {v.customer?.name || '-'}
-                              </div>
-                          </div>
-                          <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '5px'}}>
-                              <div className={`status-badge ${statusColor === '#ffcccc' ? 'badge-red' : statusColor === '#fff3cd' ? 'badge-yellow' : 'badge-green'}`} style={{padding: '2px 6px', fontSize: '0.65rem'}}>
-                                  {statusIcon}
-                                  <span>{statusText}</span>
-                              </div>
-                              <div className="action-buttons">
-                                  <button onClick={() => handleOpenHistory(v.id, v.licensePlate)} className="icon-btn"><History size={18} /></button>
-                                  <button onClick={() => deleteVehicle(v.id)} className="icon-btn delete-btn"><Trash2 size={18} /></button>
-                              </div>
-                          </div>
-                        </li>
-                      );
-                  })}
-                </ul>
-            </div>
-          </div>
+          )}
         </div>
 
-        {/* --- JOBB OSZLOP: NAPTÁR --- */}
-        <div className="sidebar" style={{height: '100%'}}>
-          <div className="calendar-card" style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <CalIcon size={20} color="#3b82f6"/> Naptár
-              </h3>
-              <button onClick={() => setShowBigCalendar(true)} style={{ background: '#27272a', color: 'white', border: '1px solid #3f3f46', padding: '6px 12px', fontSize: '0.8rem', borderRadius: '6px' }}>⛶ Nagyítás</button>
+        {/* --- NÉZETEK VÁLTÁSA --- */}
+
+        {/* 1. DASHBOARD NÉZET (A régi osztott képernyő) */}
+        {activeTab === 'dashboard' && (
+          <div className="dashboard-layout">
+            {/* BAL: Lista */}
+            <div className="main-content">
+              <div className="card" style={{padding: 0}}>
+                <div className="card-header-section">
+                    <button 
+                        onClick={() => setShowAddVehicleModal(true)} 
+                        style={{
+                            width: '100%', padding: '12px', background: 'var(--accent-blue)', 
+                            color: 'white', border: 'none', borderRadius: '6px', fontSize: '1rem', 
+                            marginBottom: '15px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px'
+                        }}>
+                        <Plus size={18} /> Új Jármű Felvétele
+                    </button>
+                    <div style={{position: 'relative'}}>
+                        <Search size={16} style={{position: 'absolute', left: '12px', top: '12px', color: '#666'}} />
+                        <input 
+                            type="text" 
+                            placeholder="Keresés..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{paddingLeft: '35px', background: '#27272a', border: '1px solid #3f3f46'}}
+                        />
+                    </div>
+                </div>
+                <div className="card-list-section">
+                    <div className="vehicle-list-header">Garázs ({filteredVehicles.length})</div>
+                    <ul className="vehicle-list">
+                      {filteredVehicles.map(v => {
+                          const statusColor = getStatusColor(v.motExpiry);
+                          let statusText = "OK";
+                          let statusIcon = <div style={{width: 6, height: 6, borderRadius: '50%', background: '#10b981'}}></div>;
+                          if (statusColor === '#ffcccc') { 
+                              statusText = "Lejárt"; statusIcon = <AlertTriangle size={12} color="#ef4444" />;
+                          } else if (statusColor === '#fff3cd') { 
+                              statusText = "Hamarosan"; statusIcon = <AlertTriangle size={12} color="#f59e0b" />;
+                          }
+                          return (
+                            <li key={v.id} className="stitch-vehicle-card">
+                              <div className="vehicle-icon-box"><Car size={20} color="#e4e4e7" /></div>
+                              <div className="vehicle-info">
+                                  <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}><span className="plate-number">{v.licensePlate}</span></div>
+                                  <div className="owner-name">{v.customer?.name || '-'}</div>
+                              </div>
+                              <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '5px'}}>
+                                  <div className={`status-badge ${statusColor === '#ffcccc' ? 'badge-red' : statusColor === '#fff3cd' ? 'badge-yellow' : 'badge-green'}`} style={{padding: '2px 6px', fontSize: '0.65rem'}}>
+                                      {statusIcon}<span>{statusText}</span>
+                                  </div>
+                                  <div className="action-buttons">
+                                      <button onClick={() => handleOpenHistory(v.id, v.licensePlate)} className="icon-btn btn-history" title="Történet"><History size={18} /></button>
+                                      <button onClick={() => deleteVehicle(v.id)} className="icon-btn btn-delete-vehicle" title="Törlés"><Trash2 size={18} /></button>
+                                  </div>
+                              </div>
+                            </li>
+                          );
+                      })}
+                    </ul>
+                </div>
+              </div>
             </div>
-            <Calendar
-              selectable
-              onSelectSlot={handleSelectSlot}
-              onSelectEvent={handleSelectEvent}
-              localizer={localizer}
-              events={calendarEvents}
-              style={{ flex: 1 }} // Kitölti a maradék helyet
-              culture='hu'
-              eventPropGetter={eventStyleGetter}
-              popup
-              tooltipAccessor="tooltip"
-              date={date} onNavigate={onNavigate} view='month' onView={() => { }}
-              messages={{ next: ">", previous: "<", today: "Ma", month: "Hó", week: "Hét", day: "Nap", showMore: t => `+${t}` }}
-            />
+
+            {/* JOBB: Naptár (Kicsi) */}
+            <div className="sidebar">
+              <div className="calendar-card" style={{height: '100%'}}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                  <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}><CalIcon size={20} color="#3b82f6"/> Naptár</h3>
+                  {/* Itt már nem kell nagyítás gomb, mert van külön Naptár fül */}
+                </div>
+                <Calendar
+                  selectable onSelectSlot={handleSelectSlot} onSelectEvent={handleSelectEvent}
+                  localizer={localizer} events={calendarEvents} style={{ flex: 1 }}
+                  culture='hu' eventPropGetter={eventStyleGetter} popup tooltipAccessor="tooltip"
+                  date={date} onNavigate={onNavigate} view='month' onView={() => { }}
+                  messages={{ next: ">", previous: "<", today: "Ma", month: "Hó", week: "Hét", day: "Nap", showMore: t => `+${t}` }}
+                />
+              </div>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* 2. NAPTÁR NÉZET (Teljes képernyős) */}
+        {activeTab === 'schedule' && (
+           <div className="card" style={{height: '100%', padding: '20px'}}>
+              <Calendar
+                selectable
+                onSelectSlot={handleSelectSlot}
+                onSelectEvent={handleSelectEvent}
+                localizer={localizer}
+                events={calendarEvents}
+                style={{ height: '100%' }}
+                culture='hu'
+                eventPropGetter={eventStyleGetter}
+                popup
+                tooltipAccessor="tooltip"
+                date={date} onNavigate={onNavigate} view={view} onView={onView} // Itt már állítható a nézet (hét/nap/hó)
+                messages={{ next: "Következő", previous: "Előző", today: "Ma", month: "Hónap", week: "Hét", day: "Nap", showMore: t => `+${t} további` }}
+              />
+           </div>
+        )}
+        {activeTab === 'inventory' && <Inventory />}
+        {/* 3. EGYÉB FÜLEK (Placeholder) */}
+        {(activeTab !== 'dashboard' && activeTab !== 'schedule') && (
+            <div style={{
+                flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', 
+                flexDirection: 'column', color: 'var(--text-muted)', border: '2px dashed var(--border-color)', borderRadius: '12px'
+            }}>
+                <div style={{fontSize: '3rem', marginBottom: '20px'}}>🚧</div>
+                <h2>Ez a modul fejlesztés alatt áll.</h2>
+                <p>Hamarosan itt találod a {activeTab === 'vehicles' ? 'Járműveket' : activeTab === 'inventory' ? 'Raktárkészletet' : 'Beállításokat'}.</p>
+            </div>
+        )}
+
       </div>
-
-      {/* MODÁLOK */}
+      {/* --- MODÁLOK --- */}
+      
       {showAddVehicleModal && (
           <AddVehicleModal 
             customers={customers} 
@@ -267,8 +269,7 @@ return (
             onSuccess={() => { setShowAddVehicleModal(false); refreshAll(); }}
           />
       )}
-      
-      {/* ... A többi modal marad (showApptModal, showEventModal, stb.) ... */}
+
       {showApptModal && (
         <AppointmentModal
           selectedSlot={selectedSlot}
@@ -328,7 +329,6 @@ return (
           </div>
         </div>
       )}
-
     </div>
   );
 }

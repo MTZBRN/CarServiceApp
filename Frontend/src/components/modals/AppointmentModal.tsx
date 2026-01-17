@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Vehicle, Customer } from '../types';
-import { apiService } from '../api/apiservice';
+import { Vehicle, Customer } from '../../types';
+import { apiService } from '../../api/apiservice';
 import { Calendar, User, Car, Clock, FileText, CheckCircle } from 'lucide-react';
 
 interface Props {

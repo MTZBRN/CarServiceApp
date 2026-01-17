@@ -36,13 +36,21 @@ html, body, #root {
    ========================================= */
 .container {
   display: flex;
+  flex-direction: row; /* FONTOS: Mostantól vízszintesen rendezünk! */
+  width: 100%;
+  height: 100%;
+  padding: 0; /* A paddingot levesszük, majd a belső tartalom kapja meg */
+  box-sizing: border-box;
+  background-color: var(--bg-dark);
+}
+
+.content-area {
+  flex: 1; /* Kitölti a maradék helyet a Sidebar mellett */
+  display: flex;
   flex-direction: column;
-  
-  /* JAVÍTÁS: 100vw helyett 100% a vízszintes csúszka ellen */
-  width: 100%; 
-  height: 100%; /* 100vh helyett 100%, hogy biztosan ne lógjon túl */
-  
-  padding: 20px;
+  padding: 20px 30px; /* Itt adjuk vissza a margót */
+  overflow-y: auto; /* Ha kell, ez görgethető */
+  height: 100vh;
   box-sizing: border-box;
 }
 
@@ -91,6 +99,87 @@ html, body, #root {
   flex-direction: column;
   height: 100%; /* Kitölti a grid cellát */
   min-height: 0;
+}
+
+.sidebar-container {
+  width: 260px; /* Fix szélesség */
+  height: 100vh;
+  background-color: #18181b; /* Kicsit sötétebb/más árnyalat */
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  box-sizing: border-box;
+  flex-shrink: 0; /* Ne nyomódjon össze */
+}
+
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 40px;
+  padding: 0 10px;
+}
+
+.logo-icon {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+}
+
+.logo-text {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: white;
+  letter-spacing: 0.5px;
+}
+
+.sidebar-menu {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 15px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  text-align: left;
+  width: 100%;
+}
+
+.sidebar-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: white;
+}
+
+.sidebar-item.active {
+  background-color: rgba(59, 130, 246, 0.15); /* Halvány kék háttér */
+  color: #60a5fa; /* Kék szöveg */
+  font-weight: 600;
+}
+
+.sidebar-footer {
+  border-top: 1px solid var(--border-color);
+  padding-top: 20px;
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .card, .calendar-card {
@@ -145,6 +234,7 @@ input, select, textarea {
   outline: none;
   width: 100%;
   box-sizing: border-box;
+  
 }
 input:focus { border-color: var(--accent-blue); }
 
@@ -247,3 +337,18 @@ button:active { transform: scale(0.98); }
 .status-box-pending { background-color: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); color: #f59e0b; padding: 10px; border-radius: 8px; display: flex; align-items: center; }
 .status-box-completed { background-color: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4); color: #10b981; padding: 10px; border-radius: 8px; display: flex; align-items: center; }
 .inset-box { background-color: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+
+/* --- SZÁM INPUTOK NYILAINAK ELTÜNTETÉSE --- */
+
+/* Chrome, Safari, Edge, Opera */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

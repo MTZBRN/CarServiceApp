@@ -43,6 +43,7 @@ export interface CalendarEvent {
 
 export interface JobPart {
     id?: number;
+    itemName: string;
     partNumber: string;
     partName: string;
     quantity: number;
@@ -57,4 +58,13 @@ export interface ServiceJob {
     isCompleted: boolean;
     jobParts: JobPart[];
     appointment?: Appointment;
+}
+
+export interface Part {
+    id: number;
+    partNumber: string; // Cikkszám
+    name: string;
+    netPrice: number;
+    grossPrice: number;
+    stockQuantity: number;
 }

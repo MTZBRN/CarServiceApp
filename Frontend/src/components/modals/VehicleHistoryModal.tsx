@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { apiService } from '../api/apiservice';
-import { ServiceJob } from '../types';
+import { apiService } from '../../api/apiservice';
+import { ServiceJob } from '../../types';
 
 interface Props {
     vehicleId: number;
