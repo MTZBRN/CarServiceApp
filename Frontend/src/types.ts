@@ -25,6 +25,7 @@ export interface Appointment {
     note?: string;
     description?: string; // Néha így jön a backendről
     vehicle?: Vehicle;
+    serviceJob?: ServiceJob; 
 }
 
 // A Naptárnak ilyen formátum kell:
@@ -37,4 +38,23 @@ export interface CalendarEvent {
     allDay?: boolean;
     type: 'service' | 'mot'; // Csak ez a két típus lehet
     originalData?: Appointment | Vehicle; // Eltároljuk az eredeti adatot is
+    desc?: string;
+}
+
+export interface JobPart {
+    id?: number;
+    partNumber: string;
+    partName: string;
+    quantity: number;
+    unitPrice: number;
+}
+
+export interface ServiceJob {
+    id?: number;
+    appointmentId: number;
+    description: string;
+    laborCost: number;
+    isCompleted: boolean;
+    jobParts: JobPart[];
+    appointment?: Appointment;
 }

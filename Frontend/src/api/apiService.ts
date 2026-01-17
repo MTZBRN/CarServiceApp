@@ -1,5 +1,5 @@
 import axios, { AxiosResponse } from 'axios';
-import { Vehicle, Customer, Appointment } from '../types';
+import { Vehicle, Customer, Appointment,ServiceJob, } from '../types';
 
 const API_URL = 'http://localhost:5232/api';
 
@@ -14,5 +14,11 @@ export const apiService = {
   createAppointment: (data: Partial<Appointment>) => axios.post<Appointment>(`${API_URL}/Appointments`, data),
   
   deleteVehicle: (id: number) => axios.delete(`${API_URL}/Vehicle/${id}`),
-  deleteAppointment: (id: number) => axios.delete(`${API_URL}/Appointments/${id}`)
+  deleteAppointment: (id: number) => axios.delete(`${API_URL}/Appointments/${id}`),
+
+  getServiceJob: (appointmentId: number) => axios.get<ServiceJob>(`${API_URL}/ServiceJobs/ByAppointment/${appointmentId}`),
+  saveServiceJob: (data: ServiceJob) => axios.post<ServiceJob>(`${API_URL}/ServiceJobs`, data),
+
+  
+  getServiceHistory: (vehicleId: number) => axios.get<ServiceJob[]>(`${API_URL}/ServiceJobs/ByVehicle/${vehicleId}`),
 };

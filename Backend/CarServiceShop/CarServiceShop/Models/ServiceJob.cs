@@ -1,20 +1,20 @@
+using System.Text.Json.Serialization;
+
 namespace CarServiceShop.Models;
 
 public class ServiceJob
 {
     public int Id { get; set; }
-        
-    // Mikor és hány kilométernél történt?
-    public DateTime JobDate { get; set; } = DateTime.Now;
-    public int Mileage { get; set; } // Km óra állás
-        
-    public string Description { get; set; } = string.Empty; // Munka leírása
+    
+    // Melyik időponthoz tartozik?
+    public int AppointmentId { get; set; }
+    [JsonIgnore] // Hogy ne legyen körkörös hivatkozás
+    public Appointment? Appointment { get; set; }
 
-    // Kapcsolat az autóval
-    public int VehicleId { get; set; }
-    // Itt nem kell JsonIgnore, mert ha lekéred a munkát, tudni akarod melyik autó az
-    public Vehicle? Vehicle { get; set; } 
+    public string Description { get; set; } = string.Empty; // Pl. "Fékcsere elvégezve"
+    public int LaborCost { get; set; } // Munkadíj (Forintban)
+    public bool IsCompleted { get; set; } = false; // Kész van-e?
 
-    // Felhasznált alkatrészek listája
+    // Egy munkalaphoz sok alkatrész tartozhat
     public List<JobPart> JobParts { get; set; } = new();
 }

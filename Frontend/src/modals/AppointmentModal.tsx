@@ -1,138 +1,185 @@
-import React, { useState, useEffect } from 'react';
-import { apiService } from '../api/apiservice';
-import { format } from 'date-fns';
+import React, { useState } from 'react';
 import { Vehicle, Customer } from '../types';
+import { apiService } from '../api/apiservice';
+import { Calendar, User, Car, Clock, FileText, CheckCircle } from 'lucide-react';
 
 interface Props {
-    selectedSlot: Date | null;
-    onClose: () => void;
-    onSuccess: () => void;
-    vehicles: Vehicle[];
-    customers: Customer[];
-    setMessage: (msg: string) => void;
+  selectedSlot: Date | null;
+  onClose: () => void;
+  onSuccess: () => void;
+  vehicles: Vehicle[];
+  customers: Customer[];
+  setMessage: (msg: string) => void;
 }
 
-const AppointmentModal: React.FC<Props> = ({ 
-  selectedSlot, onClose, onSuccess, vehicles, customers, setMessage 
-}) => {
-  const [isNewCarMode, setIsNewCarMode] = useState(false);
+const AppointmentModal: React.FC<Props> = ({ selectedSlot, onClose, onSuccess, vehicles, customers, setMessage }) => {
+  const [activeTab, setActiveTab] = useState<'existing' | 'new'>('existing'); // 'existing' vagy 'new'
   
-  // Típusos state az űrlaphoz
-  const [apptForm, setApptForm] = useState({
-    vehicleId: '', 
-    time: '08:00', 
-    note: '',
-    newLicense: '', newMake: '', newModel: '', newYear: 2024, newOwnerId: '',
-    custName: '', custAddress: '', custPhone: '', custEmail: ''
-  });
+  // Form State
+  const [vehicleId, setVehicleId] = useState<number | string>('');
+  const [newCustomer, setNewCustomer] = useState({ name: '', address: '', phoneNumber: '', email: '' });
+  const [newVehicle, setNewVehicle] = useState({ licensePlate: '', make: '', model: '', year: new Date().getFullYear(), motExpiry: '' });
+  
+  const [description, setDescription] = useState('');
+  const [startTime, setStartTime] = useState(selectedSlot ? selectedSlot.toTimeString().slice(0, 5) : '08:00');
+  const [duration, setDuration] = useState(60); // percben
 
-  useEffect(() => {
-    if(customers.length > 0 && !apptForm.newOwnerId) {
-        setApptForm(prev => ({...prev, newOwnerId: customers[0].id.toString()}));
-    }
-  }, [customers]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async () => {
+    if (!selectedSlot) return;
     setMessage('Mentés...');
 
-    if (!selectedSlot) return;
+    // Dátum összerakása
+    const startDateTime = new Date(selectedSlot);
+    const [hours, minutes] = startTime.split(':').map(Number);
+    startDateTime.setHours(hours, minutes, 0, 0);
+
+    const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
 
     try {
-      let finalVehicleId = parseInt(apptForm.vehicleId);
+      let finalVehicleId = vehicleId;
 
-      if (isNewCarMode) {
-        let finalCustomerId = parseInt(apptForm.newOwnerId);
+      // Ha új autót/ügyfelet veszünk fel
+      if (activeTab === 'new') {
+        const custRes = await apiService.createCustomer(newCustomer);
+        const createdCustomer = custRes.data;
 
-        if (apptForm.newOwnerId === 'NEW_CUSTOMER') {
-          const newCustomerData = {
-            name: apptForm.custName, address: apptForm.custAddress,
-            phoneNumber: apptForm.custPhone, email: apptForm.custEmail
-          };
-          const custRes = await apiService.createCustomer(newCustomerData);
-          finalCustomerId = custRes.data.id;
-        }
+        const vehData: any = { ...newVehicle, customerId: createdCustomer.id };
+        if (!vehData.motExpiry) vehData.motExpiry = null;
 
-        const newCarData = {
-          licensePlate: apptForm.newLicense, make: apptForm.newMake, model: apptForm.newModel,
-          year: Number(apptForm.newYear), customerId: finalCustomerId, motExpiry: null
-        };
-        const carRes = await apiService.createVehicle(newCarData);
-        finalVehicleId = carRes.data.id;
+        const vehRes = await apiService.createVehicle(vehData);
+        finalVehicleId = vehRes.data.id;
       }
 
-      const dateStr = format(selectedSlot, 'yyyy-MM-dd');
-      const fullStartDate = `${dateStr}T${apptForm.time}:00`;
-
+      // Időpont mentése
       await apiService.createAppointment({
-        vehicleId: finalVehicleId, 
-        startTime: fullStartDate, 
-        endTime: fullStartDate, 
-        note: apptForm.note
+        vehicleId: Number(finalVehicleId),
+        startTime: startDateTime.toISOString(),
+        endTime: endDateTime.toISOString(),
+        note: description,
+        description: description
       });
 
-      setMessage('Sikeres rögzítés! ✅');
+      setMessage('Sikeres foglalás! ✅');
       onSuccess();
-      
     } catch (error) {
       console.error(error);
-      setMessage('Hiba történt a mentéskor! ❌');
+      alert('Hiba történt a mentés során!');
+      setMessage('Hiba történt!');
     }
   };
 
-  // ... A JSX RÉSZ UGYANAZ MARAD, MINT A JS VERZIÓBAN, CSAK A KITERJESZTÉS .TSX ...
-  // (Ide másold be a return (...) részt az előző válaszomból, az HTML, nem kell benne TypeScript változtatás)
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content modal-dynamic" onClick={e => e.stopPropagation()}>
-         {/* ... (A korábbi HTML kód ide jön) ... */}
-         {/* Csak a TypeScript miatt a 'rows' attribútum number legyen, ne string */}
-         {/* Az onChange eventeknél a 'e' típusa 'React.ChangeEvent<HTMLInputElement>' lenne, de a React alapból kikövetkezteti */}
-          <button className="close-modal-btn" onClick={onClose}>✖</button>
-          <h3>{isNewCarMode ? '✨ Új autó és időpont' : '📅 Időpont rögzítése'}</h3>
-          <p style={{color: '#666'}}>Dátum: <strong>{selectedSlot?.toLocaleDateString()}</strong></p>
+    <div className="modal-overlay modal-on-top" onClick={onClose}>
+      <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <button className="close-modal-btn" onClick={onClose}>✖</button>
+        
+        <div style={{borderBottom: '1px solid var(--border-color)', marginBottom: '20px', paddingBottom: '10px'}}>
+            <h2 style={{margin: 0, display: 'flex', alignItems: 'center', gap: '10px'}}>
+                <Calendar color="var(--accent-blue)" /> Új időpont
+            </h2>
+            <p style={{margin: '5px 0 0 0', color: 'var(--text-muted)', fontSize: '0.9rem'}}>
+                {selectedSlot?.toLocaleDateString('hu-HU', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+            </p>
+        </div>
 
-          <form onSubmit={handleSubmit} className="form-group" style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
-             {/* ... UI GOMBOK ... */}
-             <div style={{display: 'flex', gap: '10px'}}>
-                 <button type="button" onClick={() => setIsNewCarMode(false)} style={{flex:1, padding:'10px', background: !isNewCarMode ? '#3498db' : '#eee', color: !isNewCarMode ? 'white' : '#333', border:'none', borderRadius:'5px'}}>Meglévő autó</button>
-                 <button type="button" onClick={() => setIsNewCarMode(true)} style={{flex:1, padding:'10px', background: isNewCarMode ? '#27ae60' : '#eee', color: isNewCarMode ? 'white' : '#333', border:'none', borderRadius:'5px'}}>+ Új autó / Ügyfél</button>
-             </div>
+        {/* FÜLEK (TABS) - STITCH STYLE */}
+        <div style={{display: 'flex', background: 'var(--bg-input)', padding: '4px', borderRadius: '8px', marginBottom: '20px'}}>
+            <button 
+                onClick={() => setActiveTab('existing')}
+                style={{
+                    flex: 1, padding: '8px', borderRadius: '6px', border: 'none', 
+                    background: activeTab === 'existing' ? 'var(--bg-card)' : 'transparent',
+                    color: activeTab === 'existing' ? 'white' : 'var(--text-muted)',
+                    boxShadow: activeTab === 'existing' ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
+                }}
+            >
+                Meglévő autó
+            </button>
+            <button 
+                onClick={() => setActiveTab('new')}
+                style={{
+                    flex: 1, padding: '8px', borderRadius: '6px', border: 'none',
+                    background: activeTab === 'new' ? 'var(--bg-card)' : 'transparent',
+                    color: activeTab === 'new' ? 'white' : 'var(--text-muted)',
+                    boxShadow: activeTab === 'new' ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
+                }}
+            >
+                + Új autó / Ügyfél
+            </button>
+        </div>
 
-             <label>Kezdés: <input type="time" value={apptForm.time} onChange={e => setApptForm({...apptForm, time: e.target.value})} required style={{padding: '5px'}} /></label>
+        {/* TARTALOM */}
+        <div className="form-group" style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
+            
+            {activeTab === 'existing' ? (
+                <div>
+                    <label><Car size={14} style={{display:'inline', marginRight:5}}/> Válassz autót</label>
+                    <select 
+                        value={vehicleId} 
+                        onChange={e => setVehicleId(e.target.value)}
+                        style={{width: '100%', padding: '12px', fontSize: '1rem'}}
+                    >
+                        <option value="">-- Válassz a listából --</option>
+                        {vehicles.map(v => (
+                            <option key={v.id} value={v.id}>
+                                {v.licensePlate} ({v.make} {v.model}) - {v.customer?.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            ) : (
+                <div className="inset-box" style={{borderLeft: '3px solid var(--accent-green)'}}>
+                    <h4 style={{marginTop: 0, color: 'var(--accent-green)', display: 'flex', alignItems: 'center', gap: 5}}><User size={16}/> Új Ügyfél Adatai</h4>
+                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px'}}>
+                        <input placeholder="Név" value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} />
+                        <input placeholder="Telefon" value={newCustomer.phoneNumber} onChange={e => setNewCustomer({...newCustomer, phoneNumber: e.target.value})} />
+                    </div>
+                    
+                    <h4 style={{marginTop: 0, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 5}}><Car size={16}/> Autó Adatai</h4>
+                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px'}}>
+                        <input placeholder="Rendszám" value={newVehicle.licensePlate} onChange={e => setNewVehicle({...newVehicle, licensePlate: e.target.value})} />
+                        <input placeholder="Márka" value={newVehicle.make} onChange={e => setNewVehicle({...newVehicle, make: e.target.value})} />
+                        <input placeholder="Típus" value={newVehicle.model} onChange={e => setNewVehicle({...newVehicle, model: e.target.value})} />
+                    </div>
+                </div>
+            )}
 
-             {!isNewCarMode ? (
-                <select value={apptForm.vehicleId} onChange={e => setApptForm({...apptForm, vehicleId: e.target.value})} required style={{padding:'10px'}}>
-                  <option value="">-- Válassz autót --</option>
-                  {vehicles.map(v => <option key={v.id} value={v.id}>{v.licensePlate}</option>)}
-                </select>
-             ) : (
-               <div style={{background: '#f8f9fa', padding: '15px', borderRadius: '8px', border: '1px solid #ddd'}}>
-                   <select value={apptForm.newOwnerId} onChange={e => setApptForm({...apptForm, newOwnerId: e.target.value})} style={{width: '100%', marginBottom: '10px', padding:'5px'}}>
-                       {customers.map(c => <option key={c.id} value={c.id.toString()}>{c.name}</option>)}
-                       <option value="NEW_CUSTOMER" style={{fontWeight: 'bold', color: 'green'}}>+ Új ügyfél</option>
-                   </select>
-                   
-                   {apptForm.newOwnerId === 'NEW_CUSTOMER' && (
-                       <div className="new-customer-box">
-                           <input placeholder="Név" value={apptForm.custName} onChange={e => setApptForm({...apptForm, custName: e.target.value})} required style={{width:'95%', marginBottom:'5px'}} />
-                           <input placeholder="Cím" value={apptForm.custAddress} onChange={e => setApptForm({...apptForm, custAddress: e.target.value})} required style={{width:'95%', marginBottom:'5px'}} />
-                           <input placeholder="Telefon" value={apptForm.custPhone} onChange={e => setApptForm({...apptForm, custPhone: e.target.value})} required style={{width:'95%', marginBottom:'5px'}} />
-                       </div>
-                   )}
-                   
-                   <div style={{display:'flex', gap:'5px', marginTop:'10px'}}>
-                       <input placeholder="Rendszám" value={apptForm.newLicense} onChange={e => setApptForm({...apptForm, newLicense: e.target.value})} required style={{flex:1}} />
-                       <input placeholder="Márka" value={apptForm.newMake} onChange={e => setApptForm({...apptForm, newMake: e.target.value})} required style={{flex:1}} />
-                       <input placeholder="Típus" value={apptForm.newModel} onChange={e => setApptForm({...apptForm, newModel: e.target.value})} required style={{flex:1}} />
-                   </div>
-               </div>
-             )}
+            <div style={{display: 'flex', gap: '15px'}}>
+                <div style={{flex: 1}}>
+                    <label><Clock size={14} style={{display:'inline', marginRight:5}}/> Kezdés</label>
+                    <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} />
+                </div>
+                <div style={{flex: 1}}>
+                    <label><Clock size={14} style={{display:'inline', marginRight:5}}/> Hossz (perc)</label>
+                    <select value={duration} onChange={e => setDuration(Number(e.target.value))}>
+                        <option value={30}>30 perc</option>
+                        <option value={60}>1 óra</option>
+                        <option value={90}>1.5 óra</option>
+                        <option value={120}>2 óra</option>
+                        <option value={180}>3 óra</option>
+                        <option value={240}>4 óra</option>
+                    </select>
+                </div>
+            </div>
 
-             <textarea placeholder="Megjegyzés..." value={apptForm.note} onChange={e => setApptForm({...apptForm, note: e.target.value})} rows={3} style={{padding:'10px'}} />
-             
-             <button type="submit" className="btn-add" style={{padding:'15px'}}>Mentés</button>
-          </form>
+            <div>
+                <label><FileText size={14} style={{display:'inline', marginRight:5}}/> Megjegyzés / Munka leírása</label>
+                <textarea 
+                    rows={3} 
+                    value={description} 
+                    onChange={e => setDescription(e.target.value)} 
+                    placeholder="Pl. Olajcsere, fékvizsgálat..."
+                />
+            </div>
+
+            <button 
+                onClick={handleSave} 
+                className="btn-add" 
+                style={{marginTop: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px'}}
+            >
+                <CheckCircle size={18} /> Foglalás Mentése
+            </button>
+        </div>
       </div>
     </div>
   );

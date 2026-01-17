@@ -1,69 +1,85 @@
 import React from 'react';
-import { CalendarEvent, Appointment, Vehicle } from '../types';
+import { CalendarEvent } from '../types';
+import { Trash2, Wrench, X, Calendar, User, Clock, FileText } from 'lucide-react';
 
-// Definiáljuk, milyen adatokat vár a komponens (Props)
 interface Props {
-    event: CalendarEvent | null;
-    onClose: () => void;
-    onDelete: (id: number) => void;
+  event: CalendarEvent | null;
+  onClose: () => void;
+  onDelete: (id: number) => void;
+  onOpenWorksheet: (id: number) => void;
 }
 
-const EventDetailModal: React.FC<Props> = ({ event, onClose, onDelete }) => {
+const EventDetailModal: React.FC<Props> = ({ event, onClose, onDelete, onOpenWorksheet }) => {
   if (!event) return null;
 
-  // Típusellenőrzés segédfüggvények
-  const isAppointment = (data: any): data is Appointment => event.type === 'service';
-  const isVehicle = (data: any): data is Vehicle => event.type === 'mot';
-
-  const handleDeleteClick = () => {
-    if (event.type === 'mot') {
-      alert("A műszaki vizsga jelzést az autó adatlapján tudod módosítani!");
-      return;
-    }
-    // Itt biztosak lehetünk benne, hogy van ID, ha service típusú
-    if (event.id && window.confirm(`Biztosan törlöd ezt az időpontot?\n${event.title}`)) {
-      onDelete(event.id);
-      onClose();
-    }
-  };
-
-  // Az originalData típusa lehet Appointment vagy Vehicle. Kasztolnunk kell.
-  const appData = isAppointment(event.originalData) ? event.originalData : null;
-  
   return (
     <div className="modal-overlay modal-on-top" onClick={onClose}>
-      <div className="modal-content" style={{ maxWidth: '400px', height: 'auto' }} onClick={e => e.stopPropagation()}>
-        <button className="close-modal-btn" onClick={onClose}>✖</button>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{maxWidth: '450px'}}>
+        <button className="close-modal-btn" onClick={onClose}><X size={20} /></button>
 
-        <h3 style={{ marginTop: 0, color: event.type === 'mot' ? '#e74c3c' : '#3174ad' }}>
-          {event.title}
-        </h3>
-
-        <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
-          <p><strong>Kezdés:</strong> {event.start.toLocaleString()}</p>
-
-          {event.type === 'service' && appData && (
-            <>
-              <p><strong>Autó:</strong> {appData.vehicle?.make} {appData.vehicle?.model}</p>
-              <p><strong>Leírás:</strong> {appData.note || appData.description || '-'}</p>
-            </>
-          )}
-
-          {event.type === 'mot' && (
-            <p style={{ color: 'red', fontWeight: 'bold' }}>Ez egy automatikus figyelmeztetés.</p>
-          )}
+        {/* FEJLÉC */}
+        <div style={{borderBottom: '1px solid var(--border-color)', marginBottom: '15px', paddingBottom: '10px'}}>
+            <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                <div style={{
+                    width: '40px', height: '40px', borderRadius: '8px', 
+                    background: event.type === 'mot' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.2)',
+                    display: 'flex', justifyContent: 'center', alignItems: 'center',
+                    color: event.type === 'mot' ? '#ef4444' : '#3b82f6'
+                }}>
+                    {event.type === 'mot' ? '⚠️' : '🔧'}
+                </div>
+                <div>
+                    <h2 style={{margin: 0, fontSize: '1.2rem'}}>{event.title}</h2>
+                    <span style={{color: 'var(--text-muted)', fontSize: '0.9rem'}}>{event.type === 'mot' ? 'Műszaki Vizsga' : 'Szerviz Időpont'}</span>
+                </div>
+            </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '10px 20px', borderRadius: '5px', border: '1px solid #ddd', background: 'blue', cursor: 'pointer' }}>
-            Bezárás
-          </button>
+        {/* ADATOK LISTÁJA */}
+        <div className="form-group" style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
+            
+            <div className="inset-box">
+                <div style={{display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px'}}>
+                    <Clock size={16} color="var(--accent-blue)"/>
+                    <strong>Időpont:</strong>
+                    <span>
+                        {event.start.toLocaleDateString()} {event.start.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 
+                        - {event.end.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    </span>
+                </div>
+                
+                {event.desc && (
+                    <div style={{display: 'flex', alignItems: 'start', gap: '10px', marginTop: '10px'}}>
+                        <User size={16} color="var(--accent-green)" style={{marginTop: 3}}/>
+                        <div>
+                            <strong>Ügyfél / Leírás:</strong>
+                            <p style={{margin: '2px 0 0 0', color: 'var(--text-muted)'}}>{event.desc}</p>
+                        </div>
+                    </div>
+                )}
+            </div>
 
-          {event.type === 'service' && (
-            <button onClick={handleDeleteClick} style={{ padding: '10px 20px', borderRadius: '5px', border: 'none', background: '#e74c3c', color: 'white', cursor: 'pointer' }}>
-              Törlés 🗑️
-            </button>
-          )}
+            {/* GOMBOK */}
+            <div style={{display: 'flex', gap: '10px', marginTop: '10px'}}>
+                {event.type === 'service' && event.id && (
+                    <button 
+                        onClick={() => onOpenWorksheet(event.id!)} 
+                        className="btn-add"
+                        style={{background: 'var(--accent-yellow)', color: 'black', flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px'}}
+                    >
+                        <Wrench size={18} /> Munkalap
+                    </button>
+                )}
+                
+                <button 
+                    onClick={() => { if(window.confirm('Biztosan törlöd?')) onDelete(event.id!); onClose(); }} 
+                    className="btn-delete"
+                    style={{padding: '12px', flex: event.type === 'service' ? 0.3 : 1, display: 'flex', justifyContent: 'center', alignItems: 'center'}}
+                >
+                    <Trash2 size={18} /> {event.type !== 'service' && "Törlés"}
+                </button>
+            </div>
+
         </div>
       </div>
     </div>

@@ -37,9 +37,9 @@ export const useCarService = () => {
       end: new Date(new Date(app.startTime).getTime() + (60 * 60 * 1000)),
       allDay: false,
       type: 'service',
-      originalData: app
-    }));
-
+      originalData: app,
+      desc: app.note || app.vehicle?.customer?.name || '' 
+      }));
     const motEvents: CalendarEvent[] = vehicles
       .filter(v => v.motExpiry) // Csak ha van dátum
       .map(v => ({
