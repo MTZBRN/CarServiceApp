@@ -9,7 +9,7 @@ public class Appointment
     public string Note { get; set; } = string.Empty; // Megjegyzés
 
     // Melyik autóra foglaltak (lehet null, ha csak betelefonált, és még nincs az adatbázisban)
-    public int? VehicleId { get; set; }
+    public int VehicleId { get; set; }
     public Vehicle? Vehicle { get; set; }
     public ServiceJob? ServiceJob { get; set; }
 }

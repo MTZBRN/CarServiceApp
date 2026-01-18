@@ -1,201 +1,458 @@
-import React, { useState, useEffect } from 'react';
-import { Package, Plus, Search, Trash2, Edit2, Save, X } from 'lucide-react';
-import { apiService } from '../../api/apiservice';
-import { Part } from '../../types';
+import React, { useState, useEffect } from "react";
+import { apiService } from "../../api/apiservice";
+import { Part } from "../../types";
+import {
+  Search,
+  Plus,
+  Package,
+  Edit,
+  Trash2,
+  Box,
+  DollarSign,
+  Hash,
+  X,
+  Save,
+} from "lucide-react";
+import { InputField } from "../ui/FormElements";
 
 const Inventory: React.FC = () => {
-    const [parts, setParts] = useState<Part[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    
-    // Új / Szerkesztés State
-    const [showModal, setShowModal] = useState(false);
-    const [editingPart, setEditingPart] = useState<Part | null>(null);
-    const [formData, setFormData] = useState({
-        partNumber: '', name: '', netPrice: 0, grossPrice: 0, stockQuantity: 0
-    });
+  const [parts, setParts] = useState<Part[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
-    useEffect(() => {
-        loadParts();
-    }, []);
+  // Modal State
+  const [showModal, setShowModal] = useState(false);
+  const [editingPart, setEditingPart] = useState<Part | null>(null);
 
-    const loadParts = async () => {
-        try {
-            const res = await apiService.getParts();
-            setParts(res.data);
-        } catch (err) {
-            console.error("Nem sikerült betölteni a raktárt", err);
-        } finally {
-            setLoading(false);
-        }
-    };
+  useEffect(() => {
+    loadParts();
+  }, []);
 
-    // --- ÁRKÉPZÉS LOGIKA ---
-    const handleNetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const net = Number(e.target.value);
-        // Automatikus Bruttó számítás (27% ÁFA)
-        const gross = Math.round(net * 1.27); 
-        setFormData({ ...formData, netPrice: net, grossPrice: gross });
-    };
+  const loadParts = async () => {
+    setLoading(true);
+    try {
+      const res = await apiService.getParts();
+      setParts(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const handleGrossChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const gross = Number(e.target.value);
-        // Automatikus Nettó visszaszámítás, ha a bruttót írják át
-        const net = Math.round(gross / 1.27);
-        setFormData({ ...formData, grossPrice: gross, netPrice: net });
-    };
-    // -----------------------
+  const handleDelete = async (id: number) => {
+    if (!window.confirm("Biztosan törölni akarod ezt az alkatrészt?")) return;
+    try {
+      await apiService.deletePart(id);
+      setParts(parts.filter((p) => p.id !== id));
+    } catch (e) {
+      alert("Hiba a törlésnél!");
+    }
+  };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            if (editingPart) {
-                await apiService.updatePart(editingPart.id, { ...formData, id: editingPart.id });
-            } else {
-                await apiService.createPart(formData);
-            }
-            setShowModal(false);
-            setEditingPart(null);
-            setFormData({ partNumber: '', name: '', netPrice: 0, grossPrice: 0, stockQuantity: 0 });
-            loadParts();
-        } catch (err) {
-            alert('Hiba történt a mentéskor!');
-        }
-    };
+  const filteredParts = parts.filter(
+    (p) =>
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.partNumber.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
 
-    const handleDelete = async (id: number) => {
-        if (!window.confirm('Biztosan törlöd ezt az alkatrészt?')) return;
-        try {
-            await apiService.deletePart(id);
-            loadParts();
-        } catch (err) {
-            alert('Hiba törléskor!');
-        }
-    };
-
-    const openEdit = (p: Part) => {
-        setEditingPart(p);
-        setFormData({
-            partNumber: p.partNumber, name: p.name, 
-            netPrice: p.netPrice, grossPrice: p.grossPrice, 
-            stockQuantity: p.stockQuantity
-        });
-        setShowModal(true);
-    };
-
-    const filteredParts = parts.filter(p => 
-        p.partNumber.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        p.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    return (
-        <div style={{height: '100%', display: 'flex', flexDirection: 'column'}}>
-            {/* FEJLÉC + KERESŐ */}
-            <div className="card" style={{marginBottom: '20px', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                <div style={{position: 'relative', width: '300px'}}>
-                    <Search size={18} style={{position: 'absolute', left: 10, top: 10, color: '#666'}} />
-                    <input 
-                        placeholder="Keresés cikkszám vagy név alapján..." 
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                        style={{paddingLeft: '35px'}}
-                    />
-                </div>
-                <button onClick={() => { setEditingPart(null); setFormData({ partNumber: '', name: '', netPrice: 0, grossPrice: 0, stockQuantity: 0 }); setShowModal(true); }} className="btn-add" style={{width: 'auto', display: 'flex', gap: 10, alignItems: 'center'}}>
-                    <Plus size={18} /> Új Alkatrész
-                </button>
-            </div>
-
-            {/* TÁBLÁZAT */}
-            <div className="card" style={{flex: 1, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column'}}>
-                <div style={{overflowY: 'auto', flex: 1}}>
-                    <table style={{width: '100%', borderCollapse: 'collapse', color: 'var(--text-main)'}}>
-                        <thead style={{background: '#27272a', position: 'sticky', top: 0}}>
-                            <tr>
-                                <th style={{padding: '12px', textAlign: 'left'}}>Cikkszám</th>
-                                <th style={{padding: '12px', textAlign: 'left'}}>Megnevezés</th>
-                                <th style={{padding: '12px', textAlign: 'right'}}>Nettó Ár</th>
-                                <th style={{padding: '12px', textAlign: 'right'}}>Bruttó Ár</th>
-                                <th style={{padding: '12px', textAlign: 'center'}}>Készlet</th>
-                                <th style={{padding: '12px', textAlign: 'right'}}>Műveletek</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredParts.map(p => (
-                                <tr key={p.id} style={{borderBottom: '1px solid var(--border-color)'}}>
-                                    <td style={{padding: '12px', fontWeight: 'bold', color: 'var(--accent-blue)'}}>{p.partNumber}</td>
-                                    <td style={{padding: '12px'}}>{p.name}</td>
-                                    <td style={{padding: '12px', textAlign: 'right'}}>{p.netPrice.toLocaleString()} Ft</td>
-                                    <td style={{padding: '12px', textAlign: 'right', fontWeight: 'bold'}}>{p.grossPrice.toLocaleString()} Ft</td>
-                                    <td style={{padding: '12px', textAlign: 'center'}}>
-                                        <span style={{
-                                            padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem',
-                                            background: p.stockQuantity > 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                            color: p.stockQuantity > 0 ? '#10b981' : '#ef4444'
-                                        }}>
-                                            {p.stockQuantity} db
-                                        </span>
-                                    </td>
-                                    <td style={{padding: '12px', textAlign: 'right'}}>
-                                        <button onClick={() => openEdit(p)} className="icon-btn" style={{marginRight: 5}}><Edit2 size={16}/></button>
-                                        <button onClick={() => handleDelete(p.id)} className="icon-btn delete-btn"><Trash2 size={16}/></button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            {/* MODAL (Új / Szerkesztés) */}
-            {showModal && (
-                <div className="modal-overlay modal-on-top" onClick={() => setShowModal(false)}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()}>
-                        <button className="close-modal-btn" onClick={() => setShowModal(false)}>✖</button>
-                        <h2 style={{marginTop: 0, display: 'flex', alignItems: 'center', gap: 10}}>
-                            <Package color="var(--accent-blue)"/> {editingPart ? 'Alkatrész Szerkesztése' : 'Új Alkatrész'}
-                        </h2>
-                        
-                        <form onSubmit={handleSubmit} style={{display: 'flex', flexDirection: 'column', gap: '15px'}}>
-                            <div style={{display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '15px'}}>
-                                <div>
-                                    <label>Cikkszám (UNIX)</label>
-                                    <input required value={formData.partNumber} onChange={e => setFormData({...formData, partNumber: e.target.value})} placeholder="PL. OF-123" />
-                                </div>
-                                <div>
-                                    <label>Megnevezés</label>
-                                    <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Pl. Olajszűrő" />
-                                </div>
-                            </div>
-
-                            <div className="inset-box" style={{background: 'rgba(59, 130, 246, 0.05)', border: '1px solid var(--accent-blue)'}}>
-                                <h4 style={{margin: '0 0 10px 0', color: 'var(--accent-blue)'}}>Árképzés</h4>
-                                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px'}}>
-                                    <div>
-                                        <label>Nettó Ár (Ft)</label>
-                                        <input type="number" required value={formData.netPrice} onChange={handleNetChange} />
-                                    </div>
-                                    <div>
-                                        <label>Bruttó Ár (27%)</label>
-                                        <input type="number" required value={formData.grossPrice} onChange={handleGrossChange} />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label>Készlet (Mennyiség)</label>
-                                <input type="number" value={formData.stockQuantity} onChange={e => setFormData({...formData, stockQuantity: parseInt(e.target.value)})} />
-                            </div>
-
-                            <button type="submit" className="btn-add">
-                                {editingPart ? 'Mentés' : 'Hozzáadás'}
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            )}
+  return (
+    <div
+      style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        animation: "fadeIn 0.3s ease-in-out",
+      }}
+    >
+      {/* FEJLÉC */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "20px",
+          padding: "10px 0",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "20px",
+            flex: 1,
+          }}
+        >
+          <h2
+            style={{
+              margin: 0,
+              fontSize: "1.5rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+            }}
+          >
+            <Package size={28} color="#eab308" /> Raktárkészlet
+          </h2>
+          <div style={{ width: "350px" }}>
+            <InputField
+              icon={Search}
+              placeholder="Keresés cikkszám vagy név alapján..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                marginBottom: 0,
+                height: "45px",
+                background: "#18181b",
+                border: "1px solid #3f3f46",
+              }}
+            />
+          </div>
         </div>
-    );
+
+        <button
+          onClick={() => {
+            setEditingPart(null);
+            setShowModal(true);
+          }}
+          className="btn-add"
+          style={{
+            padding: "0 25px",
+            height: "45px",
+            fontSize: "1rem",
+            fontWeight: 600,
+            background: "#eab308",
+            color: "black", // Sárga gomb a raktárhoz
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+          }}
+        >
+          <Plus size={20} /> Új Alkatrész
+        </button>
+      </div>
+
+      {/* TÁBLÁZAT */}
+      <div
+        className="card"
+        style={{
+          padding: 0,
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          border: "1px solid #3f3f46",
+        }}
+      >
+        <div style={{ overflowY: "auto", flex: 1 }}>
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              fontSize: "0.95rem",
+            }}
+          >
+            <thead
+              style={{
+                position: "sticky",
+                top: 0,
+                background: "#27272a",
+                zIndex: 10,
+              }}
+            >
+              <tr
+                style={{
+                  textAlign: "left",
+                  color: "#a1a1aa",
+                  borderBottom: "1px solid #3f3f46",
+                }}
+              >
+                <th style={{ padding: "15px 20px" }}>Cikkszám</th>
+                <th style={{ padding: "15px 20px" }}>Megnevezés</th>
+                <th style={{ padding: "15px 20px", textAlign: "right" }}>
+                  Nettó Ár
+                </th>
+                <th style={{ padding: "15px 20px", textAlign: "right" }}>
+                  Bruttó Ár
+                </th>
+                <th style={{ padding: "15px 20px", textAlign: "center" }}>
+                  Készlet
+                </th>
+                <th style={{ padding: "15px 20px", textAlign: "right" }}>
+                  Műveletek
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredParts.map((p) => (
+                <tr
+                  key={p.id}
+                  style={{
+                    borderBottom: "1px solid #27272a",
+                    transition: "background 0.2s",
+                  }}
+                  className="table-row"
+                >
+                  <td
+                    style={{
+                      padding: "15px 20px",
+                      fontFamily: "monospace",
+                      color: "#eab308",
+                    }}
+                  >
+                    {p.partNumber}
+                  </td>
+                  <td
+                    style={{
+                      padding: "15px 20px",
+                      fontWeight: 500,
+                      color: "white",
+                    }}
+                  >
+                    {p.name}
+                  </td>
+                  <td
+                    style={{
+                      padding: "15px 20px",
+                      textAlign: "right",
+                      color: "#a1a1aa",
+                    }}
+                  >
+                    {p.netPrice.toLocaleString()} Ft
+                  </td>
+                  <td
+                    style={{
+                      padding: "15px 20px",
+                      textAlign: "right",
+                      fontWeight: "bold",
+                      color: "white",
+                    }}
+                  >
+                    {p.grossPrice.toLocaleString()} Ft
+                  </td>
+                  <td style={{ padding: "15px 20px", textAlign: "center" }}>
+                    <span
+                      style={{
+                        padding: "4px 10px",
+                        borderRadius: "4px",
+                        fontSize: "0.8rem",
+                        fontWeight: "bold",
+                        background:
+                          p.stockQuantity > 0
+                            ? "rgba(16, 185, 129, 0.15)"
+                            : "rgba(239, 68, 68, 0.15)",
+                        color: p.stockQuantity > 0 ? "#10b981" : "#ef4444",
+                      }}
+                    >
+                      {p.stockQuantity} db
+                    </span>
+                  </td>
+                  <td style={{ padding: "15px 20px", textAlign: "right" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        gap: "10px",
+                      }}
+                    >
+                      <button
+                        onClick={() => {
+                          setEditingPart(p);
+                          setShowModal(true);
+                        }}
+                        className="icon-btn"
+                        style={{ color: "#a1a1aa" }}
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(p.id)}
+                        className="icon-btn"
+                        style={{ color: "#ef4444" }}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filteredParts.length === 0 && !loading && (
+                <tr>
+                  <td
+                    colSpan={6}
+                    style={{
+                      textAlign: "center",
+                      padding: "50px",
+                      color: "#52525b",
+                    }}
+                  >
+                    Nincs találat a raktárban.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* --- INLINE MODAL (Hogy ne kelljen külön fájl) --- */}
+      {showModal && (
+        <PartModal
+          part={editingPart}
+          onClose={() => setShowModal(false)}
+          onSuccess={() => {
+            setShowModal(false);
+            loadParts();
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+// --- ALKATRÉSZ LÉTREHOZÓ/SZERKESZTŐ MODAL ---
+const PartModal = ({
+  part,
+  onClose,
+  onSuccess,
+}: {
+  part: Part | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) => {
+  const [formData, setFormData] = useState({
+    name: part?.name || "",
+    partNumber: part?.partNumber || "",
+    netPrice: part?.netPrice || 0,
+    grossPrice: part?.grossPrice || 0,
+    stockQuantity: part?.stockQuantity || 0,
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (part) {
+        await apiService.updatePart(part.id, { ...formData, id: part.id });
+      } else {
+        await apiService.createPart(formData);
+      }
+      onSuccess();
+    } catch (e) {
+      alert("Hiba a mentésnél!");
+    }
+  };
+
+  // Automatikus Nettó/Bruttó számolás
+  const handleGrossChange = (val: number) => {
+    setFormData({
+      ...formData,
+      grossPrice: val,
+      netPrice: Math.round(val / 1.27),
+    });
+  };
+
+  return (
+    <div className="modal-overlay modal-on-top" onClick={onClose}>
+      <div
+        className="modal-content"
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: "500px" }}
+      >
+        <div
+          style={{
+            padding: "20px",
+            borderBottom: "1px solid #333",
+            display: "flex",
+            justifyContent: "space-between",
+          }}
+        >
+          <h3
+            style={{
+              margin: 0,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}
+          >
+            <Box color="#eab308" />{" "}
+            {part ? "Alkatrész Szerkesztése" : "Új Alkatrész"}
+          </h3>
+          <button className="icon-btn" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} style={{ padding: "25px" }}>
+          <InputField
+            label="Cikkszám"
+            icon={Hash}
+            value={formData.partNumber}
+            onChange={(e) =>
+              setFormData({ ...formData, partNumber: e.target.value })
+            }
+            required
+            placeholder="Pl. OLAJ-5W30"
+          />
+          <InputField
+            label="Megnevezés"
+            icon={Package}
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            required
+            placeholder="Pl. Motorolaj 5W30"
+          />
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "15px",
+            }}
+          >
+            <InputField
+              label="Bruttó Ár (Ft)"
+              icon={DollarSign}
+              type="number"
+              value={formData.grossPrice}
+              onChange={(e) => handleGrossChange(parseInt(e.target.value) || 0)}
+              required
+            />
+            <InputField
+              label="Nettó Ár (Ft)"
+              type="number"
+              value={formData.netPrice}
+              readOnly
+              style={{ opacity: 0.7, cursor: "not-allowed" }}
+            />
+          </div>
+
+          <InputField
+            label="Készlet (db)"
+            type="number"
+            value={formData.stockQuantity}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                stockQuantity: parseInt(e.target.value) || 0,
+              })
+            }
+          />
+
+          <button
+            type="submit"
+            className="btn-add"
+            style={{
+              width: "100%",
+              marginTop: "20px",
+              background: "#eab308",
+              color: "black",
+            }}
+          >
+            <Save size={18} style={{ marginRight: 8 }} /> Mentés
+          </button>
+        </form>
+      </div>
+    </div>
+  );
 };
 
 export default Inventory;
