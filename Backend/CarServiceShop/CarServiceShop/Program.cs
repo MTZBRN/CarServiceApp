@@ -18,6 +18,13 @@ builder.Services.AddCors(options =>
                 .AllowAnyHeader()
                 .AllowAnyMethod();
         });
+    options.AddPolicy("AllowDockerFrontend",
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:8080") // A Docker alapértelmezett portja
+                .AllowAnyHeader()
+                .AllowAnyMethod();
+        });
 });
 
 
@@ -37,6 +44,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 // 5. A végpontok térképezése
-app.MapControllers(); 
+app.MapControllers();
+app.UseCors("AllowDockerFrontend");
 app.UseCors("AllowReactApp");
 app.Run();
