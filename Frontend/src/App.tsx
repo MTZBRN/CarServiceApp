@@ -19,7 +19,6 @@ import {
 
 // Komponensek
 import Sidebar from "./components/Sidebar";
-import Login from "./components/pages/Login";
 import AppointmentModal from "./components/modals/AppointmentModal";
 import EventDetailModal from "./components/modals/EventDetailModal";
 import WorksheetModal from "./components/modals/WorksheetModal";
@@ -29,9 +28,10 @@ import AddVehicleModal from "./components/modals/AddVehicleModal";
 import Inventory from "./components/pages/Inventory";
 import Garage from "./components/pages/Garage";
 import DevDashboard from "./components/pages/Dashboard";
-import VehicleDetails from "./components/Pages/VehicleDetails";
+import VehicleDetails from "./components/pages/VehicleDetails";
 import Settings from "./components/pages/Settings";
 import UserManagement from "./components/pages/UserManagement";
+import Login from "./components/pages/Login";
 
 // Hook és API
 import { useCarService } from "./hooks/useCarService";

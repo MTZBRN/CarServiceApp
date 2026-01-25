@@ -1,5 +1,5 @@
 import React, { useState } from "react"; // useEffect nem is kell már az időhöz
-import { apiService } from "../../api/apiservice";
+import { apiService } from "../../api/apiService";
 import { Vehicle, Customer } from "../../types";
 import {
   X,

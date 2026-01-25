@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { apiService } from "../api/apiservice";
+import { apiService } from "../api/apiService";
 import { Vehicle, Customer, Appointment, CalendarEvent } from "../types";
 
 export const useCarService = () => {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { apiService } from "../../api/apiservice";
+import { apiService } from "../../api/apiService";
 import { ServiceJob, Vehicle } from "../../types";
 import { ArrowLeft, Trash2, RefreshCw, Database } from "lucide-react";
 

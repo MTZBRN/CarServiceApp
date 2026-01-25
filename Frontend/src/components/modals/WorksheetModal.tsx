@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { apiService } from "../../api/apiservice";
+import { apiService } from "../../api/apiService";
 import {
   X,
   Save,
