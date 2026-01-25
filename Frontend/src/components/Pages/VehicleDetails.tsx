@@ -19,7 +19,7 @@ import WorksheetModal from "../modals/WorksheetModal";
 
 // NYOMTATÁSHOZ
 import { useReactToPrint } from "react-to-print";
-import { PrintableWorksheet } from "../print/PrintableWorkSheet";
+import WorksheetPrintModal from "../print/WorkSheetPrintModal";
 
 interface Props {
   vehicle: Vehicle;
@@ -34,21 +34,9 @@ const VehicleDetails: React.FC<Props> = ({ vehicle, onBack }) => {
   // --- ÁLLAPOTOK A FUNKCIÓKHOZ ---
   const [editingJob, setEditingJob] = useState<ServiceJob | null>(null); // Épp szerkesztett munka
   const [printJob, setPrintJob] = useState<ServiceJob | null>(null); // Épp nyomtatott munka
-
   const printRef = useRef<HTMLDivElement>(null);
 
-  // Nyomtatás logika
-  const triggerPrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: printJob
-      ? `Munkalap_${vehicle.licensePlate}_${printJob.id}`
-      : "Munkalap",
-    onAfterPrint: () => setPrintJob(null),
-  });
-
-  useEffect(() => {
-    if (printJob) triggerPrint();
-  }, [printJob]);
+  useEffect(() => {}, [printJob]);
 
   // Adatok betöltése
   useEffect(() => {
@@ -540,24 +528,14 @@ const VehicleDetails: React.FC<Props> = ({ vehicle, onBack }) => {
         />
       )}
 
-      {/* --- REJTETT NYOMTATÁSI SABLON --- */}
-      <div style={{ display: "none" }}>
-        {printJob && (
-          <PrintableWorksheet
-            ref={printRef}
-            data={{
-              id: printJob.id || 0,
-              customerName: vehicle.customer?.name || "Ügyfél",
-              vehiclePlate: vehicle.licensePlate,
-              vehicleType: `${vehicle.make} ${vehicle.model}`,
-              description: printJob.description,
-              jobParts: printJob.jobParts,
-              laborCost: printJob.laborCost,
-              date: new Date(printJob.date).toLocaleDateString(),
-            }}
-          />
-        )}
-      </div>
+      {/* 👇 ÚJ NYOMTATÁS ELŐNÉZET MODAL */}
+      {printJob && (
+        <WorksheetPrintModal
+          job={printJob}
+          vehicle={vehicle}
+          onClose={() => setPrintJob(null)}
+        />
+      )}
     </div>
   );
 };

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { apiService } from "../../api/apiservice";
-import { JobPart, Part } from "../../types";
 import {
   X,
   Save,
@@ -13,14 +12,15 @@ import {
   Hash,
   DollarSign,
 } from "lucide-react";
-import { useReactToPrint } from "react-to-print";
-import { PrintableWorksheet } from "../print/PrintableWorkSheet";
+import { JobPart, Part, Vehicle, ServiceJob } from "../../types";
+import WorksheetPrintModal from "../print/WorkSheetPrintModal";
 import { InputField, SelectField } from "../ui/FormElements";
 
 interface Props {
   appointmentId: number | null;
   vehicleId?: number;
   vehicleName: string;
+  vehicle?: Vehicle;
   onClose: () => void;
   onSave: () => void;
 }
@@ -29,10 +29,12 @@ const WorksheetModal: React.FC<Props> = ({
   appointmentId,
   vehicleId,
   vehicleName,
+  vehicle,
   onClose,
   onSave,
 }) => {
   const [loading, setLoading] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
   // Alap adatok
   const [description, setDescription] = useState("");
@@ -51,13 +53,6 @@ const WorksheetModal: React.FC<Props> = ({
   });
 
   // A Checkbox state-je TÖRÖLVE, mert mostantól automatikus!
-
-  // Nyomtatás
-  const printRef = useRef<HTMLDivElement>(null);
-  const handlePrint = useReactToPrint({
-    contentRef: printRef,
-    documentTitle: `Munkalap_${vehicleName}`,
-  });
 
   useEffect(() => {
     loadInitData();
@@ -245,10 +240,11 @@ const WorksheetModal: React.FC<Props> = ({
               {appointmentId ? `ID: #${appointmentId}` : "ÚJ MUNKALAP"}
             </span>
           </div>
+          {/* FEJLÉC GOMBOKNÁL: */}
           <div style={{ display: "flex", gap: "10px" }}>
             {appointmentId && (
               <button
-                onClick={() => handlePrint && handlePrint()}
+                onClick={() => setShowPrintModal(true)} // Csak megjelenítjük
                 className="icon-btn"
                 title="Nyomtatás"
                 style={{ color: "#3b82f6", border: "1px solid #3b82f6" }}
@@ -556,24 +552,36 @@ const WorksheetModal: React.FC<Props> = ({
           </button>
         </div>
 
-        {/* REJTETT NYOMTATÁS */}
-        <div style={{ display: "none" }}>
-          {appointmentId && (
-            <PrintableWorksheet
-              ref={printRef}
-              data={{
+        {showPrintModal && appointmentId && (
+          <WorksheetPrintModal
+            // Összeállítjuk a Job objektumot a jelenlegi state-ekből
+            job={
+              {
                 id: appointmentId,
-                customerName: "",
-                vehiclePlate: vehicleName.split(" ")[0] || "Rendszám",
-                vehicleType: vehicleName,
                 description: description,
-                jobParts: jobParts,
                 laborCost: laborCost,
-                date: new Date().toLocaleDateString(),
-              }}
-            />
-          )}
-        </div>
+                isCompleted: isCompleted,
+                jobParts: jobParts,
+                date: new Date().toISOString(),
+                vehicleId: vehicleId || vehicle?.id || 0,
+              } as ServiceJob
+            }
+            // Átadjuk a kapott teljes vehicle objektumot
+            // Ha véletlenül nincs meg (undefined), csinálunk egy üres "kamu" objektumot, hogy ne fagyjon le
+            vehicle={
+              vehicle ||
+              ({
+                id: vehicleId || 0,
+                licensePlate: vehicleName,
+                make: "",
+                model: "",
+                year: 0,
+                customer: { name: "Ismeretlen", address: "", phoneNumber: "" },
+              } as Vehicle)
+            }
+            onClose={() => setShowPrintModal(false)}
+          />
+        )}
       </div>
     </div>
   );

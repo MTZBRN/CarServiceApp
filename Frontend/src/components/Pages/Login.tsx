@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Wrench, Lock, User, ArrowRight } from "lucide-react";
+import { authService } from "../../api/authService";
 
 interface Props {
   onLogin: (token: string) => void;
@@ -11,21 +12,21 @@ const Login: React.FC<Props> = ({ onLogin }) => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
 
-    // --- IDEIGLENES MOCK LOGIN (Később kötjük be a Backendbe) ---
-    // Most bármit elfogadunk, ami nem üres, csak hogy lásd a működést.
-    setTimeout(() => {
-      if (username === "admin" && password === "admin") {
-        onLogin("fake-jwt-token"); // Sikeres belépés
-      } else {
-        setError("Hibás felhasználónév vagy jelszó! (Próbáld: admin / admin)");
-        setLoading(false);
-      }
-    }, 800);
+    // Itt hívjuk meg az új szolgáltatást
+    const user = authService.login(username, password);
+
+    if (user) {
+      // Sikeres belépés!
+      // Ha akarod, elmentheted a nevet is a localStorage-ba, hogy kiírd az App.tsx-ben
+      localStorage.setItem("currentUser", JSON.stringify(user));
+      onLogin(user.role); // Átadhatjuk a role-t is az App-nak!
+    } else {
+      setError("Hibás felhasználónév vagy jelszó!");
+    }
   };
 
   return (
@@ -99,7 +100,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
 
         {/* FORM */}
         <form
-          onSubmit={handleSubmit}
+          onSubmit={handleLoginSubmit}
           style={{ display: "flex", flexDirection: "column", gap: "15px" }}
         >
           {error && (

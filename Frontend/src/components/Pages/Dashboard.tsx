@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { apiService } from "../../api/apiservice";
 import { ServiceJob, Vehicle } from "../../types";
-import { ArrowLeft, Trash2, RefreshCw, Database } from "lucide-react"; // 👈 Importáltuk a Database ikont
+import { ArrowLeft, Trash2, RefreshCw, Database } from "lucide-react";
 
 interface Props {
   onBack: () => void;

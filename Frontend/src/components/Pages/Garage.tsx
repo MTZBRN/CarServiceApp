@@ -1,22 +1,13 @@
 import React, { useState } from "react";
 import { useCarService } from "../../hooks/useCarService";
 import { Vehicle } from "../../types";
-import {
-  Car,
-  Search,
-  Plus,
-  Trash2,
-  History,
-  Wrench,
-  User,
-  ArrowRight,
-} from "lucide-react";
+import { Car, Search, Plus, Trash2, History, Wrench, User } from "lucide-react";
 import { InputField } from "../ui/FormElements";
 
 // Komponensek
 import WorksheetModal from "../modals/WorksheetModal";
+import VehicleDetails from "../Pages/VehicleDetails";
 import AddVehicleModal from "../modals/AddVehicleModal";
-import VehicleDetails from "./VehicleDetails";
 
 const Garage: React.FC = () => {
   const { vehicles, customers, refreshAll, deleteVehicle } = useCarService();

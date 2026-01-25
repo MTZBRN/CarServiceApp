@@ -32,6 +32,7 @@ const Sidebar: React.FC<Props> = ({ activeTab, setActiveTab }) => {
     { id: "inventory", label: "Raktár", icon: <Package size={20} /> },
     { id: "invoices", label: "Számlák", icon: <FileText size={20} /> },
     { id: "settings", label: "Beállítások", icon: <Settings size={20} /> },
+    { id: "userManagement", label: "Felhasználók", icon: <Wrench size={20} /> },
   ];
 
   const toggleSidebar = () => {
