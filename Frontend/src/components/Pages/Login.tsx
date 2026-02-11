@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { Wrench, Lock, User, ArrowRight } from "lucide-react";
+import axios from "axios";
 import { authService } from "../../api/authService";
 
 interface Props {
-  onLogin: (token: string) => void;
+  // ✅ Módosítva: Most már a tokent és a nevet is várja az App.tsx
+  onLogin: (token: string, username: string, role: string) => void;
 }
 
 const Login: React.FC<Props> = ({ onLogin }) => {
@@ -12,20 +14,37 @@ const Login: React.FC<Props> = ({ onLogin }) => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     setError("");
 
-    // Itt hívjuk meg az új szolgáltatást
-    const user = authService.login(username, password);
+    try {
+      // Hívjuk a valódi backendet
+      const response = await axios.post(
+        "http://localhost:5232/api/Auth/login",
+        {
+          email: username, // A backend 'Email' mezőt vár a LoginDto-ban
+          password: password, // A backend 'Password' mezőt vár
+        },
+      );
 
-    if (user) {
-      // Sikeres belépés!
-      // Ha akarod, elmentheted a nevet is a localStorage-ba, hogy kiírd az App.tsx-ben
-      localStorage.setItem("currentUser", JSON.stringify(user));
-      onLogin(user.role); // Átadhatjuk a role-t is az App-nak!
-    } else {
-      setError("Hibás felhasználónév vagy jelszó!");
+      // Ha idáig eljutunk, a belépés sikeres
+      const { token, userName, role } = response.data;
+
+      // Elmentjük a nevét és a tokent
+      localStorage.setItem("authToken", token);
+      localStorage.setItem("currentUser", userName);
+
+      // Értesítjük az App.tsx-et
+      onLogin(token, userName, role);
+    } catch (err: any) {
+      // Ha a szerver 401 Unauthorized-ot küld
+      setError(
+        err.response?.data?.message || "Hibás felhasználónév vagy jelszó!",
+      );
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -37,9 +56,9 @@ const Login: React.FC<Props> = ({ onLogin }) => {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        background: "#121212",
+        background: "#09090b", // ✅ Sötétebb háttér, hogy illeszkedjen a Dashboard-hoz
         backgroundImage:
-          "radial-gradient(circle at 50% 50%, #1e1e24 0%, #121212 100%)",
+          "radial-gradient(circle at 50% 50%, #1e1e24 0%, #09090b 100%)",
       }}
     >
       <div
@@ -49,11 +68,12 @@ const Login: React.FC<Props> = ({ onLogin }) => {
           width: "90%",
           padding: "40px",
           borderRadius: "16px",
+          background: "#18181b", // Kártya háttérszíne
           boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
-          border: "1px solid #333",
+          border: "1px solid #27272a",
         }}
       >
-        {/* LOGO */}
+        {/* LOGO SZEKCIÓ */}
         <div
           style={{
             display: "flex",
@@ -66,7 +86,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
             style={{
               width: "60px",
               height: "60px",
-              background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+              background: "#3b82f6", // Egységes kék szín
               borderRadius: "12px",
               display: "flex",
               justifyContent: "center",
@@ -94,11 +114,11 @@ const Login: React.FC<Props> = ({ onLogin }) => {
               fontSize: "0.9rem",
             }}
           >
-            Jelentkezz be a folytatáshoz
+            Bejelentkezés a rendszerbe
           </p>
         </div>
 
-        {/* FORM */}
+        {/* BEJELENTKEZÉSI FORM */}
         <form
           onSubmit={handleLoginSubmit}
           style={{ display: "flex", flexDirection: "column", gap: "15px" }}
@@ -128,6 +148,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
                 left: "12px",
                 top: "50%",
                 transform: "translateY(-50%)",
+                zIndex: 1,
               }}
             />
             <input
@@ -135,7 +156,17 @@ const Login: React.FC<Props> = ({ onLogin }) => {
               placeholder="Felhasználónév"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              style={{ paddingLeft: "40px", height: "45px", fontSize: "1rem" }}
+              required
+              style={{
+                width: "100%",
+                padding: "12px 12px 12px 40px",
+                background: "#27272a",
+                border: "1px solid #3f3f46",
+                color: "white",
+                borderRadius: "8px",
+                boxSizing: "border-box",
+                fontSize: "1rem",
+              }}
             />
           </div>
 
@@ -148,6 +179,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
                 left: "12px",
                 top: "50%",
                 transform: "translateY(-50%)",
+                zIndex: 1,
               }}
             />
             <input
@@ -155,13 +187,22 @@ const Login: React.FC<Props> = ({ onLogin }) => {
               placeholder="Jelszó"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              style={{ paddingLeft: "40px", height: "45px", fontSize: "1rem" }}
+              required
+              style={{
+                width: "100%",
+                padding: "12px 12px 12px 40px",
+                background: "#27272a",
+                border: "1px solid #3f3f46",
+                color: "white",
+                borderRadius: "8px",
+                boxSizing: "border-box",
+                fontSize: "1rem",
+              }}
             />
           </div>
 
           <button
             type="submit"
-            className="btn-add"
             style={{
               height: "50px",
               marginTop: "10px",
@@ -171,9 +212,12 @@ const Login: React.FC<Props> = ({ onLogin }) => {
               justifyContent: "center",
               alignItems: "center",
               gap: "10px",
-              background: loading
-                ? "#4b5563"
-                : "linear-gradient(90deg, #3b82f6, #8b5cf6)",
+              cursor: loading ? "not-allowed" : "pointer",
+              borderRadius: "8px",
+              border: "none",
+              color: "white",
+              background: loading ? "#3f3f46" : "#3b82f6",
+              transition: "background 0.2s",
             }}
             disabled={loading}
           >
@@ -191,11 +235,11 @@ const Login: React.FC<Props> = ({ onLogin }) => {
           style={{
             marginTop: "25px",
             textAlign: "center",
-            fontSize: "0.8rem",
-            color: "#555",
+            fontSize: "0.75rem",
+            color: "#52525b",
           }}
         >
-          &copy; 2026 GTA Service Manager v1.0
+          &copy; 2026 GTA Szerviz Rendszer v1.0
         </div>
       </div>
     </div>

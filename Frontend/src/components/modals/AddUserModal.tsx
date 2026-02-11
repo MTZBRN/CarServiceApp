@@ -1,7 +1,6 @@
 import React, { useState } from "react";
-import { X, Save, User, Lock, Mail, Shield } from "lucide-react";
-import { InputField, SelectField } from "../ui/FormElements"; // Feltételezve, hogy vannak ilyenjeid
-import { authService } from "../../api/authService";
+import { X, UserPlus, Shield, User } from "lucide-react";
+import api from "../../api/api";
 
 interface Props {
   onClose: () => void;
@@ -15,128 +14,127 @@ const AddUserModal: React.FC<Props> = ({ onClose, onSuccess }) => {
     password: "",
     role: "mechanic",
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSave = () => {
-    if (!formData.name || !formData.email || !formData.password) {
-      alert("Minden mezőt ki kell tölteni!");
-      return;
-    }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
     try {
-      authService.addUser({
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        role: formData.role as "admin" | "mechanic",
-      });
-      alert("Felhasználó sikeresen létrehozva!");
+      await api.post("/Users", formData);
       onSuccess();
     } catch (err: any) {
-      alert(err.message);
+      setError(err.response?.data?.message || "Hiba történt a mentés során.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="modal-overlay" style={{ zIndex: 3000 }}>
-      <div className="modal-content" style={{ maxWidth: "500px" }}>
-        <div
-          style={{
-            padding: "20px",
-            background: "#18181b",
-            borderBottom: "1px solid #333",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <h3 style={{ margin: 0, color: "white", display: "flex", gap: 10 }}>
-            <User size={20} color="#3b82f6" /> Új Munkatárs Hozzáadása
-          </h3>
+    <div className="modal-overlay">
+      <div className="modal-content" style={{ maxWidth: "400px" }}>
+        <div className="modal-header">
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <UserPlus color="#3b82f6" />
+            <h2 style={{ margin: 0 }}>Új Felhasználó</h2>
+          </div>
           <button onClick={onClose} className="icon-btn">
-            <X size={20} />
+            <X />
           </button>
         </div>
 
-        <div
+        <form
+          onSubmit={handleSubmit}
           style={{
-            padding: "25px",
             display: "flex",
             flexDirection: "column",
             gap: "15px",
+            marginTop: "20px",
           }}
         >
-          <InputField
-            label="Teljes Név"
-            icon={User}
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Pl. Kiss János"
-          />
+          {error && <div className="error-msg">{error}</div>}
 
-          <InputField
-            label="Felhasználónév / Email"
-            icon={Mail}
-            value={formData.email}
-            onChange={(e) =>
-              setFormData({ ...formData, email: e.target.value })
-            }
-            placeholder="janos@szerviz.hu"
-          />
+          <div className="input-group">
+            <label>Teljes név</label>
+            <input
+              type="text"
+              required
+              value={formData.name}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+              placeholder="Pl. Kovács Béla"
+            />
+          </div>
 
-          <InputField
-            label="Jelszó"
-            icon={Lock}
-            type="password"
-            value={formData.password}
-            onChange={(e) =>
-              setFormData({ ...formData, password: e.target.value })
-            }
-          />
+          <div className="input-group">
+            <label>Felhasználónév (Email)</label>
+            <input
+              type="text"
+              required
+              value={formData.email}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
+              placeholder="bela.kovacs"
+            />
+          </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
-            <label
-              style={{
-                color: "#a1a1aa",
-                fontSize: "0.9rem",
-                display: "flex",
-                gap: 5,
-                alignItems: "center",
-              }}
-            >
-              <Shield size={14} /> Jogosultság
-            </label>
+          <div className="input-group">
+            <label>Jelszó</label>
+            <input
+              type="password"
+              required
+              value={formData.password}
+              onChange={(e) =>
+                setFormData({ ...formData, password: e.target.value })
+              }
+              placeholder="******"
+            />
+          </div>
+
+          <div className="input-group">
+            <label>Szerepkör</label>
             <select
               value={formData.role}
               onChange={(e) =>
                 setFormData({ ...formData, role: e.target.value })
               }
               style={{
-                padding: "12px",
+                width: "100%",
+                padding: "10px",
                 background: "#27272a",
+                color: "white",
                 border: "1px solid #3f3f46",
                 borderRadius: "8px",
-                color: "white",
-                width: "100%",
-                outline: "none",
               }}
             >
-              <option value="mechanic">Szerelő (Csak munka)</option>
-              <option value="admin">Adminisztrátor (Teljes hozzáférés)</option>
+              <option value="mechanic">Szerelő (Mechanic)</option>
+              <option value="admin">Adminisztrátor</option>
             </select>
           </div>
 
-          <button
-            onClick={handleSave}
-            className="btn-add"
-            style={{
-              marginTop: "10px",
-              width: "100%",
-              justifyContent: "center",
-            }}
-          >
-            <Save size={18} /> Fiók Létrehozása
-          </button>
-        </div>
+          <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-secondary"
+              style={{ flex: 1 }}
+            >
+              Mégse
+            </button>
+            <button
+              type="submit"
+              className="btn-primary"
+              style={{ flex: 1 }}
+              disabled={loading}
+            >
+              {loading ? "Mentés..." : "Létrehozás"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

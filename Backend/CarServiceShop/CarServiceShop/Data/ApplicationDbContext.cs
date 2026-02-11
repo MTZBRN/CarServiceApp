@@ -13,6 +13,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<ServiceJob> ServiceJobs { get; set; }
     public DbSet<JobPart> JobParts { get; set; }
     public DbSet<Part> Parts { get; set; }
+    public DbSet<User> Users { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

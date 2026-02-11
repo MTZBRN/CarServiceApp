@@ -1,126 +1,101 @@
-import React, { useState, useEffect } from "react";
-import { Users, UserPlus, Trash2, Shield, Wrench } from "lucide-react";
-import { authService, User } from "../../api/authService";
+import React, { useEffect, useState } from "react";
+import api from "../../api/api"; // Az új interceptoros kliensünk
+import { User, Trash2, Shield, UserPlus } from "lucide-react";
 import AddUserModal from "../modals/AddUserModal";
 
 const UserManagement = () => {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Betöltés
-  const loadUsers = () => {
-    setUsers(authService.getUsers());
-  };
-
   useEffect(() => {
-    loadUsers();
+    fetchUsers();
   }, []);
 
-  const handleDelete = (id: string, name: string) => {
-    if (window.confirm(`Biztosan törölni szeretnéd ${name} fiókját?`)) {
+  const fetchUsers = async () => {
+    try {
+      // Itt már NEM kell manuálisan fejlécet adni, az api.ts intézi!
+      const res = await api.get("/Users");
+      setUsers(res.data);
+    } catch (err) {
+      console.error("Nem sikerült lekérni a felhasználókat", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm("Biztosan törlöd ezt a felhasználót?")) {
       try {
-        authService.deleteUser(id);
-        loadUsers();
-      } catch (err: any) {
-        alert(err.message);
+        await api.delete(`/Users/${id}`);
+        fetchUsers(); // Lista frissítése
+      } catch (err) {
+        alert("Hiba a törlés során! Lehet, hogy nincs admin jogod?");
       }
     }
   };
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      {/* FEJLÉC */}
+    <div className="card" style={{ padding: "20px", height: "100%" }}>
       <div
-        className="card"
         style={{
-          marginBottom: "20px",
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
+          marginBottom: "20px",
         }}
       >
-        <div>
-          <h2
-            style={{
-              margin: 0,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
-            <Users color="#3b82f6" /> Felhasználók Kezelése
-          </h2>
-          <p style={{ margin: "5px 0 0 0", color: "#a1a1aa" }}>
-            Munkatársak jogosultságai és fiókjai
-          </p>
-        </div>
-        <button onClick={() => setShowAddModal(true)} className="btn-add">
-          <UserPlus size={18} /> Új Fiók
+        <h2 style={{ color: "white", margin: 0 }}>Rendszerfelhasználók</h2>
+        <button
+          className="btn-primary"
+          style={{ display: "flex", gap: 8 }}
+          onClick={() => setShowAddModal(true)} // ✅ Modál megnyitása
+        >
+          <UserPlus size={18} /> Új hozzáadása
         </button>
       </div>
 
-      {/* LISTA */}
-      <div className="card" style={{ flex: 1, padding: 0, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead
-            style={{
-              background: "#27272a",
-              color: "#a1a1aa",
-              textAlign: "left",
-            }}
-          >
-            <tr>
-              <th style={{ padding: "15px" }}>Név</th>
-              <th style={{ padding: "15px" }}>Felhasználónév / Email</th>
-              <th style={{ padding: "15px" }}>Jogosultság</th>
-              <th style={{ padding: "15px", textAlign: "right" }}>Művelet</th>
+      <div style={{ overflowY: "auto", flex: 1 }}>
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            color: "#e4e4e7",
+          }}
+        >
+          <thead>
+            <tr
+              style={{ textAlign: "left", borderBottom: "1px solid #27272a" }}
+            >
+              <th style={{ padding: "12px" }}>Név</th>
+              <th style={{ padding: "12px" }}>Azonosító (Email)</th>
+              <th style={{ padding: "12px" }}>Szerepkör</th>
+              <th style={{ padding: "12px" }}>Műveletek</th>
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => (
-              <tr key={user.id} style={{ borderBottom: "1px solid #3f3f46" }}>
-                <td
-                  style={{
-                    padding: "15px",
-                    fontWeight: "bold",
-                    color: "white",
-                  }}
-                >
-                  {user.name}
-                </td>
-                <td style={{ padding: "15px", color: "#ccc" }}>{user.email}</td>
-                <td style={{ padding: "15px" }}>
+            {users.map((u) => (
+              <tr key={u.id} style={{ borderBottom: "1px solid #18181b" }}>
+                <td style={{ padding: "12px" }}>{u.name}</td>
+                <td style={{ padding: "12px" }}>{u.email}</td>
+                <td style={{ padding: "12px" }}>
                   <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "4px 10px",
-                      borderRadius: "20px",
-                      fontSize: "0.8rem",
-                      background:
-                        user.role === "admin"
-                          ? "rgba(59, 130, 246, 0.2)"
-                          : "rgba(16, 185, 129, 0.2)",
-                      color: user.role === "admin" ? "#3b82f6" : "#10b981",
-                    }}
+                    className={`status-badge ${u.role === "admin" ? "badge-blue" : "badge-green"}`}
                   >
-                    {user.role === "admin" ? (
+                    {u.role === "admin" ? (
                       <Shield size={12} />
                     ) : (
-                      <Wrench size={12} />
-                    )}
-                    {user.role === "admin" ? "ADMINISZTRÁTOR" : "SZERELŐ"}
+                      <User size={12} />
+                    )}{" "}
+                    {u.role}
                   </span>
                 </td>
-                <td style={{ padding: "15px", textAlign: "right" }}>
+                <td style={{ padding: "12px" }}>
                   <button
-                    onClick={() => handleDelete(user.id, user.name)}
+                    onClick={() => handleDelete(u.id)}
                     className="icon-btn"
-                    style={{ color: "#ef4444", border: "1px solid #ef4444" }}
-                    title="Törlés"
+                    style={{ color: "#ef4444" }}
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={18} />
                   </button>
                 </td>
               </tr>
@@ -128,13 +103,12 @@ const UserManagement = () => {
           </tbody>
         </table>
       </div>
-
       {showAddModal && (
         <AddUserModal
           onClose={() => setShowAddModal(false)}
           onSuccess={() => {
             setShowAddModal(false);
-            loadUsers();
+            fetchUsers(); // Lista frissítése a szerverről
           }}
         />
       )}

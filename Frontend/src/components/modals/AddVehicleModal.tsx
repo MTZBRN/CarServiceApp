@@ -43,26 +43,49 @@ const AddVehicleModal: React.FC<Props> = ({
   }, [customers]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      let cId = formData.customerId;
+    e.preventDefault(); // Megakadályozza az oldal újratöltését
 
-      // Ha új ügyfelet veszünk fel
+    try {
+      let finalCustomerId = formData.customerId;
+
+      // 1. ESET: Új ügyfél létrehozása
       if (activeTab === "new") {
-        if (!newCustomer.name || !newCustomer.phone)
-          return alert("Név és telefonszám kötelező!");
-        const res = await apiService.createCustomer({ ...newCustomer });
-        cId = res.data.id;
+        if (!newCustomer.name || !newCustomer.phone) {
+          alert("Név és telefonszám kötelező az új ügyfélnél!");
+          return;
+        }
+
+        // Létrehozzuk az ügyfelet
+        const customerResponse = await apiService.createCustomer(newCustomer);
+
+        // Megkapjuk az új ID-t
+        finalCustomerId = customerResponse.data.id;
       }
 
-      if (cId === 0) return alert("Kérlek válassz ügyfelet!");
+      // 2. ELLENŐRZÉS: Van-e érvényes ügyfél ID?
+      if (!finalCustomerId || finalCustomerId === 0) {
+        alert("Kérlek válassz ügyfelet vagy hozz létre egy újat!");
+        return;
+      }
 
-      // Jármű mentése
-      await apiService.createVehicle({ ...formData, customerId: cId });
-      onSuccess();
+      // 3. JÁRMŰ MENTÉSE
+      // Fontos: Az éppen megszerzett 'finalCustomerId'-t használjuk!
+      await apiService.createVehicle({
+        ...formData,
+        customerId: finalCustomerId, // Felülírjuk a formbeli 0-t a valódi ID-val
+        licensePlate: formData.licensePlate.toUpperCase(), // Biztos ami biztos
+        vin: formData.vin ? formData.vin.toUpperCase() : undefined,
+        // Dátum kezelés: Ha üres string, akkor undefined-ként küldjük
+        motExpiry: formData.motExpiry || undefined,
+      });
+
+      // 4. SIKER
+      // alert("Jármű sikeresen rögzítve! 🚗"); // Opcionális visszajelzés
+      onSuccess(); // Bezárja az ablakot és frissíti a listát (refreshAll)
+      onClose();
     } catch (err) {
-      console.error(err);
-      alert("Hiba történt a mentés során!");
+      console.error("Hiba történt a mentés során:", err);
+      alert("Hiba történt a mentés során! Nézd meg a konzolt a részletekért.");
     }
   };
 
