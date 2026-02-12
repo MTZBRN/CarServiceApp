@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { useReactToPrint } from "react-to-print";
 import { X, Printer } from "lucide-react";
 import { Vehicle, ServiceJob } from "../../types";
+import api from "../../api/api"; // ✅ API importálása
 
 interface Props {
   job: ServiceJob;
@@ -12,14 +13,26 @@ interface Props {
 const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
   const componentRef = useRef<HTMLDivElement>(null);
 
-  // Beállítások betöltése
+  // Beállítások betöltése a szerverről
   const [settings, setSettings] = useState<any>({});
 
   useEffect(() => {
-    const savedSettings = localStorage.getItem("appSettings");
-    if (savedSettings) {
-      setSettings(JSON.parse(savedSettings));
-    }
+    const fetchSettings = async () => {
+      try {
+        // ✅ 1. Lekérjük a központi adatbázisból
+        const response = await api.get("/Settings");
+        if (response.data) {
+          setSettings(response.data);
+        }
+      } catch (error) {
+        console.error("Nem sikerült betölteni a cégadatokat", error);
+        // Ha hiba van (pl. nincs net), megpróbáljuk a localStorage-ból
+        const saved = localStorage.getItem("appSettings");
+        if (saved) setSettings(JSON.parse(saved));
+      }
+    };
+
+    fetchSettings();
   }, []);
 
   // Szerkeszthető adatok state
@@ -37,7 +50,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
     make: vehicle.make,
     model: vehicle.model,
     type: "",
-    vin: "",
+    vin: vehicle.vin || "",
     year: vehicle.year.toString(),
     km: "0",
     fuelLevel: "1/2",
@@ -66,49 +79,45 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
   const printStyles = `
     @page {
       size: A4;
-      margin: 0mm; /* Teljesen nullázzuk a margót */
+      margin: 10mm; 
     }
     @media print {
       body, html { 
         margin: 0; 
         padding: 0;
+        background: white !important;
+        color: black !important;
       }
       
-      /* Eltüntetünk mindent, ami nem a munkalap */
       .modal-overlay > *:not(.print-wrapper) {
         display: none !important;
       }
 
-      /* A nyomtatandó terület */
       .print-wrapper {
-        position: absolute !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 210mm !important;
-        min-height: 290mm !important; /* Kicsit kisebb mint 297, biztonsági ráhagyás */
-        padding: 5mm 15mm !important; /* FENT-LENT CSÖKKENTVE 5mm-re a biztonság kedvéért */
+        position: relative !important;
+        width: 100% !important;
+        height: auto !important;
         background: white !important;
+        color: black !important;
         z-index: 9999 !important;
-        display: flex !important;
-        flex-direction: column !important;
+        display: block !important;
+        font-family: "Times New Roman", Times, serif !important;
       }
 
-      /* Inputok stílusa nyomtatáskor */
       input, textarea, select {
         background: transparent !important;
         border: none !important;
         appearance: none !important;
-        -webkit-appearance: none !important;
         padding: 0 !important;
+        color: black !important;
+        font-family: "Times New Roman", Times, serif !important;
       }
-      select {
-         text-indent: 0.01px;
-         text-overflow: "";
-      }
+      
+      ::placeholder { color: transparent !important; }
+      select { text-indent: 0.01px; text-overflow: ""; }
     }
   `;
 
-  // Input stílus: Képernyőn sárgás
   const inputStyle: React.CSSProperties = {
     border: "none",
     background: "rgba(254, 240, 138, 0.4)",
@@ -122,20 +131,17 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
     borderRadius: "2px",
   };
 
-  const selectStyle: React.CSSProperties = {
-    ...inputStyle,
-    cursor: "pointer",
-  };
-
+  const selectStyle: React.CSSProperties = { ...inputStyle, cursor: "pointer" };
   const cellStyle: React.CSSProperties = {
     border: "1px solid black",
     padding: "4px",
     verticalAlign: "middle",
+    color: "black",
   };
-
   const labelStyle: React.CSSProperties = {
-    fontSize: "10px",
-    color: "#444",
+    fontSize: "11px",
+    color: "black",
+    fontWeight: "bold",
     marginRight: "5px",
     whiteSpace: "nowrap",
   };
@@ -145,6 +151,11 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
       className="modal-overlay"
       style={{
         zIndex: 2000,
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
         background: "rgba(0,0,0,0.8)",
         display: "flex",
         justifyContent: "center",
@@ -153,24 +164,24 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
     >
       <style>{printStyles}</style>
 
-      {/* MODAL KERET */}
       <div
         className="modal-content"
         style={{
           maxWidth: "1000px",
           width: "95%",
-          height: "98vh",
+          height: "95vh",
           display: "flex",
           flexDirection: "column",
           background: "#52525b",
           padding: 0,
-          position: "relative",
+          borderRadius: "8px",
+          overflow: "hidden",
         }}
       >
         {/* FEJLÉC */}
         <div
           style={{
-            padding: "10px 20px",
+            padding: "15px 20px",
             background: "#18181b",
             color: "white",
             display: "flex",
@@ -179,11 +190,11 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
             borderBottom: "1px solid #333",
           }}
         >
-          <div style={{ display: "flex", flexDirection: "column" }}>
+          <div>
             <h3
               style={{
                 margin: 0,
-                fontSize: "1rem",
+                fontSize: "1.2rem",
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
@@ -191,8 +202,8 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
             >
               🖨️ Munkalap Előnézet
             </h3>
-            <span style={{ fontSize: "0.8rem", color: "#a1a1aa" }}>
-              Sárga mezők: szerkeszthetőek. Nyomtatásban a sárga szín eltűnik.
+            <span style={{ fontSize: "0.85rem", color: "#a1a1aa" }}>
+              A sárga mezők szerkeszthetőek. Nyomtatásban fehér lesz.
             </span>
           </div>
           <div style={{ display: "flex", gap: "10px" }}>
@@ -202,21 +213,29 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
               style={{
                 background: "#3b82f6",
                 color: "white",
+                border: "none",
+                padding: "8px 16px",
+                borderRadius: "6px",
                 display: "flex",
                 alignItems: "center",
                 gap: 5,
-                height: "35px",
+                cursor: "pointer",
+                fontWeight: "bold",
               }}
             >
-              <Printer size={16} /> Nyomtatás
+              <Printer size={18} /> Nyomtatás
             </button>
             <button
               onClick={onClose}
-              className="icon-btn"
               style={{
                 background: "#333",
                 border: "1px solid #555",
                 color: "white",
+                padding: "8px",
+                borderRadius: "6px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
               }}
             >
               <X size={20} />
@@ -224,12 +243,13 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
           </div>
         </div>
 
-        {/* GÖRGETHETŐ TERÜLET (Képernyőn) */}
+        {/* GÖRGETHETŐ TERÜLET */}
         <div
           style={{
             flex: 1,
             overflowY: "auto",
             padding: "20px",
+            background: "#27272a",
             display: "flex",
             justifyContent: "center",
           }}
@@ -240,9 +260,9 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
             className="print-wrapper"
             style={{
               width: "210mm",
-              minHeight: "297mm", // Képernyőn látványnak marad
+              minHeight: "297mm",
               background: "white",
-              padding: "10mm 15mm", // Képernyőn marad a szép nagy margó
+              padding: "10mm",
               color: "black",
               fontFamily: '"Times New Roman", Times, serif',
               fontSize: "12px",
@@ -250,6 +270,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
               boxSizing: "border-box",
               display: "flex",
               flexDirection: "column",
+              position: "relative",
             }}
           >
             {/* 1. SORSZÁM / DÁTUM */}
@@ -284,7 +305,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                       textAlign: "center",
                       fontSize: "20px",
                       fontWeight: "bold",
-                      background: "#f3f4f6",
+                      background: "#eee",
                       letterSpacing: "2px",
                     }}
                   >
@@ -306,7 +327,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
               </tbody>
             </table>
 
-            {/* 2. MEGRENDELŐ / SZERVIZ */}
+            {/* 2. MEGRENDELŐ / SZERVIZ (ADATBÁZISBÓL) */}
             <table
               style={{
                 width: "100%",
@@ -317,7 +338,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
               <tbody>
                 <tr
                   style={{
-                    background: "#f3f4f6",
+                    background: "#eee",
                     fontSize: "11px",
                     fontWeight: "bold",
                     textAlign: "center",
@@ -331,7 +352,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                     style={{
                       ...cellStyle,
                       verticalAlign: "top",
-                      height: "100px",
+                      height: "90px",
                     }}
                   >
                     <div style={{ display: "flex", marginBottom: 5 }}>
@@ -381,6 +402,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                       textAlign: "center",
                     }}
                   >
+                    {/* ✅ Itt jelennek meg a Settings API-ból jövő adatok */}
                     <div
                       style={{
                         fontWeight: "bold",
@@ -399,6 +421,9 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                     <div style={{ fontSize: "11px" }}>
                       Adószám: {settings.taxNumber || "29028933-2-13"}
                     </div>
+                    <div style={{ fontSize: "11px" }}>
+                      Email: {settings.email || ""}
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -412,7 +437,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                 border: "2px solid black",
                 borderTop: "none",
                 borderBottom: "none",
-                background: "#f3f4f6",
+                background: "#eee",
                 fontSize: "11px",
                 padding: "2px",
               }}
@@ -588,11 +613,12 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                 borderTop: "none",
                 display: "flex",
                 flexDirection: "column",
+                minHeight: "200px",
               }}
             >
               <div
                 style={{
-                  background: "#f3f4f6",
+                  background: "#eee",
                   fontSize: "11px",
                   padding: "4px",
                   borderBottom: "1px solid black",
@@ -621,13 +647,13 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                   outline: "none",
                   background: "rgba(254, 240, 138, 0.2)",
                   padding: "10px",
+                  color: "black",
                 }}
               />
             </div>
 
             {/* 6. ALSÓ SZEKCIÓK */}
-            <div style={{ marginTop: "auto" }}>
-              {/* Anyagok / Határidő */}
+            <div style={{ marginTop: "auto", paddingTop: "10px" }}>
               <table
                 style={{
                   width: "100%",
@@ -673,7 +699,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                     </td>
                   </tr>
                   <tr>
-                    <td style={{ ...cellStyle, background: "#f9f9f9" }}>
+                    <td style={{ ...cellStyle }}>
                       <div style={{ display: "flex" }}>
                         <span style={labelStyle}>Vállalási határidő:</span>
                         <input
@@ -689,7 +715,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                         />
                       </div>
                     </td>
-                    <td style={{ ...cellStyle, background: "#f9f9f9" }}>
+                    <td style={{ ...cellStyle }}>
                       <div style={{ display: "flex" }}>
                         <span style={labelStyle}>
                           Várható javítási költség (nettó Ft):
@@ -710,12 +736,11 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                 </tbody>
               </table>
 
-              {/* Jogi szöveg */}
               <div
                 style={{
                   border: "2px solid black",
                   borderTop: "none",
-                  padding: "8px",
+                  padding: "6px",
                   fontSize: "9px",
                   textAlign: "justify",
                   lineHeight: "1.2",
@@ -733,13 +758,13 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                 hozzájárulok.
               </div>
 
-              {/* Aláírások */}
+              {/* ALÁÍRÁS HELY */}
               <div
                 style={{
                   border: "2px solid black",
                   borderTop: "none",
                   display: "flex",
-                  height: "100px",
+                  height: "120px",
                 }}
               >
                 <div
@@ -750,22 +775,24 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                     textAlign: "center",
                     display: "flex",
                     flexDirection: "column",
-                    justifyContent: "flex-end",
+                    justifyContent: "space-between",
                   }}
                 >
-                  <div style={{ fontSize: "11px", marginBottom: "5px" }}>
-                    A jármű fenti munkáit megrendelem és átadom
+                  <div style={{ fontSize: "11px", textAlign: "left" }}>
+                    A jármű fenti munkáit megrendelem és átadom:
                   </div>
-                  <div
-                    style={{
-                      borderTop: "1px solid black",
-                      width: "80%",
-                      margin: "0 auto",
-                      paddingTop: "5px",
-                      fontSize: "11px",
-                    }}
-                  >
-                    (megrendelő)
+                  <div style={{ marginTop: "auto" }}>
+                    <div
+                      style={{
+                        borderTop: "1px solid black",
+                        width: "80%",
+                        margin: "0 auto",
+                        paddingTop: "5px",
+                        fontSize: "11px",
+                      }}
+                    >
+                      (megrendelő)
+                    </div>
                   </div>
                 </div>
                 <div
@@ -775,27 +802,28 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                     textAlign: "center",
                     display: "flex",
                     flexDirection: "column",
-                    justifyContent: "flex-end",
+                    justifyContent: "space-between",
                   }}
                 >
-                  <div style={{ fontSize: "11px", marginBottom: "5px" }}>
-                    A járművet átvettem
+                  <div style={{ fontSize: "11px", textAlign: "left" }}>
+                    A járművet átvettem:
                   </div>
-                  <div
-                    style={{
-                      borderTop: "1px solid black",
-                      width: "80%",
-                      margin: "0 auto",
-                      paddingTop: "5px",
-                      fontSize: "11px",
-                    }}
-                  >
-                    (vállalkozó képviselője)
+                  <div style={{ marginTop: "auto" }}>
+                    <div
+                      style={{
+                        borderTop: "1px solid black",
+                        width: "80%",
+                        margin: "0 auto",
+                        paddingTop: "5px",
+                        fontSize: "11px",
+                      }}
+                    >
+                      (vállalkozó képviselője)
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Átadás-Átvétel */}
               <table
                 style={{
                   width: "100%",
@@ -822,9 +850,10 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                     <td
                       style={{
                         borderRight: "1px solid black",
-                        padding: "15px 5px",
+                        padding: "10px 5px",
                         verticalAlign: "bottom",
                         width: "25%",
+                        height: "40px",
                       }}
                     >
                       Átadó:
@@ -832,7 +861,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                     <td
                       style={{
                         borderRight: "1px solid black",
-                        padding: "15px 5px",
+                        padding: "10px 5px",
                         verticalAlign: "bottom",
                         width: "25%",
                       }}
@@ -842,7 +871,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                     <td
                       style={{
                         borderRight: "1px solid black",
-                        padding: "15px 5px",
+                        padding: "10px 5px",
                         verticalAlign: "bottom",
                         width: "25%",
                       }}
@@ -851,7 +880,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                     </td>
                     <td
                       style={{
-                        padding: "15px 5px",
+                        padding: "10px 5px",
                         verticalAlign: "bottom",
                         width: "25%",
                       }}

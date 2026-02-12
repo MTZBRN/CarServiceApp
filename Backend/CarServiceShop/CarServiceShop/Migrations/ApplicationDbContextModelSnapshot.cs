@@ -68,6 +68,43 @@ namespace CarServiceShop.Migrations
                     b.ToTable("Customers");
                 });
 
+            modelBuilder.Entity("CarServiceShop.Models.GlobalSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CompanyName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("HourlyRate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TaxNumber")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("VatRate")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("GlobalSettings");
+                });
+
             modelBuilder.Entity("CarServiceShop.Models.JobPart", b =>
                 {
                     b.Property<int>("Id")
@@ -177,6 +214,9 @@ namespace CarServiceShop.Migrations
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProfilePicturePath")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Role")

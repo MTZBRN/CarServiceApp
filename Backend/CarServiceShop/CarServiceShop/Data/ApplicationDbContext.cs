@@ -14,6 +14,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<JobPart> JobParts { get; set; }
     public DbSet<Part> Parts { get; set; }
     public DbSet<User> Users { get; set; }
+    
+    public DbSet<GlobalSettings> GlobalSettings { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

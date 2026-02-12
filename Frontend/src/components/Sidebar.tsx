@@ -1,17 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Calendar,
   Car,
-  Wrench,
-  Settings,
+  Settings as SettingsIcon,
   LogOut,
   Package,
-  FileText,
+  Users, // ✅ Új ikon az ügyfelekhez (FileText helyett)
   ChevronLeft,
   ChevronRight,
   ShieldCheck,
+  Wrench,
 } from "lucide-react";
+import api from "../api/api";
 
 interface Props {
   activeTab: string;
@@ -29,8 +30,40 @@ const Sidebar: React.FC<Props> = ({
   userRole,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [serviceName, setServiceName] = useState("GTA Szerviz");
+  const [profilePicUrl, setProfilePicUrl] = useState<string | null>(null);
 
-  // ✅ Átalakítva: A listát szűrjük a szerepkör alapján
+  // --- ADATOK BETÖLTÉSE ÉS FIGYELÉSE ---
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await api.get("/Settings");
+        if (res.data && res.data.companyName) {
+          setServiceName(res.data.companyName);
+        }
+      } catch (error) {
+        console.error("Nem sikerült betölteni a cégnevet", error);
+      }
+    };
+
+    const updateProfilePic = () => {
+      const userData = JSON.parse(localStorage.getItem("user_data") || "{}");
+      if (userData.profilePicturePath) {
+        const baseUrl =
+          api.defaults.baseURL?.replace("/api", "") || "http://localhost:5232";
+        setProfilePicUrl(`${baseUrl}/uploads/${userData.profilePicturePath}`);
+      }
+    };
+
+    fetchSettings();
+    updateProfilePic();
+
+    window.addEventListener("profile-updated", updateProfilePic);
+    return () => {
+      window.removeEventListener("profile-updated", updateProfilePic);
+    };
+  }, []);
+
   const menuItems = [
     {
       id: "dashboard",
@@ -40,9 +73,11 @@ const Sidebar: React.FC<Props> = ({
     { id: "schedule", label: "Naptár", icon: <Calendar size={20} /> },
     { id: "vehicles", label: "Járművek", icon: <Car size={20} /> },
     { id: "inventory", label: "Raktár", icon: <Package size={20} /> },
-    { id: "invoices", label: "Számlák", icon: <FileText size={20} /> },
-    { id: "settings", label: "Beállítások", icon: <Settings size={20} /> },
-    // ✅ Csak akkor adjuk hozzá, ha admin
+
+    // ✅ ITT A VÁLTOZÁS: Számlák -> Ügyfelek
+    { id: "customers", label: "Ügyfelek", icon: <Users size={20} /> },
+
+    { id: "settings", label: "Beállítások", icon: <SettingsIcon size={20} /> },
     ...(userRole === "admin"
       ? [
           {
@@ -54,14 +89,15 @@ const Sidebar: React.FC<Props> = ({
       : []),
   ];
 
-  const toggleSidebar = () => setIsCollapsed(!isCollapsed);
-
   return (
     <div
       className={`sidebar-container ${isCollapsed ? "collapsed" : ""}`}
       style={{ background: "#09090b", borderRight: "1px solid #27272a" }}
     >
-      <button className="sidebar-toggle-btn" onClick={toggleSidebar}>
+      <button
+        className="sidebar-toggle-btn"
+        onClick={() => setIsCollapsed(!isCollapsed)}
+      >
         {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
       </button>
 
@@ -69,7 +105,19 @@ const Sidebar: React.FC<Props> = ({
         <div className="logo-icon" style={{ background: "#3b82f6" }}>
           <Wrench size={18} color="white" />
         </div>
-        {!isCollapsed && <span className="logo-text">GTA Szerviz</span>}
+        {!isCollapsed && (
+          <span
+            className="logo-text"
+            style={{
+              fontSize: "1rem",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {serviceName}
+          </span>
+        )}
       </div>
 
       <div className="sidebar-menu">
@@ -100,17 +148,27 @@ const Sidebar: React.FC<Props> = ({
               width: 35,
               height: 35,
               borderRadius: "50%",
-              background: userRole === "admin" ? "#3b82f6" : "#10b981", // Admin kék, Mechanic zöld
+              background: userRole === "admin" ? "#3b82f6" : "#10b981",
+              overflow: "hidden",
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
               flexShrink: 0,
               color: "white",
+              border: "2px solid #27272a",
             }}
           >
-            <span style={{ fontWeight: "bold", fontSize: "0.8rem" }}>
-              {currentUser.substring(0, 2).toUpperCase()}
-            </span>
+            {profilePicUrl ? (
+              <img
+                src={profilePicUrl}
+                alt="Profile"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            ) : (
+              <span style={{ fontWeight: "bold", fontSize: "0.8rem" }}>
+                {currentUser.substring(0, 2).toUpperCase()}
+              </span>
+            )}
           </div>
 
           {!isCollapsed && (
@@ -131,7 +189,6 @@ const Sidebar: React.FC<Props> = ({
               >
                 {currentUser}
               </span>
-              {/* ✅ Dinamikus szerepkör kiírás */}
               <span
                 style={{
                   fontSize: "0.7rem",

@@ -1,18 +1,17 @@
-import React, { useMemo } from "react";
+import React from "react";
 import {
   Car,
+  Calendar,
   AlertTriangle,
   Search,
-  Trash2,
-  History,
   Plus,
-  Calendar as CalIcon,
-  Clock,
-  Phone,
+  History,
+  Trash2,
   CheckCircle,
 } from "lucide-react";
 import { Vehicle, Appointment } from "../../types";
-import { differenceInDays } from "date-fns";
+// ✅ JAVÍTVA: Kivettük a parseISO-t, mert nem találta
+import { isSameDay, differenceInDays, format } from "date-fns";
 
 interface MainDashboardProps {
   vehicles: Vehicle[];
@@ -20,7 +19,7 @@ interface MainDashboardProps {
   searchTerm: string;
   setSearchTerm: (term: string) => void;
   onAddVehicle: () => void;
-  onOpenHistory: (id: number, plate: string) => void;
+  onOpenHistory: (id: number) => void;
   onDeleteVehicle: (id: number) => void;
 }
 
@@ -33,128 +32,98 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
   onOpenHistory,
   onDeleteVehicle,
 }) => {
-  // --- LOGIKA ---
-  const stats = useMemo(() => {
-    const now = new Date();
-    const todayStr = now.toISOString().split("T")[0];
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(now.getDate() + 30);
+  // --- SZŰRÉSEK ---
 
-    // 1. MAI MUNKÁK
-    const todaysJobs = appointments.filter((app) => {
-      const appDate = new Date(app.startTime || app.endTime);
-      return appDate.toISOString().split("T")[0] === todayStr;
-    });
+  // 1. Mai munkák
+  const today = new Date();
+  const todaysAppointments = appointments.filter((appt) =>
+    // ✅ JAVÍTVA: new Date() használata parseISO helyett
+    isSameDay(new Date(appt.startTime), today),
+  );
 
-    // 2. LEJÁRT MŰSZAKI
-    const expiredMot = vehicles.filter(
-      (v) => v.motExpiry && new Date(v.motExpiry) < now,
-    );
+  // 2. Járművek keresése
+  const filteredVehicles = vehicles.filter(
+    (v) =>
+      v.licensePlate.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      v.make.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      v.customer?.name.toLowerCase().includes(searchTerm.toLowerCase()),
+  );
 
-    // 3. LEJÁR 30 NAPON BELÜL
-    const upcomingMot = vehicles.filter((v) => {
+  // 3. Műszaki vizsga figyelmeztetések
+  const motAlerts = vehicles
+    .filter((v) => {
       if (!v.motExpiry) return false;
       const expiry = new Date(v.motExpiry);
-      return expiry >= now && expiry <= thirtyDaysFromNow;
-    });
+      const diff = differenceInDays(expiry, today);
+      return diff <= 30;
+    })
+    .sort(
+      (a, b) =>
+        new Date(a.motExpiry!).getTime() - new Date(b.motExpiry!).getTime(),
+    );
 
-    return { todaysJobs, expiredMot, upcomingMot };
-  }, [vehicles, appointments]);
-
-  // Segéd: Hátralévő napok kiszámítása
-  const getDaysRemaining = (expiryDate: string) => {
-    const now = new Date();
-    const expiry = new Date(expiryDate); // Javítva: parseISO helyett sima Date
-    const days = differenceInDays(expiry, now);
-
-    if (days < 0)
-      return {
-        text: "Lejárt",
-        color: "#ef4444",
-        icon: <AlertTriangle size={14} color="#ef4444" />,
-      };
-    if (days === 0)
-      return {
-        text: "MA jár le!",
-        color: "#eab308",
-        icon: <Clock size={14} color="#eab308" />,
-      };
-    return {
-      text: `${days} nap múlva`,
-      color: "#eab308",
-      icon: <Clock size={14} color="#eab308" />,
-    };
-  };
-
-  // Keresés logika
-  const filteredVehicles = vehicles.filter((v) => {
-    const search = searchTerm.toLowerCase();
-    const plate = v.licensePlate.toLowerCase();
-    const owner = v.customer?.name.toLowerCase() || ""; // Névre is keresünk
-    return plate.includes(search) || owner.includes(search);
-  });
-
-  // STÍLUSOK
-  const scrollableContainer: React.CSSProperties = {
-    flex: 1,
-    overflowY: "auto",
-    padding: "15px",
+  // Kártya stílus
+  const cardStyle = {
+    background: "#18181b",
+    borderRadius: "16px",
+    padding: "25px",
+    border: "1px solid #27272a",
+    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
     display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-    scrollbarWidth: "thin",
-    scrollbarColor: "#3f3f46 transparent",
+    flexDirection: "column" as const,
+    height: "100%",
   };
 
   return (
     <div
-      className="dashboard-layout"
       style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
-        gap: "20px",
-        height: "100%",
-        overflow: "hidden",
+        gap: "25px",
+        paddingBottom: "50px",
+        height: "calc(100vh - 100px)",
+        gridTemplateRows: "auto 1fr",
       }}
     >
-      {/* --- BAL OSZLOP: JÁRMŰ LISTA + TELEFONSZÁM --- */}
+      {/* 1. BAL OSZLOP: KERESŐ ÉS LISTA */}
       <div
-        className="card"
         style={{
+          gridRow: "1 / -1",
           display: "flex",
           flexDirection: "column",
-          height: "100%",
-          overflow: "hidden",
-          padding: 0,
-          background: "#18181b",
+          gap: "20px",
         }}
       >
-        <div
-          style={{
-            padding: "20px",
-            borderBottom: "1px solid #3f3f46",
-            background: "#27272a",
-          }}
-        >
+        {/* Keresőmező és Gomb */}
+        <div style={{ display: "flex", gap: "10px" }}>
           <button
             onClick={onAddVehicle}
-            className="btn-primary"
+            className="btn-add"
             style={{
-              width: "100%",
-              marginBottom: "15px",
-              justifyContent: "center",
+              padding: "0 20px",
+              fontWeight: "600",
+              background: "white",
+              color: "black",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              height: "45px",
+              borderRadius: "8px",
+              whiteSpace: "nowrap",
             }}
           >
-            <Plus size={18} /> Új Jármű Felvétele
+            <Plus size={18} /> Új Jármű
           </button>
-          <div style={{ position: "relative" }}>
+
+          <div style={{ position: "relative", flex: 1 }}>
             <Search
-              size={16}
+              size={18}
               style={{
                 position: "absolute",
-                left: "12px",
-                top: "12px",
-                color: "#a1a1aa",
+                left: 14,
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "#71717a",
               }}
             />
             <input
@@ -162,395 +131,361 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
               placeholder="Keresés rendszám vagy név..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
               style={{
                 width: "100%",
-                paddingLeft: "35px",
+                height: "45px",
+                padding: "0 15px 0 45px",
                 background: "#18181b",
+                border: "1px solid #3f3f46",
+                borderRadius: "8px",
+                color: "white",
+                fontSize: "0.95rem",
+                outline: "none",
               }}
             />
           </div>
         </div>
-        <div style={scrollableContainer}>
+
+        {/* Jármű Lista */}
+        <div style={{ ...cardStyle, overflow: "hidden", padding: 0 }}>
           <div
             style={{
-              color: "#a1a1aa",
-              fontSize: "0.85rem",
-              fontWeight: "bold",
-              marginBottom: 5,
+              padding: "15px 20px",
+              borderBottom: "1px solid #27272a",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              background: "#202024",
             }}
           >
-            ÖSSZES JÁRMŰ ({filteredVehicles.length})
-          </div>
-          {filteredVehicles.map((v) => (
-            <div
-              key={v.id}
+            <span
               style={{
-                background: "#27272a",
-                padding: "12px",
-                borderRadius: "8px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                border: "1px solid #3f3f46",
+                fontWeight: "600",
+                color: "#a1a1aa",
+                fontSize: "0.85rem",
+                textTransform: "uppercase",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div
-                  style={{
-                    background: "#3f3f46",
-                    padding: 8,
-                    borderRadius: "50%",
-                  }}
-                >
-                  <Car size={18} color="#e4e4e7" />
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontWeight: "bold",
-                      color: "white",
-                      fontSize: "1.05rem",
-                    }}
-                  >
-                    {v.licensePlate}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "0.85rem",
-                      color: "#a1a1aa",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                    }}
-                  >
-                    {v.customer?.name || "-"}
-                    {/* TELEFONSZÁM KIÍRÁSA */}
-                    {v.customer?.phoneNumber && (
-                      <span
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 3,
-                          color: "#71717a",
-                        }}
-                      >
-                        • <Phone size={10} /> {v.customer.phoneNumber}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="action-buttons">
-                <button
-                  onClick={() => onOpenHistory(v.id, v.licensePlate)}
-                  className="icon-btn"
-                >
-                  <History size={16} />
-                </button>
-                <button
-                  onClick={() => onDeleteVehicle(v.id)}
-                  className="icon-btn"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+              Összes Jármű ({filteredVehicles.length})
+            </span>
+          </div>
 
-      {/* --- JOBB OSZLOP: TEENDŐK + TELEFONSZÁM --- */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "20px",
-          height: "100%",
-          overflow: "hidden",
-        }}
-      >
-        {/* MAI MUNKÁK */}
-        <div
-          className="card"
-          style={{
-            padding: "20px",
-            background: "#18181b",
-            border: "1px solid #3f3f46",
-            display: "flex",
-            flexDirection: "column",
-            maxHeight: "40%",
-          }}
-        >
-          <h3
-            style={{
-              margin: "0 0 15px 0",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              color: "#3b82f6",
-              fontSize: "1.1rem",
-            }}
-          >
-            <CalIcon size={20} /> Mai Munkák ({stats.todaysJobs.length})
-          </h3>
-          <div style={scrollableContainer}>
-            {stats.todaysJobs.length === 0 ? (
+          <div style={{ flex: 1, overflowY: "auto", padding: "15px" }}>
+            {filteredVehicles.length === 0 ? (
               <div
                 style={{
                   textAlign: "center",
                   color: "#52525b",
-                  padding: "20px",
+                  marginTop: "30px",
+                }}
+              >
+                Nincs találat.
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}
+              >
+                {filteredVehicles.map((vehicle) => (
+                  <div
+                    key={vehicle.id}
+                    style={{
+                      background: "#27272a",
+                      borderRadius: "10px",
+                      padding: "15px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      border: "1px solid #3f3f46",
+                    }}
+                  >
+                    <div>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        <Car size={16} color="#a1a1aa" />
+                        <span
+                          style={{
+                            fontWeight: "bold",
+                            fontSize: "1.1rem",
+                            color: "white",
+                          }}
+                        >
+                          {vehicle.licensePlate}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: "0.85rem", color: "#a1a1aa" }}>
+                        {vehicle.make} {vehicle.model}
+                        {vehicle.customer ? ` | ${vehicle.customer.name}` : ""}
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        onClick={() => onOpenHistory(vehicle.id)}
+                        title="Adatlap megnyitása"
+                        style={{
+                          background: "#3f3f46",
+                          border: "none",
+                          width: "36px",
+                          height: "36px",
+                          borderRadius: "8px",
+                          color: "white",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <History size={18} />
+                      </button>
+                      <button
+                        onClick={() => onDeleteVehicle(vehicle.id)}
+                        title="Törlés"
+                        style={{
+                          background: "rgba(239, 68, 68, 0.1)",
+                          border: "1px solid rgba(239, 68, 68, 0.3)",
+                          width: "36px",
+                          height: "36px",
+                          borderRadius: "8px",
+                          color: "#ef4444",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 2. JOBB OSZLOP: MAI MUNKÁK + FIGYELMEZTETÉSEK */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "25px",
+          height: "100%",
+        }}
+      >
+        {/* MAI MUNKÁK */}
+        <div style={{ ...cardStyle, flex: 1, maxHeight: "50%" }}>
+          <h3
+            style={{
+              margin: "0 0 20px 0",
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              color: "#60a5fa",
+              fontSize: "1.1rem",
+            }}
+          >
+            <Calendar size={20} /> Mai Munkák ({todaysAppointments.length})
+          </h3>
+
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {todaysAppointments.length === 0 ? (
+              <div
+                style={{
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   border: "1px dashed #3f3f46",
-                  borderRadius: "8px",
+                  borderRadius: "10px",
+                  color: "#52525b",
                 }}
               >
                 Nincs mára beírt munka.
               </div>
             ) : (
-              stats.todaysJobs.map((job) => (
-                <div
-                  key={job.id}
-                  style={{
-                    background: "#27272a",
-                    padding: "12px",
-                    borderRadius: "8px",
-                    borderLeft: "4px solid #3b82f6",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontWeight: "bold",
-                      color: "white",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                    }}
-                  >
-                    {job.vehicle?.licensePlate}{" "}
-                    <span style={{ fontWeight: "normal", color: "#a1a1aa" }}>
-                      - {job.description}
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "0.8rem",
-                      color: "#71717a",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 5,
-                      marginTop: 4,
-                    }}
-                  >
-                    👤 {job.vehicle?.customer?.name}
-                    {job.vehicle?.customer?.phoneNumber && (
-                      <span
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}
+              >
+                {todaysAppointments.map((appt) => {
+                  const vehicle = vehicles.find((v) => v.id === appt.vehicleId);
+                  return (
+                    <div
+                      key={appt.id}
+                      onClick={() => vehicle && onOpenHistory(vehicle.id)}
+                      style={{
+                        padding: "15px",
+                        background: "rgba(59, 130, 246, 0.1)",
+                        borderLeft: "4px solid #3b82f6",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        transition: "background 0.2s",
+                      }}
+                      className="hover-card"
+                    >
+                      <div
                         style={{
                           display: "flex",
+                          justifyContent: "space-between",
                           alignItems: "center",
-                          gap: 3,
+                          marginBottom: "5px",
                         }}
                       >
-                        • <Phone size={10} /> {job.vehicle.customer.phoneNumber}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))
+                        <span
+                          style={{
+                            fontWeight: "bold",
+                            color: "white",
+                            fontSize: "1rem",
+                          }}
+                        >
+                          {vehicle?.licensePlate || "Ismeretlen jármű"}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "0.8rem",
+                            color: "#93c5fd",
+                            background: "rgba(59, 130, 246, 0.2)",
+                            padding: "2px 8px",
+                            borderRadius: "12px",
+                          }}
+                        >
+                          {/* ✅ ITT VOLT A TYPE HIBA - most már működni fog a types.ts frissítése után */}
+                          {appt.type === "service" ? "Szerviz" : "Műszaki"}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: "0.9rem", color: "#bfdbfe" }}>
+                        {appt.note || "Nincs megjegyzés"}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
 
-        {/* FIGYELMEZTETÉSEK */}
-        <div
-          className="card"
-          style={{
-            padding: "20px",
-            background: "#18181b",
-            border: "1px solid #3f3f46",
-            display: "flex",
-            flexDirection: "column",
-            flex: 1,
-            overflow: "hidden",
-          }}
-        >
+        {/* MŰSZAKI FIGYELMEZTETÉSEK */}
+        <div style={{ ...cardStyle, flex: 1, maxHeight: "50%" }}>
           <h3
             style={{
-              margin: "0 0 15px 0",
+              margin: "0 0 20px 0",
               display: "flex",
               alignItems: "center",
-              gap: 10,
+              gap: "10px",
               color: "#ef4444",
               fontSize: "1.1rem",
             }}
           >
             <AlertTriangle size={20} /> Műszaki Figyelmeztetések (
-            {stats.expiredMot.length + stats.upcomingMot.length})
+            {motAlerts.length})
           </h3>
-          <div style={scrollableContainer}>
-            {/* LEJÁRTAK */}
-            {stats.expiredMot.map((v) => {
-              const status = getDaysRemaining(v.motExpiry!);
-              return (
-                <div
-                  key={v.id}
-                  style={{
-                    background: "rgba(239, 68, 68, 0.1)",
-                    padding: "12px",
-                    borderRadius: "8px",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    border: "1px solid rgba(239, 68, 68, 0.3)",
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontWeight: "bold",
-                        color: "#fca5a5",
-                        fontSize: "1.1rem",
-                      }}
-                    >
-                      {v.licensePlate}
-                    </div>
-                    <div style={{ fontSize: "0.8rem", color: "#ef4444" }}>
-                      {v.customer?.name}
-                    </div>
-                    {/* TELEFONSZÁM ITT IS: */}
-                    {v.customer?.phoneNumber && (
-                      <div
-                        style={{
-                          fontSize: "0.8rem",
-                          color: "#fca5a5",
-                          marginTop: 2,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 5,
-                        }}
-                      >
-                        <Phone size={12} /> {v.customer.phoneNumber}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div
-                      style={{
-                        color: status.color,
-                        fontWeight: "bold",
-                        fontSize: "0.9rem",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 5,
-                        justifyContent: "flex-end",
-                      }}
-                    >
-                      {status.icon} {status.text}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "0.8rem",
-                        color: "#fca5a5",
-                        marginTop: 2,
-                      }}
-                    >
-                      {new Date(v.motExpiry!).toLocaleDateString("hu-HU")}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
 
-            {/* KÖZELGŐK */}
-            {stats.upcomingMot.map((v) => {
-              const status = getDaysRemaining(v.motExpiry!);
-              return (
-                <div
-                  key={v.id}
-                  style={{
-                    background: "rgba(234, 179, 8, 0.1)",
-                    padding: "12px",
-                    borderRadius: "8px",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    border: "1px solid rgba(234, 179, 8, 0.3)",
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontWeight: "bold",
-                        color: "#fde047",
-                        fontSize: "1.1rem",
-                      }}
-                    >
-                      {v.licensePlate}
-                    </div>
-                    <div style={{ fontSize: "0.8rem", color: "#eab308" }}>
-                      {v.customer?.name}
-                    </div>
-                    {/* TELEFONSZÁM ITT IS: */}
-                    {v.customer?.phoneNumber && (
-                      <div
-                        style={{
-                          fontSize: "0.8rem",
-                          color: "#fde047",
-                          marginTop: 2,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 5,
-                        }}
-                      >
-                        <Phone size={12} /> {v.customer.phoneNumber}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div
-                      style={{
-                        color: status.color,
-                        fontWeight: "bold",
-                        fontSize: "0.9rem",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 5,
-                        justifyContent: "flex-end",
-                      }}
-                    >
-                      {status.icon} {status.text}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "0.8rem",
-                        color: "#fde047",
-                        marginTop: 2,
-                      }}
-                    >
-                      {new Date(v.motExpiry!).toLocaleDateString("hu-HU")}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {motAlerts.length === 0 ? (
+              <div
+                style={{
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  border: "1px dashed #3f3f46",
+                  borderRadius: "10px",
+                  color: "#52525b",
+                }}
+              >
+                <CheckCircle
+                  size={24}
+                  style={{ marginRight: "10px", color: "#10b981" }}
+                />
+                Minden rendben!
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                }}
+              >
+                {motAlerts.map((vehicle) => {
+                  const expiry = new Date(vehicle.motExpiry!);
+                  const diff = differenceInDays(expiry, today);
+                  let label = "";
+                  let color = "";
 
-            {stats.expiredMot.length === 0 &&
-              stats.upcomingMot.length === 0 && (
-                <div
-                  style={{
-                    textAlign: "center",
-                    color: "#52525b",
-                    padding: "20px",
-                    fontStyle: "italic",
-                  }}
-                >
-                  Nincs lejárt vagy közelgő műszaki.{" "}
-                  <CheckCircle
-                    size={16}
-                    style={{ display: "inline", verticalAlign: "middle" }}
-                  />
-                </div>
-              )}
+                  if (diff < 0) {
+                    label = "LEJÁRT!";
+                    color = "#ef4444";
+                  } else if (diff === 0) {
+                    label = "MA jár le!";
+                    color = "#f59e0b";
+                  } else {
+                    label = `${diff} nap múlva`;
+                    color = "#eab308";
+                  }
+
+                  return (
+                    <div
+                      key={vehicle.id}
+                      onClick={() => onOpenHistory(vehicle.id)}
+                      style={{
+                        padding: "15px",
+                        background: "rgba(239, 68, 68, 0.05)",
+                        border: `1px solid ${color}`,
+                        borderRadius: "8px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{
+                            fontWeight: "bold",
+                            color: color,
+                            marginBottom: "2px",
+                          }}
+                        >
+                          {vehicle.licensePlate}
+                        </div>
+                        <div style={{ fontSize: "0.85rem", color: "#a1a1aa" }}>
+                          {vehicle.customer?.name}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div
+                          style={{
+                            fontWeight: "bold",
+                            color: color,
+                            fontSize: "0.9rem",
+                          }}
+                        >
+                          {label}
+                        </div>
+                        <div style={{ fontSize: "0.8rem", color: "#71717a" }}>
+                          {format(expiry, "yyyy. MM. dd.")}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>

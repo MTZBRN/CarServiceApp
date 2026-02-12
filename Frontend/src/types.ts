@@ -1,9 +1,9 @@
 export interface Customer {
   id: number;
   name: string;
-  address?: string;
-  phoneNumber?: string; // Backendtől függ, lehet 'phone' is, ellenőrizd!
-  email?: string;
+  phoneNumber: string;
+  email: string | null;
+  address: string | null;
 }
 
 export interface Vehicle {
@@ -27,6 +27,7 @@ export interface Appointment {
   description?: string;
   vehicle?: Vehicle;
   serviceJob?: ServiceJob;
+  type?: "service" | "mot";
 }
 
 // Naptárhoz segédtípus
@@ -37,7 +38,7 @@ export interface CalendarEvent {
   start: Date;
   end: Date;
   allDay?: boolean;
-  type: "service" | "mot" | "job" | "appointment"; // Bővítettük
+  type: "service" | "mot" | "job" | "appointment";
   originalData?: any;
   desc?: string;
 }

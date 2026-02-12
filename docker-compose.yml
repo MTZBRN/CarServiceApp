@@ -1,0 +1,25 @@
+services:
+  backend:
+    build:
+      # A kép alapján a Dockerfile a Backend/CarServiceShop mappában van
+      context: ./Backend/CarServiceShop
+      dockerfile: Dockerfile
+    ports:
+      - "5232:8080"
+    volumes:
+      - ./backend-data:/app/data
+      - ./user-uploads:/app/uploads
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - Jwt__Key=GTA_Szerviz_Biztonsagos_JWT_Kulcs_2026_@_Secure_Auth_123!
+      - ConnectionStrings__DefaultConnection=Data Source=/app/data/app.db
+
+  frontend:
+    build:
+      # A kép alapján a Frontend mappa közvetlenül a gyökérben van
+      context: ./Frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend

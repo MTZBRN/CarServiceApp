@@ -58,7 +58,7 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
-        context.Database.Migrate();
+        // Itt hívjuk meg a Seeder-edet
         DbSeeder.SeedUsers(context);
     }
     catch (Exception ex)
@@ -67,12 +67,24 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+
 // --- 4. MIDDLEWARE SORREND (Kritikus!) ---
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+
+app.UseStaticFiles(); // Alapértelmezett wwwroot mappa
+// Egyedi mappa a feltöltéseknek
+var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
+if (!Directory.Exists(uploadPath)) Directory.CreateDirectory(uploadPath);
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadPath),
+    RequestPath = "/uploads"
+});
 
 app.UseHttpsRedirection();
 

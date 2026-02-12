@@ -4,6 +4,7 @@ using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using CarServiceShop.Data;
 using CarServiceShop.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -64,8 +65,60 @@ public class AuthController : ControllerBase
         return Ok(new { 
             Token = tokenString, 
             UserName = user.Name,
-            Role = user.Role
+            Role = user.Role,
+            ProfilePicturePath = user.ProfilePicturePath
         });
+    }
+    
+    [Authorize] // Bárki, aki be van jelentkezve, használhatja
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
+    {
+        // 1. Kikeressük a júzert a Tokenben lévő ID alapján
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null) return Unauthorized();
+
+        var user = await _context.Users.FindAsync(int.Parse(userIdClaim.Value));
+        if (user == null) return NotFound(new { message = "Felhasználó nem található!" });
+
+        // 2. Régi jelszó ellenőrzése
+        if (!BCrypt.Net.BCrypt.Verify(dto.OldPassword, user.PasswordHash))
+        {
+            return BadRequest(new { message = "A jelenlegi jelszó nem megfelelő!" });
+        }
+
+        // 3. Új jelszó hashelése és mentése
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Jelszó sikeresen megváltoztatva!" });
+    }
+    
+    [Authorize]
+    [HttpPost("upload-profile-picture")]
+    public async Task<IActionResult> UploadProfilePicture(IFormFile file)
+    {
+        if (file == null || file.Length == 0) return BadRequest("Nincs fájl kiválasztva.");
+
+        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return NotFound();
+
+        // Fájlnév generálás (pl. user_1_12345.jpg), hogy ne legyenek ütközések
+        var extension = Path.GetExtension(file.FileName);
+        var fileName = $"profile_{userId}_{DateTime.Now.Ticks}{extension}";
+        var filePath = Path.Combine(Directory.GetCurrentDirectory(), "uploads", fileName);
+
+        using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            await file.CopyToAsync(stream);
+        }
+
+        // Elmentjük az adatbázisba az elérési utat
+        user.ProfilePicturePath = fileName;
+        await _context.SaveChangesAsync();
+
+        return Ok(new { filePath = $"/uploads/{fileName}" });
     }
 }
 
@@ -73,4 +126,10 @@ public class LoginDto
 {
     public string Email { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+}
+
+public class ChangePasswordDto
+{
+    public string OldPassword { get; set; } = string.Empty;
+    public string NewPassword { get; set; } = string.Empty;
 }

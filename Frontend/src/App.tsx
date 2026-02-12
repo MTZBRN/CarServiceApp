@@ -3,18 +3,14 @@ import "./App.css";
 
 // Ikonok
 import {
-  Calendar as CalIcon,
   Car,
-  AlertTriangle,
   Search,
-  Trash2,
-  History,
-  Plus,
   Wrench,
   ChevronLeft,
   ChevronRight,
   FileText,
   LogOut,
+  Users,
 } from "lucide-react";
 
 // Komponensek
@@ -33,6 +29,7 @@ import VehicleDetails from "./components/pages/VehicleDetails";
 import Settings from "./components/pages/Settings";
 import UserManagement from "./components/pages/UserManagement";
 import Login from "./components/pages/Login";
+import Customers from "./components/pages/Customers";
 
 // Hook és API
 import { useCarService } from "./hooks/useCarService";
@@ -59,50 +56,52 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
-// --- EGYEDI ESEMÉNY MEGJELENÍTÉS ---
+// --- EGYEDI ESEMÉNY MEGJELENÍTÉS (KÁRTYA STÍLUS) ---
 const CustomEvent = ({ event }: { event: CalendarEvent }) => {
   const isMot = event.type === "mot";
-  const bgColor = isMot ? "rgba(239, 68, 68, 0.2)" : "rgba(59, 130, 246, 0.2)";
-  const accentColor = isMot ? "#ef4444" : "#3b82f6";
+  // Szebb, telítettebb színek a kártyákhoz
+  const bgColor = isMot
+    ? "rgba(239, 68, 68, 0.15)"
+    : "rgba(59, 130, 246, 0.15)";
+  const borderColor = isMot ? "#ef4444" : "#3b82f6";
   const Icon = isMot ? FileText : Wrench;
 
   return (
     <div
       style={{
-        height: "100%",
         background: bgColor,
-        borderLeft: `4px solid ${accentColor}`,
-        padding: "2px 6px",
-        color: "white",
+        borderLeft: `4px solid ${borderColor}`,
+        padding: "6px 8px",
+        color: "#e4e4e7",
         fontSize: "0.85rem",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        overflow: "hidden",
-        boxSizing: "border-box",
-        minHeight: "24px",
+        borderRadius: "4px",
+        marginBottom: "4px", // Kis térköz a kártyák között
+        boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
       }}
     >
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "6px",
-          fontWeight: 600,
-          overflow: "hidden",
+          gap: "8px",
+          fontWeight: "600",
+          marginBottom: "2px",
         }}
       >
-        <Icon size={14} color={accentColor} style={{ flexShrink: 0 }} />
+        <Icon size={14} color={borderColor} style={{ flexShrink: 0 }} />
         <span
           style={{
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            lineHeight: 1.2,
           }}
         >
           {event.title}
         </span>
+      </div>
+      {/* Rendszám vagy Ügyfél megjelenítése ha van (opcionális) */}
+      <div style={{ fontSize: "0.75rem", opacity: 0.7, paddingLeft: "22px" }}>
+        Egész napos
       </div>
     </div>
   );
@@ -125,21 +124,22 @@ const CustomToolbar = (toolbar: any) => {
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-        <span
+        <h2
           style={{
             textTransform: "capitalize",
-            fontSize: "1.2rem",
+            fontSize: "1.5rem",
             fontWeight: "bold",
             color: "white",
+            margin: 0,
           }}
         >
           {format(toolbar.date, "MMMM yyyy")}
-        </span>
+        </h2>
         <div
           style={{
             display: "flex",
             gap: "5px",
-            background: "#18181b",
+            background: "#27272a",
             padding: "4px",
             borderRadius: "8px",
             border: "1px solid #3f3f46",
@@ -148,7 +148,17 @@ const CustomToolbar = (toolbar: any) => {
           <button
             onClick={goToBack}
             className="icon-btn"
-            style={{ width: "32px", height: "32px", color: "#a1a1aa" }}
+            style={{
+              width: "32px",
+              height: "32px",
+              color: "#a1a1aa",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
           >
             <ChevronLeft size={18} />
           </button>
@@ -162,6 +172,7 @@ const CustomToolbar = (toolbar: any) => {
               fontSize: "0.9rem",
               cursor: "pointer",
               fontWeight: 600,
+              border: "none",
             }}
           >
             Ma
@@ -169,7 +180,17 @@ const CustomToolbar = (toolbar: any) => {
           <button
             onClick={goToNext}
             className="icon-btn"
-            style={{ width: "32px", height: "32px", color: "#a1a1aa" }}
+            style={{
+              width: "32px",
+              height: "32px",
+              color: "#a1a1aa",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
           >
             <ChevronRight size={18} />
           </button>
@@ -178,18 +199,18 @@ const CustomToolbar = (toolbar: any) => {
       <div
         style={{
           display: "flex",
-          background: "#18181b",
+          background: "#27272a",
           padding: "4px",
           borderRadius: "8px",
           border: "1px solid #3f3f46",
         }}
       >
-        {["month", "week", "day", "agenda"].map((view) => (
+        {["month", "week", "agenda"].map((view) => (
           <button
             key={view}
             onClick={() => toolbar.onView(view)}
             style={{
-              background: toolbar.view === view ? "#3f3f46" : "transparent",
+              background: toolbar.view === view ? "#3b82f6" : "transparent", // Aktív gomb kék
               color: toolbar.view === view ? "white" : "#a1a1aa",
               border: "none",
               padding: "8px 16px",
@@ -198,15 +219,14 @@ const CustomToolbar = (toolbar: any) => {
               textTransform: "capitalize",
               fontSize: "0.9rem",
               fontWeight: toolbar.view === view ? 600 : 500,
+              transition: "all 0.2s",
             }}
           >
             {view === "month"
               ? "Hónap"
               : view === "week"
-                ? "Hét"
-                : view === "day"
-                  ? "Nap"
-                  : "Lista"}
+                ? "Heti Beosztás"
+                : "Lista"}
           </button>
         ))}
       </div>
@@ -270,7 +290,7 @@ function App() {
   // --- NAVIGÁCIÓS STATE ---
   const [activeTab, setActiveTab] = useState("dashboard");
   const [date, setDate] = useState<Date>(new Date());
-  const [view, setView] = useState<View>("month");
+  const [view, setView] = useState<View>("week");
   const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(
     null,
   );
@@ -293,13 +313,17 @@ function App() {
   // Naptár callbackek
   const onNavigate = useCallback((newDate: Date) => setDate(newDate), []);
   const onView = useCallback((newView: View) => setView(newView), []);
+
+  // ✅ MINDEN ESEMÉNY EGÉSZ NAPOS (Így nem lesz rács, csak oszlopok!)
   const processedEvents = useMemo(
     () => (calendarEvents || []).map((evt) => ({ ...evt, allDay: true })),
     [calendarEvents],
   );
 
   const handleSelectSlot = ({ start }: SlotInfo) => {
-    setSelectedSlot(start as Date);
+    // Mindig éjféltől induljon a mentés, mert napot választunk
+    start.setHours(0, 0, 0, 0);
+    setSelectedSlot(start);
     setShowApptModal(true);
   };
   const handleSelectEvent = (event: CalendarEvent) => {
@@ -318,7 +342,55 @@ function App() {
 
   const selectedVehicleObj = vehicles.find((v) => v.id === selectedVehicleId);
 
-  // --- RENDERELÉS ---
+  // --- ✅ ÚJ STÍLUSOK: HETI NÉZET OSZLOPOKKÁ ALAKÍTÁSA ---
+  const calendarStyles = `
+    .rbc-calendar { color: #e4e4e7; font-family: inherit; }
+    
+    /* Fejléc napok */
+    .rbc-header { 
+      padding: 15px 0; 
+      font-weight: 700; 
+      color: #e4e4e7; 
+      border-bottom: 1px solid #3f3f46; 
+      text-transform: uppercase;
+      font-size: 0.9rem;
+      background: #202024;
+    }
+    
+    .rbc-today { background-color: rgba(59, 130, 246, 0.05); }
+    .rbc-off-range-bg { background: #09090b; opacity: 0.5; }
+    
+    /* Keretek és hátterek */
+    .rbc-month-view, .rbc-time-view { 
+      border: 1px solid #3f3f46; 
+      background: #18181b; 
+      border-radius: 12px; 
+      overflow: hidden; 
+    }
+    .rbc-day-bg + .rbc-day-bg { border-left: 1px solid #3f3f46; }
+    .rbc-header + .rbc-header { border-left: 1px solid #3f3f46; }
+
+    /* --- EZ A VARÁZSLAT A HETI NÉZETHEZ --- */
+    /* Eltüntetjük az alsó időrácsot (00:00 - 23:00) */
+    .rbc-time-content { display: none !important; }
+    
+    /* A felső részt (ahol az egész naposak vannak) kihúzzuk teljes magasságra */
+    .rbc-time-view { flex-direction: column; height: 100%; }
+    .rbc-time-header { flex: 1; height: 100%; }
+    .rbc-time-header-content { height: 100%; border-left: 1px solid #3f3f46; }
+    .rbc-allday-cell { height: 100%; max-height: none !important; }
+    .rbc-row-content { height: 100%; z-index: 10; }
+    
+    /* Események (Kártyák) */
+    .rbc-event { 
+      background: transparent !important; 
+      padding: 2px 4px !important; 
+      outline: none !important;
+    }
+    .rbc-event:focus { outline: none; }
+    .rbc-event-label { display: none; } /* Nem kell az időpont felirat */
+  `;
+
   if (loadingAuth) return null;
   if (!isLoggedIn) return <Login onLogin={handleLogin} />;
   if (isDevMode)
@@ -338,6 +410,8 @@ function App() {
 
   return (
     <div className="container">
+      <style>{calendarStyles}</style>
+
       <button
         onClick={() => setIsDevMode(true)}
         className="dev-mode-btn"
@@ -371,9 +445,11 @@ function App() {
                     ? "Szerviz Naptár 📅"
                     : activeTab === "vehicles"
                       ? "Járművek 🚙"
-                      : activeTab === "userManagement"
-                        ? "Felhasználók 👥"
-                        : "Beállítások"}
+                      : activeTab === "customers"
+                        ? "Ügyfelek 👥"
+                        : activeTab === "userManagement"
+                          ? "Felhasználók 👥"
+                          : "Beállítások"}
               </h1>
             </div>
             <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
@@ -417,7 +493,7 @@ function App() {
             style={{
               height: "100%",
               padding: "20px",
-              background: "#18181b",
+              background: "#09090b",
               border: "none",
             }}
           >
@@ -434,11 +510,15 @@ function App() {
               onNavigate={onNavigate}
               view={view}
               onView={onView}
+              // Kivettem a Day view-t, mert az itt értelmetlen lenne
+              views={["month", "week", "agenda"]}
             />
           </div>
         )}
         {activeTab === "vehicles" && <Garage />}
         {activeTab === "inventory" && <Inventory />}
+        {activeTab === "customers" && <Customers />}
+
         {activeTab === "vehicle_details" && selectedVehicleObj && (
           <VehicleDetails
             vehicle={selectedVehicleObj}

@@ -1,10 +1,9 @@
 import React, { useState } from "react";
 import { Wrench, Lock, User, ArrowRight } from "lucide-react";
 import axios from "axios";
-import { authService } from "../../api/authService";
+// import { authService } from "../../api/authService"; // Ez most nem kell, ha direkt axios-t használsz
 
 interface Props {
-  // ✅ Módosítva: Most már a tokent és a nevet is várja az App.tsx
   onLogin: (token: string, username: string, role: string) => void;
 }
 
@@ -20,26 +19,35 @@ const Login: React.FC<Props> = ({ onLogin }) => {
     setError("");
 
     try {
-      // Hívjuk a valódi backendet
       const response = await axios.post(
         "http://localhost:5232/api/Auth/login",
         {
-          email: username, // A backend 'Email' mezőt vár a LoginDto-ban
-          password: password, // A backend 'Password' mezőt vár
+          email: username,
+          password: password,
         },
       );
 
-      // Ha idáig eljutunk, a belépés sikeres
-      const { token, userName, role } = response.data;
+      // ✅ KIBŐVÍTVE: Kiszedjük a profilképet is a válaszból
+      // (A Backend camelCase-re konvertálja a mezőneveket: Token -> token, ProfilePicturePath -> profilePicturePath)
+      const { token, userName, role, profilePicturePath } = response.data;
 
-      // Elmentjük a nevét és a tokent
-      localStorage.setItem("authToken", token);
-      localStorage.setItem("currentUser", userName);
+      // ✅ FONTOS: Elmentjük a Sidebar számára szükséges adatokat
+      localStorage.setItem("authToken", token); // Ez kell az API hívásokhoz
 
-      // Értesítjük az App.tsx-et
+      // Ez pedig a Sidebar-nak kell a megjelenítéshez:
+      localStorage.setItem(
+        "user_data",
+        JSON.stringify({
+          name: userName,
+          role: role,
+          profilePicturePath: profilePicturePath, // Itt mentjük el a kép nevét!
+        }),
+      );
+
+      // Értesítjük az App.tsx-et a sikeres belépésről
       onLogin(token, userName, role);
     } catch (err: any) {
-      // Ha a szerver 401 Unauthorized-ot küld
+      console.error(err); // Segít a debuggolásban
       setError(
         err.response?.data?.message || "Hibás felhasználónév vagy jelszó!",
       );
@@ -56,7 +64,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        background: "#09090b", // ✅ Sötétebb háttér, hogy illeszkedjen a Dashboard-hoz
+        background: "#09090b",
         backgroundImage:
           "radial-gradient(circle at 50% 50%, #1e1e24 0%, #09090b 100%)",
       }}
@@ -68,7 +76,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
           width: "90%",
           padding: "40px",
           borderRadius: "16px",
-          background: "#18181b", // Kártya háttérszíne
+          background: "#18181b",
           boxShadow: "0 20px 50px rgba(0,0,0,0.5)",
           border: "1px solid #27272a",
         }}
@@ -86,7 +94,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
             style={{
               width: "60px",
               height: "60px",
-              background: "#3b82f6", // Egységes kék szín
+              background: "#3b82f6",
               borderRadius: "12px",
               display: "flex",
               justifyContent: "center",
@@ -153,7 +161,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
             />
             <input
               type="text"
-              placeholder="Felhasználónév"
+              placeholder="Felhasználónév (Email)"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
