@@ -1,14 +1,13 @@
 using CarServiceShop.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer; 
-using Microsoft.IdentityModel.Tokens;               // ✅ Új
-using System.Text;                                  // ✅ Új
+using Microsoft.IdentityModel.Tokens;               
+using System.Text;                                  
 
 var builder = WebApplication.CreateBuilder(args);
 
-// --- 1. JWT KONFIGURÁCIÓ (builder.Build előtt) ---
-// Fontos: A kulcs legalább 32 karakter hosszú legyen!
-var jwtKey = builder.Configuration["Jwt:Key"]; // Kiolvassa az appsettings-ből
+// --- 1. JWT KONFIGURÁCIÓ ---
+var jwtKey = builder.Configuration["Jwt:Key"]; 
 if (string.IsNullOrEmpty(jwtKey)) throw new Exception("JWT kulcs hiányzik!");
 var key = Encoding.ASCII.GetBytes(jwtKey);
 
@@ -58,7 +57,6 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
-        // Itt hívjuk meg a Seeder-edet
         DbSeeder.SeedUsers(context);
     }
     catch (Exception ex)
@@ -67,7 +65,6 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-
 // --- 4. MIDDLEWARE SORREND (Kritikus!) ---
 if (app.Environment.IsDevelopment())
 {
@@ -75,8 +72,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseStaticFiles(); // Alapértelmezett wwwroot mappa
-// Egyedi mappa a feltöltéseknek
+app.UseHttpsRedirection();
+app.UseCors("AllowAll");
+
+// ✅ ÚJ: Ezek kellenek a React kiszolgálásához!
+app.UseDefaultFiles(); // Megkeresi az index.html-t a wwwroot-ban
+app.UseStaticFiles();  // Kiszolgálja a React fájlokat (js, css, képek)
+
+// Egyedi mappa a feltöltéseknek (profilképek)
 var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
 if (!Directory.Exists(uploadPath)) Directory.CreateDirectory(uploadPath);
 
@@ -86,18 +89,13 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/uploads"
 });
 
-app.UseHttpsRedirection();
-
-// 1. CORS legyen az első
-app.UseCors("AllowAll");
-
-// 2. Hitelesítés (Ki vagy te?)
 app.UseAuthentication(); 
-
-// 3. Engedélyezés (Mit tehetsz?)
 app.UseAuthorization();  
 
-// 4. Végpontok
 app.MapControllers();
+
+// ✅ ÚJ: Ha a felhasználó pl. a /customers url-re megy, a C# nem tudja mi az, 
+// ezért visszaadja a React alkalmazást, és a React Router majd megoldja!
+app.MapFallbackToFile("index.html");
 
 app.Run();
