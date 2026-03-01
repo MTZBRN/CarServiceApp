@@ -57,6 +57,7 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
+        context.Database.Migrate();
         DbSeeder.SeedUsers(context);
     }
     catch (Exception ex)
