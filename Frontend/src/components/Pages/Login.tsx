@@ -19,13 +19,10 @@ const Login: React.FC<Props> = ({ onLogin }) => {
     setError("");
 
     try {
-      const response = await axios.post(
-        "http://localhost:5232/api/Auth/login",
-        {
-          email: username,
-          password: password,
-        },
-      );
+      const response = await axios.post("/api/Auth/login", {
+        email: username,
+        password: password,
+      });
 
       // ✅ KIBŐVÍTVE: Kiszedjük a profilképet is a válaszból
       // (A Backend camelCase-re konvertálja a mezőneveket: Token -> token, ProfilePicturePath -> profilePicturePath)
