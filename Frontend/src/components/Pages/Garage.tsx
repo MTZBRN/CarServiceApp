@@ -6,7 +6,7 @@ import { InputField } from "../ui/FormElements";
 
 // Komponensek
 import WorksheetModal from "../modals/WorksheetModal";
-import VehicleDetails from "../pages/VehicleDetails";
+import VehicleDetails from "../Pages/VehicleDetails";
 import AddVehicleModal from "../modals/AddVehicleModal";
 
 const Garage: React.FC = () => {

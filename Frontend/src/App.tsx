@@ -21,15 +21,15 @@ import WorksheetModal from "./components/modals/WorksheetModal";
 import AddVehicleModal from "./components/modals/AddVehicleModal";
 
 // Oldalak
-import MainDashboard from "./components/pages/MainDashboard";
-import Inventory from "./components/pages/Inventory";
-import Garage from "./components/pages/Garage";
-import DevDashboard from "./components/pages/Dashboard";
-import VehicleDetails from "./components/pages/VehicleDetails";
-import Settings from "./components/pages/Settings";
-import UserManagement from "./components/pages/UserManagement";
-import Login from "./components/pages/Login";
-import Customers from "./components/pages/Customers";
+import MainDashboard from "./components/Pages/MainDashboard";
+import Inventory from "./components/Pages/Inventory";
+import Garage from "./components/Pages/Garage";
+import DevDashboard from "./components/Pages/Dashboard";
+import VehicleDetails from "./components/Pages/VehicleDetails";
+import Settings from "./components/Pages/Settings";
+import UserManagement from "./components/Pages/UserManagement";
+import Login from "./components/Pages/Login";
+import Customers from "./components/Pages/Customers";
 
 // Hook és API
 import { useCarService } from "./hooks/useCarService";
