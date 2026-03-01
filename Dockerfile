@@ -10,11 +10,13 @@ RUN npm run build
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS backend-build
 WORKDIR /src
 
-# Átmásoljuk az egész Backend mappát a gyökérből
+# Átmásoljuk az egész Backend mappát
 COPY Backend/ ./Backend/
 
-# ✅ ITT A PONTOS ÚTVONAL A KÉPED ALAPJÁN:
-RUN dotnet publish "Backend/CarServiceShop/CarServiceShop.csproj" -c Release -o /app/publish
+# ✅ GOLYÓÁLLÓ MEGOLDÁS: A Docker automatikusan megkeresi a .csproj fájlt és lefordítja!
+RUN PROJECT_FILE=$(find Backend -name "*.csproj" | head -n 1) && \
+    echo "Megtalalt projekt fajl: $PROJECT_FILE" && \
+    dotnet publish "$PROJECT_FILE" -c Release -o /app/publish
 
 # 3. Fázis: Összeolvasztás és Futtatás
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
