@@ -49,8 +49,11 @@ const Sidebar: React.FC<Props> = ({
     const updateProfilePic = () => {
       const userData = JSON.parse(localStorage.getItem("user_data") || "{}");
       if (userData.profilePicturePath) {
-        const baseUrl =
-          api.defaults.baseURL?.replace("/api", "") || "http://localhost:5232";
+        // ✅ MEGOLDÁS: Ha élesben vagyunk, ne tegyen elé semmit (relatív út),
+        // ha lokálisan (a te gépeden), akkor tegye elé a localhostot!
+        const isProduction = import.meta.env.PROD;
+        const baseUrl = isProduction ? "" : "http://localhost:5232";
+
         setProfilePicUrl(`${baseUrl}/uploads/${userData.profilePicturePath}`);
       }
     };
