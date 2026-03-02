@@ -1,9 +1,5 @@
-import axios from "axios";
 import api from "./api";
 import { Vehicle, Customer, Appointment, ServiceJob, Part } from "../types";
-
-// Ellenőrizd a portot!
-const API_URL = "http://localhost:5232/api";
 
 export const apiService = {
   getVehicles: () => api.get<Vehicle[]>("/Vehicle"),
@@ -34,24 +30,21 @@ export const apiService = {
 
   // 3. Létrehozás (Create)
   createServiceJob: (data: Partial<ServiceJob>) =>
-    axios.post<ServiceJob>(`${API_URL}/ServiceJobs`, data),
+    api.post<ServiceJob>("/ServiceJobs", data),
 
-  // 4. Frissítés (Update) - Ha a "save" nálad frissítést is jelent, akkor használhatod azt
+  // 4. Frissítés (Update)
   updateServiceJob: (id: number, data: Partial<ServiceJob>) =>
-    axios.put(`${API_URL}/ServiceJobs/${id}`, data),
+    api.put(`/ServiceJobs/${id}`, data),
 
   // 5. Törlés
-  deleteServiceJob: (id: number) =>
-    axios.delete(`${API_URL}/ServiceJobs/${id}`),
+  deleteServiceJob: (id: number) => api.delete(`/ServiceJobs/${id}`),
 
-  // Régi segédfüggvények (maradhatnak, ha használod őket)
+  // Segédfüggvények
   getServiceJobByAppointment: (appointmentId: number) =>
-    axios.get<ServiceJob>(
-      `${API_URL}/ServiceJobs/ByAppointment/${appointmentId}`,
-    ),
+    api.get<ServiceJob>(`/ServiceJobs/ByAppointment/${appointmentId}`),
   getServiceHistory: (vehicleId: number) =>
-    axios.get<ServiceJob[]>(`${API_URL}/ServiceJobs/ByVehicle/${vehicleId}`),
+    api.get<ServiceJob[]>(`/ServiceJobs/ByVehicle/${vehicleId}`),
 
   //--- SEED DATA ---
-  seedDatabase: () => axios.post(`${API_URL}/Seed`),
+  seedDatabase: () => api.post("/Seed"),
 };
