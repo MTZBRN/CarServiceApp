@@ -82,7 +82,6 @@ const AddVehicleModal: React.FC<Props> = ({
       // 4. SIKER
       // alert("Jármű sikeresen rögzítve! 🚗"); // Opcionális visszajelzés
       onSuccess(); // Bezárja az ablakot és frissíti a listát (refreshAll)
-      onClose();
     } catch (err) {
       console.error("Hiba történt a mentés során:", err);
       alert("Hiba történt a mentés során! Nézd meg a konzolt a részletekért.");

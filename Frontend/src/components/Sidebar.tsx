@@ -6,7 +6,7 @@ import {
   Settings as SettingsIcon,
   LogOut,
   Package,
-  Users, // ✅ Új ikon az ügyfelekhez (FileText helyett)
+  Users,
   ChevronLeft,
   ChevronRight,
   ShieldCheck,
