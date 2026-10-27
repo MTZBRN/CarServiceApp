@@ -74,7 +74,7 @@ const AppointmentModal: React.FC<Props> = ({
         vehicleId: formData.vehicleId,
         startTime: startDateTime.toISOString(),
         endTime: endDateTime.toISOString(),
-        description: formData.description,
+        note: formData.description,
       });
 
       setMessage("Időpont sikeresen rögzítve! ✅");

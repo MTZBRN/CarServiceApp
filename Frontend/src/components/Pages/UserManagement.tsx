@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import api from "../../api/api"; // Az új interceptoros kliensünk
 import { User, Trash2, Shield, UserPlus } from "lucide-react";
 import AddUserModal from "../modals/AddUserModal";
 
 const UserManagement = () => {
   const [users, setUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {

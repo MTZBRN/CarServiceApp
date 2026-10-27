@@ -6,6 +6,7 @@ namespace CarServiceShop.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Microsoft.AspNetCore.Authorization.Authorize(Roles = "admin")]
 public class SeedController : ControllerBase
 {
     private readonly ApplicationDbContext _context;

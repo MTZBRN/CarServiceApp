@@ -8,7 +8,7 @@ namespace CarServiceShop.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-//[Authorize(Roles = "admin")] 
+[Authorize(Roles = "admin")]
 public class UsersController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -31,8 +31,8 @@ public class UsersController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> AddUser([FromBody] CreateUserDto dto)
     {
-        if (dto.Role.Equals("mechanic", StringComparison.OrdinalIgnoreCase))
-            return BadRequest(new { message = "A mechanic szerepkörrel rendelkező felhasználó nem hozható létre." });
+        if (dto.Role != "admin" && dto.Role != "mechanic")
+            return BadRequest(new { message = "Érvénytelen szerepkör." });
 
         if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
             return BadRequest(new { message = "Ez a felhasználónév már foglalt!" });
@@ -62,6 +62,7 @@ public class UsersController : ControllerBase
         // var currentUserId = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value);
         // if (id == currentUserId) return BadRequest("Saját magadat nem törölheted!");
 
+        if (user.Role == "admin" && await _context.Users.CountAsync(u => u.Role == "admin") <= 1) return BadRequest("Az utolsó adminisztrátor nem törölhető.");
         _context.Users.Remove(user);
         await _context.SaveChangesAsync();
         return Ok(new { message = "Felhasználó törölve." });

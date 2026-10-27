@@ -33,6 +33,24 @@ public class CustomersController : ControllerBase
         return customer;
     }
 
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateCustomer(int id, Customer input)
+    {
+        var customer = await _context.Customers.FindAsync(id);
+        if (customer == null) return NotFound();
+        if (string.IsNullOrWhiteSpace(input.Name) || string.IsNullOrWhiteSpace(input.PhoneNumber)) return BadRequest("Név és telefonszám kötelező.");
+        customer.Name = input.Name.Trim(); customer.PhoneNumber = input.PhoneNumber.Trim();
+        customer.Email = input.Email; customer.Address = input.Address;
+        await _context.SaveChangesAsync(); return NoContent();
+    }
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteCustomer(int id)
+    {
+        var customer = await _context.Customers.FindAsync(id);
+        if (customer == null) return NotFound();
+        if (await _context.Vehicles.AnyAsync(v => v.CustomerId == id)) return Conflict("A járművel rendelkező ügyfél nem törölhető.");
+        _context.Customers.Remove(customer); await _context.SaveChangesAsync(); return NoContent();
+    }
     [HttpPost]
     public async Task<ActionResult<Customer>> PostCustomer(Customer customer)
     {

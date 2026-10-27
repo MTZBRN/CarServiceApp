@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { apiService } from "../../api/apiService";
 import { Customer } from "../../types";
-import { X, Save, Car, User, Calendar, Hash, FileText } from "lucide-react";
+import { X, Save, Car, User, Calendar, Hash } from "lucide-react";
 
 // AZ ÚJ KOMPONENSEK IMPORTÁLÁSA:
 import { InputField, SelectField } from "../ui/FormElements";

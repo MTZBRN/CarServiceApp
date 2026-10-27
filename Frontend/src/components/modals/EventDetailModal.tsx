@@ -231,7 +231,7 @@ const EventDetailModal: React.FC<Props> = ({
           )}
 
           {/* GOMBOK */}
-          <div style={{ display: "flex", gap: "15px", marginTop: "30px" }}>
+          {!isMot && <div style={{ display: "flex", gap: "15px", marginTop: "30px" }}>
             <button
               onClick={() => onOpenWorksheet(Number(event.id))}
               className="btn-add"
@@ -275,7 +275,7 @@ const EventDetailModal: React.FC<Props> = ({
             >
               <Trash2 size={22} />
             </button>
-          </div>
+          </div>}
         </div>
       </div>
     </div>

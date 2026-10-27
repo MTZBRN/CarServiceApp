@@ -2,11 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   Save,
   Building,
-  Phone,
-  Mail,
-  FileText,
   CreditCard,
-  Percent,
   Wrench,
   Lock,
   Camera,

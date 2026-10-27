@@ -6,7 +6,7 @@ using CarServiceShop.Models;
 
 [Route("api/[controller]")]
 [ApiController]
-[Authorize(Roles = "admin")]
+[Authorize]
 public class SettingsController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -24,6 +24,7 @@ public class SettingsController : ControllerBase
         return settings;
     }
 
+    [Authorize(Roles = "admin")]
     [HttpPost]
     public async Task<IActionResult> UpdateSettings([FromBody] GlobalSettings settings)
     {

@@ -76,6 +76,7 @@ public class VehicleController : ControllerBase
             return NotFound();
         }
 
+        if (await _context.ServiceJobs.AnyAsync(j => j.VehicleId == id) || await _context.Appointments.AnyAsync(a => a.VehicleId == id)) return Conflict("Szerviztörténettel vagy időponttal rendelkező jármű nem törölhető.");
         _context.Vehicles.Remove(vehicle);
         await _context.SaveChangesAsync();
 

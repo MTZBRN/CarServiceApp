@@ -45,17 +45,16 @@ export interface CalendarEvent {
 
 export interface JobPart {
   id?: number;
-  itemName: string; // VAGY partName? A Backenden JobPart-ban mi van?
   quantity: number;
   unitPrice: number;
   partNumber?: string;
-  partName?: string;
+  partName: string;
 }
 
 // --- ITT A LÉNYEG! ---
 export interface ServiceJob {
   id?: number;
-  appointmentId?: number;
+  appointmentId?: number | null;
   appointment?: Appointment;
   vehicleId: number;
   vehicle?: Vehicle;

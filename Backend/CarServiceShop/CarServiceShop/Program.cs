@@ -18,6 +18,12 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
+    options.Events = new JwtBearerEvents { OnTokenValidated = async ctx => {
+        var db = ctx.HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
+        var id = ctx.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        var role = ctx.Principal?.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+        if (!int.TryParse(id, out var userId) || !await db.Users.AnyAsync(u => u.Id == userId && u.Role == role)) ctx.Fail("Invalid session");
+    }};
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
@@ -32,6 +38,7 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddAuthorization(o => o.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 builder.Services.AddControllers();
 
 builder.Services.AddCors(options =>

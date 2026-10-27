@@ -295,7 +295,7 @@ namespace CarServiceShop.Migrations
                     b.HasOne("CarServiceShop.Models.Appointment", "Appointment")
                         .WithOne("ServiceJob")
                         .HasForeignKey("CarServiceShop.Models.ServiceJob", "AppointmentId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("CarServiceShop.Models.Vehicle", "Vehicle")
                         .WithMany("ServiceJobs")

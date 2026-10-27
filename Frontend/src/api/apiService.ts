@@ -19,6 +19,7 @@ export const apiService = {
   deleteAppointment: (id: number) => api.delete(`/Appointments/${id}`),
 
   // --- SERVICE JOBS ---
+  getServiceJob: (id: number) => api.get<ServiceJob>(`/ServiceJobs/${id}`),
   getServiceJobs: () => api.get<ServiceJob[]>("/ServiceJobs"),
   saveServiceJob: (data: any) => api.post("/ServiceJobs", data),
 

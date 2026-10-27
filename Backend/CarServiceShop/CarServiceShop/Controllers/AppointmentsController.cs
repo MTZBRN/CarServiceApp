@@ -80,6 +80,8 @@ public class AppointmentsController : ControllerBase
         var appointment = await _context.Appointments.FindAsync(id);
         if (appointment == null) return NotFound();
 
+        var job = await _context.ServiceJobs.SingleOrDefaultAsync(j => j.AppointmentId == id);
+        if (job != null) job.AppointmentId = null;
         _context.Appointments.Remove(appointment);
         await _context.SaveChangesAsync();
         return NoContent();

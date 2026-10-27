@@ -1,16 +1,13 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import "./App.css";
 
 // Ikonok
 import {
-  Car,
-  Search,
   Wrench,
   ChevronLeft,
   ChevronRight,
   FileText,
   LogOut,
-  Users,
 } from "lucide-react";
 
 // Komponensek
@@ -33,6 +30,7 @@ import Customers from "./components/Pages/Customers";
 import Badge from "./components/ui/Badge";
 
 // Hook és API
+import api from "./api/api";
 import { useCarService } from "./hooks/useCarService";
 import { CalendarEvent } from "./types";
 
@@ -258,16 +256,22 @@ function App() {
   const [loadingAuth, setLoadingAuth] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem("authToken");
-    const savedUser = localStorage.getItem("currentUser");
-    const savedRole = localStorage.getItem("userRole");
-
-    if (token && savedUser) {
-      setIsLoggedIn(true);
-      setUserName(savedUser);
-      setUserRole(savedRole || "mechanic");
-    }
-    setLoadingAuth(false);
+    let active = true;
+    const restore = async () => {
+      try {
+        if (localStorage.getItem("authToken")) {
+          const { data } = await api.get("/Auth/me");
+          if (!active) return;
+          setIsLoggedIn(true); setUserName(data.userName); setUserRole(data.role);
+          localStorage.setItem("currentUser", data.userName);
+          localStorage.setItem("userRole", data.role);
+          localStorage.setItem("user_data", JSON.stringify(data));
+        }
+      } catch { /* Authentication interceptor clears expired sessions. */ }
+      finally { if (active) setLoadingAuth(false); }
+    };
+    void restore();
+    return () => { active = false; };
   }, []);
 
   const handleLogin = (token: string, name: string, role: string) => {
@@ -283,6 +287,7 @@ function App() {
     if (window.confirm("Biztosan ki akarsz jelentkezni?")) {
       localStorage.removeItem("authToken");
       localStorage.removeItem("currentUser");
+      localStorage.removeItem("user_data");
       localStorage.removeItem("userRole");
       setIsLoggedIn(false);
       setUserName("");
@@ -301,7 +306,7 @@ function App() {
     deleteVehicle,
     deleteAppointment,
     appointments,
-  } = useCarService();
+  } = useCarService(isLoggedIn);
 
   // --- NAVIGÁCIÓS STATE ---
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -562,6 +567,7 @@ function App() {
       )}
       {showApptModal && (
         <AppointmentModal
+          onRefreshData={refreshAll}
           selectedSlot={selectedSlot}
           onClose={() => setShowApptModal(false)}
           onSuccess={() => {

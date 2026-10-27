@@ -49,7 +49,7 @@ public class UsersControllerTests
     }
 
     [Fact]
-    public async Task AddUser_ReturnsBadRequest_WhenRoleIsMechanic()
+    public async Task AddUser_ReturnsOk_WhenRoleIsMechanic()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
@@ -67,10 +67,7 @@ public class UsersControllerTests
 
         var result = await controller.AddUser(newUserDto);
 
-        var badRequest = Assert.IsType<BadRequestObjectResult>(result);
-        Assert.Equal(
-            "A mechanic szerepkörrel rendelkező felhasználó nem hozható létre.",
-            badRequest.Value?.GetType().GetProperty("message")?.GetValue(badRequest.Value));
-        Assert.Empty(await context.Users.ToListAsync());
+        Assert.IsType<OkObjectResult>(result);
+        Assert.Equal("mechanic", (await context.Users.SingleAsync()).Role);
     }
 }

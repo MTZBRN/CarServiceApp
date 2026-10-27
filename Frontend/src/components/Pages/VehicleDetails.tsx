@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { apiService } from "../../api/apiService";
 import { ServiceJob, Vehicle } from "../../types";
 import {
@@ -18,7 +18,7 @@ import {
 import WorksheetModal from "../modals/WorksheetModal";
 
 // NYOMTATÁSHOZ
-import { useReactToPrint } from "react-to-print";
+
 import WorksheetPrintModal from "../print/WorkSheetPrintModal";
 
 interface Props {
@@ -35,7 +35,7 @@ const VehicleDetails: React.FC<Props> = ({ vehicle, onBack }) => {
   // --- ÁLLAPOTOK A FUNKCIÓKHOZ ---
   const [editingJob, setEditingJob] = useState<ServiceJob | null>(null); // Épp szerkesztett munka
   const [printJob, setPrintJob] = useState<ServiceJob | null>(null); // Épp nyomtatott munka
-  const printRef = useRef<HTMLDivElement>(null);
+
 
   useEffect(() => {}, [printJob]);
 
@@ -490,8 +490,7 @@ const VehicleDetails: React.FC<Props> = ({ vehicle, onBack }) => {
                                 fontWeight: 500,
                               }}
                             >
-                              {part.itemName ||
-                                part.partName ||
+                              {part.partName ||
                                 "Névtelen alkatrész"}
                             </td>
                             <td
@@ -527,7 +526,9 @@ const VehicleDetails: React.FC<Props> = ({ vehicle, onBack }) => {
       {/* --- SZERKESZTÉS MODAL --- */}
       {editingJob && (
         <WorksheetModal
-          appointmentId={editingJob.id || null} // Az ID-t adjuk át, hogy betöltse az adatokat
+          appointmentId={editingJob.appointmentId || null}
+          serviceJobId={editingJob.id}
+          vehicle={vehicle}
           vehicleName={vehicle.licensePlate}
           vehicleId={vehicle.id}
           onClose={() => setEditingJob(null)}

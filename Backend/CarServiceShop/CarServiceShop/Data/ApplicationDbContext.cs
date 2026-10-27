@@ -24,7 +24,7 @@ public class ApplicationDbContext : DbContext
             .HasOne(a => a.ServiceJob)
             .WithOne(s => s.Appointment)
             .HasForeignKey<ServiceJob>(s => s.AppointmentId)
-            .OnDelete(DeleteBehavior.Cascade); // Ha törlöd az időpontot, törlődik a munkalap is
+            .OnDelete(DeleteBehavior.SetNull); // Preserve service history
 
         // 1 Munkalap -> Sok Alkatrész
         modelBuilder.Entity<JobPart>()

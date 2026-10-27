@@ -22,6 +22,7 @@ public class AuthController : ControllerBase
         _configuration = configuration;
     }
 
+    [AllowAnonymous]
     [HttpPost("login")]
     public IActionResult Login([FromBody] LoginDto loginDto)
     {
@@ -70,6 +71,15 @@ public class AuthController : ControllerBase
         });
     }
     
+    [Authorize]
+    [HttpGet("me")]
+    public async Task<IActionResult> Me()
+    {
+        var id = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var user = await _context.Users.FindAsync(id);
+        if (user == null) return Unauthorized();
+        return Ok(new { userName = user.Name, user.Role, user.ProfilePicturePath });
+    }
     [Authorize] // Bárki, aki be van jelentkezve, használhatja
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)

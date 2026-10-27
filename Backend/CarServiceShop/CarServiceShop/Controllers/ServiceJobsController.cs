@@ -30,6 +30,12 @@ public class ServiceJobsController : ControllerBase
 
     // GET: api/ServiceJobs/5
     // Egy konkrét munka lekérése
+    [HttpGet("ByAppointment/{appointmentId}")]
+    public async Task<ActionResult<ServiceJob>> GetByAppointment(int appointmentId)
+    {
+        var job = await _context.ServiceJobs.Include(j => j.JobParts).SingleOrDefaultAsync(j => j.AppointmentId == appointmentId);
+        return job == null ? NotFound() : Ok(job);
+    }
     [HttpGet("{id}")]
     public async Task<ActionResult<ServiceJob>> GetServiceJob(int id)
     {
@@ -71,6 +77,14 @@ public class ServiceJobsController : ControllerBase
             if (apt != null) serviceJob.VehicleId = apt.VehicleId;
         }
 
+        if (!await _context.Vehicles.AnyAsync(v => v.Id == serviceJob.VehicleId)) return BadRequest("Invalid vehicle.");
+        if (serviceJob.AppointmentId.HasValue) {
+            var appointment = await _context.Appointments.FindAsync(serviceJob.AppointmentId);
+            if (appointment == null || appointment.VehicleId != serviceJob.VehicleId) return BadRequest("Invalid appointment.");
+            if (await _context.ServiceJobs.AnyAsync(j => j.AppointmentId == serviceJob.AppointmentId)) return Conflict("Appointment already has a worksheet.");
+        }
+        serviceJob.Id = 0;
+        serviceJob.JobParts = serviceJob.JobParts.Select(p => new JobPart { PartName = p.PartName, PartNumber = p.PartNumber, Quantity = p.Quantity, UnitPrice = p.UnitPrice }).ToList();
         _context.ServiceJobs.Add(serviceJob);
         await _context.SaveChangesAsync();
 
@@ -102,7 +116,7 @@ public class ServiceJobsController : ControllerBase
         _context.JobParts.RemoveRange(existingJob.JobParts);
         
         // Majd hozzáadjuk a listához az újakat (az EF Core intézi a mentést)
-        existingJob.JobParts = serviceJob.JobParts;
+        existingJob.JobParts = serviceJob.JobParts.Select(p => new JobPart { PartName = p.PartName, PartNumber = p.PartNumber, Quantity = p.Quantity, UnitPrice = p.UnitPrice }).ToList();
 
         try
         {

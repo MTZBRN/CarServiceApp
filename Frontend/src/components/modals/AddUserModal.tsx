@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, UserPlus, Shield, User } from "lucide-react";
+import { X, UserPlus } from "lucide-react";
 import api from "../../api/api";
 
 interface Props {

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { apiService } from "../api/apiService";
 import { Vehicle, Customer, Appointment, CalendarEvent } from "../types";
 
-export const useCarService = () => {
+export const useCarService = (enabled = true) => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -10,7 +10,8 @@ export const useCarService = () => {
   const [message, setMessage] = useState<string | null>(null);
 
   const refreshAll = useCallback(() => {
-    Promise.all([
+    if (!enabled) return;
+    return Promise.all([
       apiService.getVehicles(),
       apiService.getCustomers(),
       apiService.getAppointments(),
@@ -24,11 +25,15 @@ export const useCarService = () => {
         console.error(err);
         setMessage("Hiba az adatok betöltésekor!");
       });
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
+    if (!enabled) { setVehicles([]); setCustomers([]); setAppointments([]); return; }
     refreshAll();
-  }, [refreshAll]);
+    const refresh = () => { void refreshAll(); };
+    window.addEventListener("business-data-updated", refresh);
+    return () => window.removeEventListener("business-data-updated", refresh);
+  }, [refreshAll, enabled]);
 
   useEffect(() => {
     const serviceEvents: CalendarEvent[] = appointments.map((app) => ({
@@ -36,7 +41,7 @@ export const useCarService = () => {
       title: app.vehicle ? app.vehicle.licensePlate : "Ismeretlen jármű",
       tooltip: `Szerviz: ${app.note || app.description || "-"}\nAutó: ${app.vehicle?.make} ${app.vehicle?.model}`,
       start: new Date(app.startTime),
-      end: new Date(new Date(app.startTime).getTime() + 60 * 60 * 1000),
+      end: new Date(app.endTime),
       allDay: false,
       type: "service",
       originalData: app,

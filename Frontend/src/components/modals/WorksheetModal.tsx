@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { apiService } from "../../api/apiService";
 import {
   X,
@@ -20,6 +20,7 @@ import { useToast } from "../ui/ToastProvider";
 
 interface Props {
   appointmentId: number | null;
+  serviceJobId?: number;
   vehicleId?: number;
   vehicleName: string;
   vehicle?: Vehicle;
@@ -29,12 +30,15 @@ interface Props {
 
 const WorksheetModal: React.FC<Props> = ({
   appointmentId,
+  serviceJobId,
   vehicleId,
   vehicleName,
   vehicle,
   onClose,
   onSave,
 }) => {
+  const [loadedJobId, setLoadedJobId] = useState<number | undefined>(serviceJobId);
+  const [loadError, setLoadError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -60,7 +64,7 @@ const WorksheetModal: React.FC<Props> = ({
 
   useEffect(() => {
     loadInitData();
-  }, [appointmentId]);
+  }, [appointmentId, serviceJobId]);
 
   const loadInitData = async () => {
     setLoading(true);
@@ -68,9 +72,10 @@ const WorksheetModal: React.FC<Props> = ({
       const partsRes = await apiService.getParts();
       setInventory(partsRes.data);
 
-      if (appointmentId) {
-        const res = await apiService.getServiceJob(appointmentId);
+      if (serviceJobId || appointmentId) {
+        const res = serviceJobId ? await apiService.getServiceJob(serviceJobId) : await apiService.getServiceJobByAppointment(appointmentId!).catch(error => { if (error.response?.status === 404) return { data: null }; throw error; });
         if (res.data) {
+          setLoadedJobId(res.data.id);
           setDescription(res.data.description || "");
           setLaborCost(res.data.laborCost || 0);
           setIsCompleted(res.data.isCompleted || false);
@@ -80,6 +85,8 @@ const WorksheetModal: React.FC<Props> = ({
         setDescription("Gyors szerviz felvétel a Garázsból");
       }
     } catch (err) {
+      setLoadError(true);
+      showToast("A munkalap betöltése nem sikerült.", "error");
       console.error(err);
     } finally {
       setLoading(false);
@@ -129,7 +136,6 @@ const WorksheetModal: React.FC<Props> = ({
 
     // Listához adás (A munkalapra)
     const part: JobPart = {
-      itemName: newItem.name,
       quantity: newItem.quantity,
       unitPrice: newItem.unitPrice,
       id: 0,
@@ -166,16 +172,17 @@ const WorksheetModal: React.FC<Props> = ({
     // Az ID-kat tisztítjuk (negatív ID nem mehet a backendre)
     const cleanedParts = jobParts.map((p) => ({
       ...p,
-      id: p.id && p.id < 0 ? 0 : p.id,
+      id: 0,
+      partName: p.partName,
     }));
 
     setSaving(true);
     try {
-      if (appointmentId) {
+      if (loadedJobId) {
         // --- FRISSÍTÉS (PUT) - EZ HIÁNYZOTT! ---
         // Ha van ID, akkor Update-et hívunk, nem Save-et/Create-et
-        await apiService.updateServiceJob(appointmentId, {
-          id: appointmentId,
+        await apiService.updateServiceJob(loadedJobId, {
+          id: loadedJobId,
           appointmentId: appointmentId,
           description,
           laborCost,
@@ -187,6 +194,7 @@ const WorksheetModal: React.FC<Props> = ({
         if (!vehicleId) return alert("Hiba: Nincs jármű kiválasztva!");
 
         await apiService.createServiceJob({
+          appointmentId,
           vehicleId: vehicleId,
           date: new Date().toISOString(),
           description,
@@ -251,12 +259,12 @@ const WorksheetModal: React.FC<Props> = ({
                 marginLeft: "32px",
               }}
             >
-              {appointmentId ? `ID: #${appointmentId}` : "ÚJ MUNKALAP"}
+              {loadedJobId ? `ID: #${loadedJobId}` : "ÚJ MUNKALAP"}
             </span>
           </div>
           {/* FEJLÉC GOMBOKNÁL: */}
           <div style={{ display: "flex", gap: "10px" }}>
-            {appointmentId && (
+            {loadedJobId && (
               <button
                 onClick={() => setShowPrintModal(true)} // Csak megjelenítjük
                 className="icon-btn"
@@ -469,7 +477,7 @@ const WorksheetModal: React.FC<Props> = ({
                     <td style={{ padding: "10px 8px", color: "#3b82f6" }}>
                       {part.partNumber || "-"}
                     </td>
-                    <td style={{ padding: "10px 8px" }}>{part.itemName}</td>
+                    <td style={{ padding: "10px 8px" }}>{part.partName}</td>
                     <td style={{ padding: "10px 8px", textAlign: "center" }}>
                       {part.quantity}
                     </td>
@@ -548,7 +556,7 @@ const WorksheetModal: React.FC<Props> = ({
 
           <Button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || loadError}
             className="btn-add worksheet-save-button"
             data-testid="save-worksheet"
           >
@@ -556,12 +564,12 @@ const WorksheetModal: React.FC<Props> = ({
           </Button>
         </div>
 
-        {showPrintModal && appointmentId && (
+        {showPrintModal && loadedJobId && (
           <WorksheetPrintModal
             // Összeállítjuk a Job objektumot a jelenlegi state-ekből
             job={
               {
-                id: appointmentId,
+                id: loadedJobId,
                 description: description,
                 laborCost: laborCost,
                 isCompleted: isCompleted,
