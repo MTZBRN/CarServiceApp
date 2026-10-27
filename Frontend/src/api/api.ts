@@ -40,13 +40,16 @@ api.interceptors.response.use(
   },
   (error) => {
     const isLoginRequest = error.config?.url?.endsWith("/Auth/login");
-    if (error.response?.status === 401 && !isLoginRequest) {
+    const requestToken = error.config?.headers?.Authorization;
+    const currentToken = localStorage.getItem("authToken");
+    // A late response from an old session must not log out a newly signed-in user.
+    if (error.response?.status === 401 && !isLoginRequest && requestToken === `Bearer ${currentToken}`) {
       localStorage.removeItem("authToken");
       localStorage.removeItem("currentUser");
       localStorage.removeItem("user_data");
       localStorage.removeItem("userRole"); // Biztos ami biztos
       if (typeof window !== "undefined") {
-        window.location.href = "/";
+        window.dispatchEvent(new Event("session-invalid"));
       } // Visszadob a loginra
     }
     return Promise.reject(error);

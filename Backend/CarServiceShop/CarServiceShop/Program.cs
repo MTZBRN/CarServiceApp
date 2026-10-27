@@ -109,6 +109,6 @@ app.MapControllers();
 
 // ✅ ÚJ: Ha a felhasználó pl. a /customers url-re megy, a C# nem tudja mi az, 
 // ezért visszaadja a React alkalmazást, és a React Router majd megoldja!
-app.MapFallbackToFile("index.html");
+app.MapFallbackToFile("index.html").AllowAnonymous();
 
 app.Run();

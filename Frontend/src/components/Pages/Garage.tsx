@@ -1,12 +1,13 @@
+import { useNavigate } from "react-router-dom";
 import React, { useState } from "react";
 import { useCarService } from "../../hooks/useCarService";
-import { Vehicle } from "../../types";
+
 import { Car, Search, Plus, Trash2, History, Wrench, User } from "lucide-react";
 import { InputField } from "../ui/FormElements";
 
 // Komponensek
 import WorksheetModal from "../modals/WorksheetModal";
-import VehicleDetails from "../Pages/VehicleDetails";
+
 import AddVehicleModal from "../modals/AddVehicleModal";
 import { useToast } from "../ui/ToastProvider";
 
@@ -15,7 +16,7 @@ const Garage: React.FC = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const navigate = useNavigate();
   const [worksheetTarget, setWorksheetTarget] = useState<{
     id: number;
     plate: string;
@@ -40,16 +41,6 @@ const Garage: React.FC = () => {
       showToast("A jármű törölve.", "success");
     }
   };
-
-  // --- RÉSZLETES NÉZET ---
-  if (selectedVehicle) {
-    return (
-      <VehicleDetails
-        vehicle={selectedVehicle}
-        onBack={() => setSelectedVehicle(null)}
-      />
-    );
-  }
 
   // --- LISTA NÉZET ---
   return (
@@ -283,7 +274,7 @@ const Garage: React.FC = () => {
               </button>
 
               <button
-                onClick={() => setSelectedVehicle(v)}
+                onClick={() => navigate(`/vehicles/${v.id}`)}
                 aria-label="Adatlap"
                 title="Szerviztörténet megnyitása"
                 style={{

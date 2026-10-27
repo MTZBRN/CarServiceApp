@@ -1,4 +1,7 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { flushSync } from "react-dom";
+import { Outlet, useOutletContext, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "./auth/AuthProvider";
+import { useState, useCallback, useMemo, useEffect, type ReactNode } from "react";
 import "./App.css";
 
 // Ikonok
@@ -19,18 +22,18 @@ import AddVehicleModal from "./components/modals/AddVehicleModal";
 
 // Oldalak
 import MainDashboard from "./components/Pages/MainDashboard";
-import Inventory from "./components/Pages/Inventory";
-import Garage from "./components/Pages/Garage";
+
+
 import DevDashboard from "./components/Pages/Dashboard";
-import VehicleDetails from "./components/Pages/VehicleDetails";
-import Settings from "./components/Pages/Settings";
-import UserManagement from "./components/Pages/UserManagement";
-import Login from "./components/Pages/Login";
-import Customers from "./components/Pages/Customers";
+
+
+
+
+
 import Badge from "./components/ui/Badge";
 
 // Hook és API
-import api from "./api/api";
+
 import { useCarService } from "./hooks/useCarService";
 import { CalendarEvent } from "./types";
 
@@ -249,51 +252,16 @@ const CustomToolbar = (toolbar: any) => {
 };
 
 function App() {
-  // --- AUTH STATE ---
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userRole, setUserRole] = useState<string>("");
-  const [userName, setUserName] = useState<string>("");
-  const [loadingAuth, setLoadingAuth] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    const restore = async () => {
-      try {
-        if (localStorage.getItem("authToken")) {
-          const { data } = await api.get("/Auth/me");
-          if (!active) return;
-          setIsLoggedIn(true); setUserName(data.userName); setUserRole(data.role);
-          localStorage.setItem("currentUser", data.userName);
-          localStorage.setItem("userRole", data.role);
-          localStorage.setItem("user_data", JSON.stringify(data));
-        }
-      } catch { /* Authentication interceptor clears expired sessions. */ }
-      finally { if (active) setLoadingAuth(false); }
-    };
-    void restore();
-    return () => { active = false; };
-  }, []);
-
-  const handleLogin = (token: string, name: string, role: string) => {
-    localStorage.setItem("authToken", token);
-    localStorage.setItem("currentUser", name);
-    localStorage.setItem("userRole", role);
-    setIsLoggedIn(true);
-    setUserName(name);
-    setUserRole(role);
-  };
-
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const userName = user!.userName;
+  const userRole = user!.role;
+  const routeTabs: Record<string, string> = { dashboard: "dashboard", calendar: "schedule", vehicles: "vehicles", customers: "customers", inventory: "inventory", users: "userManagement", settings: "settings" };
+  const activeTab = location.pathname.startsWith("/vehicles/") ? "vehicle_details" : routeTabs[location.pathname.split("/")[1]] || "";
+  const setActiveTab = (tab: string) => { const route = Object.keys(routeTabs).find(key => routeTabs[key] === tab); if (route) navigate("/" + route); };
   const handleLogout = () => {
-    if (window.confirm("Biztosan ki akarsz jelentkezni?")) {
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("currentUser");
-      localStorage.removeItem("user_data");
-      localStorage.removeItem("userRole");
-      setIsLoggedIn(false);
-      setUserName("");
-      setUserRole("");
-      setActiveTab("dashboard");
-    }
+    if (window.confirm("Biztosan ki akarsz jelentkezni?")) { flushSync(() => logout()); navigate("/login", { replace: true }); }
   };
 
   // --- ADATOK BETÖLTÉSE ---
@@ -306,15 +274,11 @@ function App() {
     deleteVehicle,
     deleteAppointment,
     appointments,
-  } = useCarService(isLoggedIn);
+  } = useCarService();
 
   // --- NAVIGÁCIÓS STATE ---
-  const [activeTab, setActiveTab] = useState("dashboard");
   const [date, setDate] = useState<Date>(new Date());
   const [view, setView] = useState<View>("week");
-  const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(
-    null,
-  );
   const [searchTerm, setSearchTerm] = useState("");
   const [isDevMode, setIsDevMode] = useState(false);
 
@@ -330,6 +294,15 @@ function App() {
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<
     number | null
   >(null);
+
+  // Route changes dismiss page-local overlays, including browser back/forward.
+  useEffect(() => {
+    setShowAddVehicleModal(false);
+    setShowApptModal(false);
+    setShowEventModal(false);
+    setShowWorksheetModal(false);
+    setIsDevMode(false);
+  }, [location.key]);
 
   // Naptár callbackek
   const onNavigate = useCallback((newDate: Date) => setDate(newDate), []);
@@ -356,12 +329,7 @@ function App() {
     setShowEventModal(false);
     setShowWorksheetModal(true);
   };
-  const handleOpenHistory = (id: number) => {
-    setSelectedVehicleId(id);
-    setActiveTab("vehicle_details");
-  };
-
-  const selectedVehicleObj = vehicles.find((v) => v.id === selectedVehicleId);
+  const handleOpenHistory = (id: number) => navigate(`/vehicles/${id}`);
 
   // --- ✅ ÚJ STÍLUSOK: HETI NÉZET OSZLOPOKKÁ ALAKÍTÁSA ---
   const calendarStyles = `
@@ -412,9 +380,7 @@ function App() {
     .rbc-event-label { display: none; } /* Nem kell az időpont felirat */
   `;
 
-  if (loadingAuth) return null;
-  if (!isLoggedIn) return <Login onLogin={handleLogin} />;
-  if (isDevMode)
+  if (isDevMode && userRole === "admin")
     return (
       <DevDashboard
         onBack={() => {
@@ -433,7 +399,7 @@ function App() {
     <div className="container">
       <style>{calendarStyles}</style>
 
-      <button
+      {userRole === "admin" && <button
         onClick={() => setIsDevMode(true)}
         className="dev-mode-btn"
         style={{
@@ -445,7 +411,7 @@ function App() {
         }}
       >
         <Wrench size={14} />
-      </button>
+      </button>}
 
       <Sidebar
         activeTab={activeTab}
@@ -497,7 +463,7 @@ function App() {
           </div>
         )}
 
-        {activeTab === "dashboard" && (
+        <Outlet context={{ dashboard: (
           <MainDashboard
             vehicles={vehicles}
             appointments={appointments}
@@ -506,9 +472,7 @@ function App() {
             onAddVehicle={() => setShowAddVehicleModal(true)}
             onOpenHistory={handleOpenHistory}
             onDeleteVehicle={deleteVehicle}
-          />
-        )}
-        {activeTab === "schedule" && (
+          />), calendar: (
           <div
             className="card"
             style={{
@@ -534,25 +498,7 @@ function App() {
               // Kivettem a Day view-t, mert az itt értelmetlen lenne
               views={["month", "week", "agenda"]}
             />
-          </div>
-        )}
-        {activeTab === "vehicles" && <Garage />}
-        {activeTab === "inventory" && <Inventory />}
-        {activeTab === "customers" && <Customers />}
-
-        {activeTab === "vehicle_details" && selectedVehicleObj && (
-          <VehicleDetails
-            vehicle={selectedVehicleObj}
-            onBack={() => {
-              setActiveTab("dashboard");
-              setSelectedVehicleId(null);
-            }}
-          />
-        )}
-        {activeTab === "settings" && <Settings />}
-        {activeTab === "userManagement" && userRole === "admin" && (
-          <UserManagement />
-        )}
+          </div>) } satisfies ScreenContext} />
       </div>
 
       {showAddVehicleModal && (
@@ -611,3 +557,7 @@ function App() {
 }
 
 export default App;
+
+interface ScreenContext { dashboard: ReactNode; calendar: ReactNode; }
+export function DashboardRoute() { return useOutletContext<ScreenContext>().dashboard; }
+export function CalendarRoute() { return useOutletContext<ScreenContext>().calendar; }
