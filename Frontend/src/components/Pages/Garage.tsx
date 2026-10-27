@@ -8,6 +8,7 @@ import { InputField } from "../ui/FormElements";
 import WorksheetModal from "../modals/WorksheetModal";
 import VehicleDetails from "../Pages/VehicleDetails";
 import AddVehicleModal from "../modals/AddVehicleModal";
+import { useToast } from "../ui/ToastProvider";
 
 const Garage: React.FC = () => {
   const { vehicles, customers, refreshAll, deleteVehicle } = useCarService();
@@ -19,6 +20,7 @@ const Garage: React.FC = () => {
     id: number;
     plate: string;
   } | null>(null);
+  const { showToast } = useToast();
 
   // Szűrés
   const filteredVehicles = vehicles.filter((v) => {
@@ -35,6 +37,7 @@ const Garage: React.FC = () => {
     if (window.confirm("Biztosan törölni akarod ezt a járművet?")) {
       await deleteVehicle(id);
       refreshAll();
+      showToast("A jármű törölve.", "success");
     }
   };
 
@@ -52,7 +55,8 @@ const Garage: React.FC = () => {
   return (
     <div
       style={{
-        height: "100%",
+        flex: 1,
+        minHeight: 0,
         display: "flex",
         flexDirection: "column",
         animation: "fadeIn 0.3s ease-in-out",
@@ -130,6 +134,7 @@ const Garage: React.FC = () => {
           gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
           gap: "20px",
           overflowY: "auto",
+          minHeight: 0,
           paddingBottom: "20px",
         }}
       >
@@ -243,7 +248,7 @@ const Garage: React.FC = () => {
                   }}
                 >
                   {v.motExpiry
-                    ? new Date(v.motExpiry).toLocaleDateString()
+                    ? new Date(v.motExpiry).toLocaleDateString("hu-HU")
                     : "-"}
                 </span>
               </div>
@@ -279,6 +284,8 @@ const Garage: React.FC = () => {
 
               <button
                 onClick={() => setSelectedVehicle(v)}
+                aria-label="Adatlap"
+                title="Szerviztörténet megnyitása"
                 style={{
                   flex: 1,
                   height: "38px",
@@ -294,7 +301,7 @@ const Garage: React.FC = () => {
                   fontSize: "0.9rem",
                 }}
               >
-                <History size={16} /> Adatlap
+                <History size={16} /> Előzmények
               </button>
 
               <button

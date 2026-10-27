@@ -94,6 +94,29 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
           gap: "20px",
         }}
       >
+        <div className="dashboard-stats">
+          <div className="dashboard-stat">
+            <span className="dashboard-stat-label">Járművek</span>
+            <strong className="dashboard-stat-value">{vehicles.length}</strong>
+          </div>
+          <div className="dashboard-stat">
+            <span className="dashboard-stat-label">Mai munkák</span>
+            <strong className="dashboard-stat-value">
+              {todaysAppointments.length}
+            </strong>
+          </div>
+          <div className="dashboard-stat">
+            <span className="dashboard-stat-label">Összes időpont</span>
+            <strong className="dashboard-stat-value">
+              {appointments.length}
+            </strong>
+          </div>
+          <div className="dashboard-stat">
+            <span className="dashboard-stat-label">Figyelmeztetés</span>
+            <strong className="dashboard-stat-value">{motAlerts.length}</strong>
+          </div>
+        </div>
+
         {/* Keresőmező és Gomb */}
         <div style={{ display: "flex", gap: "10px" }}>
           <button

@@ -33,7 +33,7 @@ export const useCarService = () => {
   useEffect(() => {
     const serviceEvents: CalendarEvent[] = appointments.map((app) => ({
       id: app.id,
-      title: `🔧 ${app.vehicle ? app.vehicle.licensePlate : "?"}`,
+      title: app.vehicle ? app.vehicle.licensePlate : "Ismeretlen jármű",
       tooltip: `Szerviz: ${app.note || app.description || "-"}\nAutó: ${app.vehicle?.make} ${app.vehicle?.model}`,
       start: new Date(app.startTime),
       end: new Date(new Date(app.startTime).getTime() + 60 * 60 * 1000),
@@ -46,7 +46,7 @@ export const useCarService = () => {
       .filter((v) => v.motExpiry) // Csak ha van dátum
       .map((v) => ({
         id: v.id, // Opcionális
-        title: `⚠️ LEJÁR: ${v.licensePlate}`,
+        title: `Lejáró műszaki: ${v.licensePlate}`,
         tooltip: `MŰSZAKI LEJÁR: ${v.licensePlate}`,
         start: new Date(v.motExpiry!), // A ! jelet használjuk, mert a filterrel már ellenőriztük
         end: new Date(v.motExpiry!),
@@ -72,7 +72,7 @@ export const useCarService = () => {
   const deleteAppointment = async (id: number) => {
     try {
       await apiService.deleteAppointment(id);
-      setMessage("Időpont törölve! 🗑️");
+      setMessage("Időpont törölve!");
       refreshAll();
     } catch (e) {
       console.error(e);

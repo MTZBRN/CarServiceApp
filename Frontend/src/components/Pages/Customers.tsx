@@ -12,6 +12,7 @@ import {
   User,
 } from "lucide-react";
 import CustomerModal from "../modals/CustomerModal";
+import { useToast } from "../ui/ToastProvider";
 
 interface Customer {
   id: number;
@@ -29,6 +30,7 @@ const Customers: React.FC = () => {
   // Modal statek
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const { showToast } = useToast();
 
   // --- STÍLUSOK ---
   const customStyles = `
@@ -74,8 +76,9 @@ const Customers: React.FC = () => {
       try {
         await api.delete(`/Customers/${id}`);
         fetchCustomers();
+        showToast("Az ügyfél törölve.", "success");
       } catch (error) {
-        alert("Hiba történt a törlés során!");
+        showToast("Hiba történt az ügyfél törlésekor.", "error");
       }
     }
   };
@@ -91,8 +94,12 @@ const Customers: React.FC = () => {
       setIsModalOpen(false);
       setEditingCustomer(null);
       fetchCustomers();
+      showToast(
+        editingCustomer ? "Az ügyfél módosítva." : "Az ügyfél létrehozva.",
+        "success",
+      );
     } catch (error) {
-      alert("Hiba történt a mentés során!");
+      showToast("Hiba történt az ügyfél mentésekor.", "error");
     }
   };
 

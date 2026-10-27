@@ -26,12 +26,52 @@ public class AppointmentsController : ControllerBase
             .ToListAsync();
     }
 
+    [HttpGet("{id}")]
+    public async Task<ActionResult<Appointment>> GetAppointment(int id)
+    {
+        var appointment = await _context.Appointments
+            .Include(a => a.Vehicle)
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (appointment == null) return NotFound();
+
+        return Ok(appointment);
+    }
+
     [HttpPost]
     public async Task<ActionResult<Appointment>> PostAppointment(Appointment appointment)
     {
         _context.Appointments.Add(appointment);
         await _context.SaveChangesAsync();
         return Ok(appointment);
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> PutAppointment(int id, Appointment appointment)
+    {
+        if (id != appointment.Id) return BadRequest();
+
+        var appointmentInDb = await _context.Appointments.FindAsync(id);
+        if (appointmentInDb == null) return NotFound();
+
+        appointmentInDb.StartTime = appointment.StartTime;
+        appointmentInDb.EndTime = appointment.EndTime;
+        appointmentInDb.Note = appointment.Note;
+        appointmentInDb.VehicleId = appointment.VehicleId;
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!await _context.Appointments.AnyAsync(a => a.Id == id))
+                return NotFound();
+
+            throw;
+        }
+
+        return NoContent();
     }
 
     [HttpDelete("{id}")]

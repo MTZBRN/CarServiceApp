@@ -29,6 +29,7 @@ interface Props {
 const VehicleDetails: React.FC<Props> = ({ vehicle, onBack }) => {
   const [jobs, setJobs] = useState<ServiceJob[]>([]);
   const [loading, setLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // --- ÁLLAPOTOK A FUNKCIÓKHOZ ---
@@ -45,15 +46,12 @@ const VehicleDetails: React.FC<Props> = ({ vehicle, onBack }) => {
 
   const loadHistory = async () => {
     try {
-      const res = await apiService.getServiceJobs();
-      const history = res.data
-        .filter((j) => j.vehicleId === vehicle.id)
-        .sort(
-          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-        );
-      setJobs(history);
+      setHistoryError(null);
+      const res = await apiService.getServiceHistory(vehicle.id);
+      setJobs(res.data);
     } catch (err) {
       console.error(err);
+      setHistoryError("A szerviztörténet betöltése nem sikerült.");
     } finally {
       setLoading(false);
     }
@@ -153,6 +151,18 @@ const VehicleDetails: React.FC<Props> = ({ vehicle, onBack }) => {
       <div style={{ flex: 1, overflowY: "auto" }}>
         {loading ? (
           <p>Betöltés...</p>
+        ) : historyError ? (
+          <div
+            style={{
+              color: "#fca5a5",
+              padding: "24px",
+              border: "1px solid rgba(239, 68, 68, 0.45)",
+              borderRadius: "12px",
+              background: "rgba(239, 68, 68, 0.1)",
+            }}
+          >
+            {historyError}
+          </div>
         ) : jobs.length === 0 ? (
           <div
             style={{
@@ -211,7 +221,7 @@ const VehicleDetails: React.FC<Props> = ({ vehicle, onBack }) => {
                     >
                       <Calendar size={18} color="#3b82f6" />
                       {job.date
-                        ? new Date(job.date).toLocaleDateString()
+                        ? new Date(job.date).toLocaleDateString("hu-HU")
                         : "Dátum hiba"}
                     </div>
                     <span style={{ color: "#666" }}>|</span>

@@ -32,6 +32,7 @@ const Sidebar: React.FC<Props> = ({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [serviceName, setServiceName] = useState("GTA Szerviz");
   const [profilePicUrl, setProfilePicUrl] = useState<string | null>(null);
+  const effectiveUserRole = userRole || localStorage.getItem("userRole") || "";
 
   // --- ADATOK BETÖLTÉSE ÉS FIGYELÉSE ---
   useEffect(() => {
@@ -58,14 +59,16 @@ const Sidebar: React.FC<Props> = ({
       }
     };
 
-    fetchSettings();
+    if (effectiveUserRole === "admin") {
+      fetchSettings();
+    }
     updateProfilePic();
 
     window.addEventListener("profile-updated", updateProfilePic);
     return () => {
       window.removeEventListener("profile-updated", updateProfilePic);
     };
-  }, []);
+  }, [effectiveUserRole]);
 
   const menuItems = [
     {
@@ -80,8 +83,16 @@ const Sidebar: React.FC<Props> = ({
     // ✅ ITT A VÁLTOZÁS: Számlák -> Ügyfelek
     { id: "customers", label: "Ügyfelek", icon: <Users size={20} /> },
 
-    { id: "settings", label: "Beállítások", icon: <SettingsIcon size={20} /> },
-    ...(userRole === "admin"
+    ...(effectiveUserRole === "admin"
+      ? [
+          {
+            id: "settings",
+            label: "Beállítások",
+            icon: <SettingsIcon size={20} />,
+          },
+        ]
+      : []),
+    ...(effectiveUserRole === "admin"
       ? [
           {
             id: "userManagement",

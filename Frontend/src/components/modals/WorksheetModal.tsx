@@ -15,6 +15,8 @@ import {
 import { JobPart, Part, Vehicle, ServiceJob } from "../../types";
 import WorksheetPrintModal from "../print/WorkSheetPrintModal";
 import { InputField, SelectField } from "../ui/FormElements";
+import Button from "../ui/Button";
+import { useToast } from "../ui/ToastProvider";
 
 interface Props {
   appointmentId: number | null;
@@ -34,6 +36,7 @@ const WorksheetModal: React.FC<Props> = ({
   onSave,
 }) => {
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
 
   // Alap adatok
@@ -51,6 +54,7 @@ const WorksheetModal: React.FC<Props> = ({
     unitPrice: 0,
     partNumber: "",
   });
+  const { showToast } = useToast();
 
   // A Checkbox state-je TÖRÖLVE, mert mostantól automatikus!
 
@@ -83,7 +87,10 @@ const WorksheetModal: React.FC<Props> = ({
   };
 
   const handleAddItem = async () => {
-    if (!newItem.name) return alert("Kérlek add meg az alkatrész nevét!");
+    if (!newItem.name) {
+      showToast("Kérlek add meg az alkatrész nevét!", "error");
+      return;
+    }
 
     // Generálunk cikkszámot, ha nincs megadva
     const currentPartNumber =
@@ -114,7 +121,8 @@ const WorksheetModal: React.FC<Props> = ({
         setInventory(updated.data);
       } catch (err) {
         console.error(err);
-        return alert("Hiba történt az új alkatrész Cikktörzsbe mentésekor!");
+        showToast("Hiba történt az új alkatrész mentésekor!", "error");
+        return;
       }
     }
     // Ha létezik, akkor nem csinálunk semmit, egyszerűen használjuk.
@@ -131,6 +139,7 @@ const WorksheetModal: React.FC<Props> = ({
 
     setJobParts([...jobParts, part]);
     setNewItem({ name: "", quantity: 1, unitPrice: 0, partNumber: "" });
+    showToast("Az alkatrész hozzáadva a munkalaphoz.", "success");
   };
 
   const handleRemoveItem = (index: number) => {
@@ -160,6 +169,7 @@ const WorksheetModal: React.FC<Props> = ({
       id: p.id && p.id < 0 ? 0 : p.id,
     }));
 
+    setSaving(true);
     try {
       if (appointmentId) {
         // --- FRISSÍTÉS (PUT) - EZ HIÁNYZOTT! ---
@@ -186,9 +196,12 @@ const WorksheetModal: React.FC<Props> = ({
         });
       }
       onSave(); // Bezárás és frissítés
+      showToast("A munkalap sikeresen mentve.", "success");
     } catch (err) {
       console.error(err);
-      alert("Hiba a mentés során!");
+      showToast("Hiba történt a munkalap mentésekor.", "error");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -209,6 +222,7 @@ const WorksheetModal: React.FC<Props> = ({
       >
         {/* FEJLÉC */}
         <div
+          className="worksheet-summary-grid"
           style={{
             padding: "20px",
             background: "#18181b",
@@ -260,6 +274,7 @@ const WorksheetModal: React.FC<Props> = ({
 
         <div style={{ padding: "25px", maxHeight: "80vh", overflowY: "auto" }}>
           <div
+            className="worksheet-part-grid"
             style={{
               display: "grid",
               gridTemplateColumns: "1fr 250px",
@@ -290,11 +305,12 @@ const WorksheetModal: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={() => setIsCompleted(!isCompleted)}
+                className={`status-toggle ${isCompleted ? "is-completed" : "is-pending"}`}
                 style={{
                   height: "40px",
-                  background: isCompleted ? "#10b981" : "#eab308",
+                  background: isCompleted ? "#22c55e" : "#f59e0b",
                   border: "none",
-                  borderRadius: "6px",
+                  borderRadius: "9px",
                   color: isCompleted ? "white" : "black",
                   fontWeight: "bold",
                   cursor: "pointer",
@@ -304,7 +320,7 @@ const WorksheetModal: React.FC<Props> = ({
                   gap: "8px",
                 }}
               >
-                {isCompleted ? "✅ KÉSZ (Lezárva)" : "⏳ FOLYAMATBAN"}
+                {isCompleted ? "KÉSZ (Lezárva)" : "FOLYAMATBAN"}
               </button>
             </div>
           </div>
@@ -411,21 +427,13 @@ const WorksheetModal: React.FC<Props> = ({
                   alignItems: "center",
                 }}
               >
-                <button
+                <Button
                   onClick={handleAddItem}
+                  type="button"
                   className="btn-add"
-                  style={{
-                    padding: "0 25px",
-                    height: "40px",
-                    width: "auto",
-                    fontSize: "0.9rem",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
                 >
                   <Plus size={18} /> Hozzáadás és Mentés
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -538,18 +546,14 @@ const WorksheetModal: React.FC<Props> = ({
             </span>
           </div>
 
-          <button
+          <Button
             onClick={handleSave}
-            className="btn-add"
-            style={{
-              marginTop: "25px",
-              width: "100%",
-              height: "50px",
-              fontSize: "1.1rem",
-            }}
+            disabled={saving}
+            className="btn-add worksheet-save-button"
+            data-testid="save-worksheet"
           >
-            <Save size={20} style={{ marginRight: 10 }} /> MENTÉS
-          </button>
+            <Save size={20} /> {saving ? "MENTÉS..." : "MENTÉS"}
+          </Button>
         </div>
 
         {showPrintModal && appointmentId && (

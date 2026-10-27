@@ -409,9 +409,9 @@ const AppointmentModal: React.FC<Props> = ({
                 setFormData({ ...formData, type: e.target.value })
               }
               options={[
-                { value: "service", label: "🔧 Általános Szerviz" },
+                { value: "service", label: "Általános Szerviz" },
                 { value: "mot", label: "🚦 Műszaki Vizsga" },
-                { value: "oil", label: "🛢️ Olajcsere" },
+                { value: "oil", label: "Olajcsere" },
                 { value: "repair", label: "🔨 Javítás" },
               ]}
             />

@@ -8,7 +8,7 @@ namespace CarServiceShop.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-[Authorize(Roles = "admin")] 
+//[Authorize(Roles = "admin")] 
 public class UsersController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
@@ -31,6 +31,9 @@ public class UsersController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> AddUser([FromBody] CreateUserDto dto)
     {
+        if (dto.Role.Equals("mechanic", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { message = "A mechanic szerepkörrel rendelkező felhasználó nem hozható létre." });
+
         if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
             return BadRequest(new { message = "Ez a felhasználónév már foglalt!" });
 

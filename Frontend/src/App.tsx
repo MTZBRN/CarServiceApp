@@ -30,6 +30,7 @@ import Settings from "./components/Pages/Settings";
 import UserManagement from "./components/Pages/UserManagement";
 import Login from "./components/Pages/Login";
 import Customers from "./components/Pages/Customers";
+import Badge from "./components/ui/Badge";
 
 // Hook és API
 import { useCarService } from "./hooks/useCarService";
@@ -65,43 +66,55 @@ const CustomEvent = ({ event }: { event: CalendarEvent }) => {
     : "rgba(59, 130, 246, 0.15)";
   const borderColor = isMot ? "#ef4444" : "#3b82f6";
   const Icon = isMot ? FileText : Wrench;
+  const vehicle = event.originalData?.vehicle;
+  const customerName = vehicle?.customer?.name;
+  const details =
+    event.originalData?.note ||
+    event.originalData?.description ||
+    customerName ||
+    event.desc ||
+    "Egész napos";
 
   return (
     <div
       style={{
         background: bgColor,
         borderLeft: `4px solid ${borderColor}`,
-        padding: "6px 8px",
-        color: "#e4e4e7",
+        padding: "8px 10px",
+        color: "#ffffff",
         fontSize: "0.85rem",
-        borderRadius: "4px",
-        marginBottom: "4px", // Kis térköz a kártyák között
-        boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
+        borderRadius: "8px",
+        marginBottom: "5px",
+        minHeight: "58px",
+        boxSizing: "border-box",
+        boxShadow: "0 4px 10px rgba(2, 6, 23, 0.18)",
       }}
     >
       <div
+        className="calendar-event-title"
         style={{
           display: "flex",
           alignItems: "center",
           gap: "8px",
           fontWeight: "600",
-          marginBottom: "2px",
+          marginBottom: "5px",
         }}
       >
         <Icon size={14} color={borderColor} style={{ flexShrink: 0 }} />
         <span
+          className="calendar-event-name"
           style={{
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
+            minWidth: 0,
           }}
         >
           {event.title}
         </span>
+        <Badge tone={isMot ? "warning" : "info"}>
+          {isMot ? "Műszaki" : "Szerviz"}
+        </Badge>
       </div>
-      {/* Rendszám vagy Ügyfél megjelenítése ha van (opcionális) */}
-      <div style={{ fontSize: "0.75rem", opacity: 0.7, paddingLeft: "22px" }}>
-        Egész napos
+      <div className="calendar-event-details">
+        {details}
       </div>
     </div>
   );
@@ -147,7 +160,8 @@ const CustomToolbar = (toolbar: any) => {
         >
           <button
             onClick={goToBack}
-            className="icon-btn"
+            className="calendar-nav-btn"
+            aria-label="Előző időszak"
             style={{
               width: "32px",
               height: "32px",
@@ -164,6 +178,7 @@ const CustomToolbar = (toolbar: any) => {
           </button>
           <button
             onClick={goToCurrent}
+            className="calendar-today-btn"
             style={{
               background: "transparent",
               color: "white",
@@ -179,7 +194,8 @@ const CustomToolbar = (toolbar: any) => {
           </button>
           <button
             onClick={goToNext}
-            className="icon-btn"
+            className="calendar-nav-btn"
+            aria-label="Következő időszak"
             style={{
               width: "32px",
               height: "32px",
@@ -210,7 +226,7 @@ const CustomToolbar = (toolbar: any) => {
             key={view}
             onClick={() => toolbar.onView(view)}
             style={{
-              background: toolbar.view === view ? "#3b82f6" : "transparent", // Aktív gomb kék
+              background: toolbar.view === view ? "#3b82f6" : "transparent",
               color: toolbar.view === view ? "white" : "#a1a1aa",
               border: "none",
               padding: "8px 16px",
@@ -440,15 +456,15 @@ function App() {
             <div>
               <h1 style={{ textTransform: "capitalize" }}>
                 {activeTab === "dashboard"
-                  ? "Áttekintés 🚘"
+                  ? "Áttekintés"
                   : activeTab === "schedule"
-                    ? "Szerviz Naptár 📅"
+                    ? "Szerviz Naptár"
                     : activeTab === "vehicles"
-                      ? "Járművek 🚙"
+                      ? "Járművek"
                       : activeTab === "customers"
-                        ? "Ügyfelek 👥"
+                        ? "Ügyfelek"
                         : activeTab === "userManagement"
-                          ? "Felhasználók 👥"
+                          ? "Felhasználók"
                           : "Beállítások"}
               </h1>
             </div>

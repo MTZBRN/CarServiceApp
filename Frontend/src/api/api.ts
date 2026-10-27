@@ -1,10 +1,16 @@
 import axios from "axios";
 
 // ✅ OKOS URL KEZELÉS:
-// Ha élesben fut (Render), akkor ugyanazon a szerveren van a backend, így elég az "/api"
-// Ha lokálisan fejleszted (a te gépeden), akkor a localhost:5232-höz szól
-const isProduction = import.meta.env.PROD;
-const API_URL = isProduction ? "/api" : "http://localhost:5232/api";
+// Kivettük az "/api" végződést, hogy ne duplázódjon meg a hívásoknál (ne legyen /api/api/...)
+const viteEnv = (
+  import.meta as ImportMeta & {
+    env?: {
+      PROD?: boolean;
+    };
+  }
+).env;
+const isProduction = viteEnv?.PROD ?? false; // Vite-ben a PROD, Node/Playwright alatt false
+const API_URL = isProduction ? "" : "http://localhost:5232/api"; // A fejlesztői környezetben a backend URL-je
 
 const api = axios.create({
   baseURL: API_URL,
@@ -13,7 +19,10 @@ const api = axios.create({
 // Axios Interceptor beállítása
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("authToken");
+    const token =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem("authToken")
+        : null;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -28,11 +37,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
+    const isLoginRequest = error.config?.url?.endsWith("/Auth/login");
+    if (error.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem("authToken");
       localStorage.removeItem("currentUser");
       localStorage.removeItem("userRole"); // Biztos ami biztos
-      window.location.href = "/"; // Visszadob a loginra
+      if (typeof window !== "undefined") {
+        window.location.href = "/";
+      } // Visszadob a loginra
     }
     return Promise.reject(error);
   },

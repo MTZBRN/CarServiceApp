@@ -18,7 +18,7 @@ public static class DbSeeder
             var admin = new User
             {
                 Name = "Fő Adminisztrátor",
-                Email = "admin", // Ezt fogod beírni a Login mezőbe
+                Email = "admin@test.com", // Ezt fogod beírni a Login mezőbe
                 PasswordHash = hashedPassword,
                 Role = "admin"
             };

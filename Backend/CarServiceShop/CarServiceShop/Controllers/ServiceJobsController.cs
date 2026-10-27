@@ -42,6 +42,20 @@ public class ServiceJobsController : ControllerBase
         return serviceJob;
     }
 
+    // GET: api/ServiceJobs/ByVehicle/5
+    // Egy járműhöz tartozó szerviztörténet lekérése
+    [HttpGet("ByVehicle/{vehicleId}")]
+    public async Task<ActionResult<IEnumerable<ServiceJob>>> GetServiceHistory(
+        int vehicleId
+    )
+    {
+        return await _context.ServiceJobs
+            .Where(j => j.VehicleId == vehicleId)
+            .Include(j => j.JobParts)
+            .OrderByDescending(j => j.Date)
+            .ToListAsync();
+    }
+
     // POST: api/ServiceJobs
     // ÚJ LÉTREHOZÁSA (Standard Create)
     [HttpPost]

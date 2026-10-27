@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Wrench, Lock, User, ArrowRight } from "lucide-react";
-import axios from "axios";
+//import axios from "axios";
 // import { authService } from "../../api/authService"; // Ez most nem kell, ha direkt axios-t használsz
+import api from "../../api/api"; // Az axios példány, ami már tartalmazza az Authorization headert
 
 interface Props {
   onLogin: (token: string, username: string, role: string) => void;
@@ -19,7 +20,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
     setError("");
 
     try {
-      const response = await axios.post("/api/Auth/login", {
+      const response = await api.post("/Auth/login", {
         email: username,
         password: password,
       });

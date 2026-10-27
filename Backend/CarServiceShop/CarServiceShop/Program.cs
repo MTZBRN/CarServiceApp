@@ -50,19 +50,24 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// --- 3. SEED ÉS ADATBÁZIS INICIALIZÁLÁS ---
+// --- ADATBÁZIS SEEDELÉS ---
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
+
+        // Opcionális: Ha még nem jöttek volna létre a táblák, ez automatikusan megcsinálja
         context.Database.Migrate();
+
+        // Meghívjuk a mi Seeder osztályunkat
         DbSeeder.SeedUsers(context);
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Hiba a seedelés közben: {ex.Message}");
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Hiba történt az adatbázis kezdőadatainak feltöltésekor.");
     }
 }
 
