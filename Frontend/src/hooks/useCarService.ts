@@ -1,99 +1,26 @@
-import { useState, useEffect, useCallback } from "react";
-import { apiService } from "../api/apiService";
-import { Vehicle, Customer, Appointment, CalendarEvent } from "../types";
-
-export const useCarService = (enabled = true) => {
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+// Compatibility adapter for the existing dashboard/calendar/garage props.
+import { useMemo, useState } from 'react';
+import { useWorkshopResource } from '../data/useWorkshopData';
+import { vehiclesApi } from '../api/vehicles';
+import { appointmentsApi } from '../api/appointments';
+import type { CalendarEvent } from '../types';
+export const useCarService = () => {
+  const { data: vehicles } = useWorkshopResource('vehicles');
+  const { data: customers } = useWorkshopResource('customers');
+  const { data: appointments } = useWorkshopResource('appointments');
   const [message, setMessage] = useState<string | null>(null);
-
-  const refreshAll = useCallback(() => {
-    if (!enabled) return;
-    return Promise.all([
-      apiService.getVehicles(),
-      apiService.getCustomers(),
-      apiService.getAppointments(),
-    ])
-      .then(([vehRes, custRes, apptRes]) => {
-        setVehicles(vehRes.data);
-        setCustomers(custRes.data);
-        setAppointments(apptRes.data);
-      })
-      .catch((err) => {
-        console.error(err);
-        setMessage("Hiba az adatok betöltésekor!");
-      });
-  }, [enabled]);
-
-  useEffect(() => {
-    if (!enabled) { setVehicles([]); setCustomers([]); setAppointments([]); return; }
-    refreshAll();
-    const refresh = () => { void refreshAll(); };
-    window.addEventListener("business-data-updated", refresh);
-    return () => window.removeEventListener("business-data-updated", refresh);
-  }, [refreshAll, enabled]);
-
-  useEffect(() => {
-    const serviceEvents: CalendarEvent[] = appointments.map((app) => ({
-      id: app.id,
-      title: app.vehicle ? app.vehicle.licensePlate : "Ismeretlen jármű",
-      tooltip: `Szerviz: ${app.note || app.description || "-"}\nAutó: ${app.vehicle?.make} ${app.vehicle?.model}`,
-      start: new Date(app.startTime),
-      end: new Date(app.endTime),
-      allDay: false,
-      type: "service",
-      originalData: app,
-      desc: app.note || app.vehicle?.customer?.name || "",
-    }));
-    const motEvents: CalendarEvent[] = vehicles
-      .filter((v) => v.motExpiry) // Csak ha van dátum
-      .map((v) => ({
-        id: v.id, // Opcionális
-        title: `Lejáró műszaki: ${v.licensePlate}`,
-        tooltip: `MŰSZAKI LEJÁR: ${v.licensePlate}`,
-        start: new Date(v.motExpiry!), // A ! jelet használjuk, mert a filterrel már ellenőriztük
-        end: new Date(v.motExpiry!),
-        allDay: true,
-        type: "mot",
-        originalData: v,
-      }));
-
-    setCalendarEvents([...serviceEvents, ...motEvents]);
-  }, [vehicles, appointments]);
-
+  const calendarEvents = useMemo<CalendarEvent[]>(() => [
+    ...appointments.map(app => ({ id: app.id, title: app.vehicle?.licensePlate || 'Ismeretlen jármű', tooltip: `Szerviz: ${app.note || '-'}\nAutó: ${app.vehicle?.make} ${app.vehicle?.model}`, start: new Date(app.startTime), end: new Date(app.endTime), allDay: false, type: 'service' as const, originalData: app, desc: app.note || app.vehicle?.customer?.name || '' })),
+    ...vehicles.filter(v => v.motExpiry).map(v => ({ id: v.id, title: `Lejáró műszaki: ${v.licensePlate}`, tooltip: `MŰSZAKI LEJÁR: ${v.licensePlate}`, start: new Date(v.motExpiry!), end: new Date(v.motExpiry!), allDay: true, type: 'mot' as const, originalData: v })),
+  ], [vehicles, appointments]);
   const deleteVehicle = async (id: number) => {
-    if (!window.confirm("Biztosan törlöd?")) return;
-    try {
-      await apiService.deleteVehicle(id);
-      refreshAll();
-    } catch (e) {
-      console.error(e);
-      setMessage("Hiba a törléskor!");
-    }
+    if (!window.confirm('Biztosan törlöd?')) return false;
+    try { await vehiclesApi.remove(id); return true; }
+    catch { setMessage('Hiba a törléskor!'); return false; }
   };
-
   const deleteAppointment = async (id: number) => {
-    try {
-      await apiService.deleteAppointment(id);
-      setMessage("Időpont törölve!");
-      refreshAll();
-    } catch (e) {
-      console.error(e);
-      setMessage("Hiba a törléskor!");
-    }
+    try { await appointmentsApi.remove(id); setMessage('Időpont törölve!'); }
+    catch { setMessage('Hiba a törléskor!'); }
   };
-
-  return {
-    vehicles,
-    customers,
-    appointments,
-    calendarEvents,
-    message,
-    setMessage,
-    refreshAll,
-    deleteVehicle,
-    deleteAppointment,
-  };
+  return { vehicles, customers, appointments, calendarEvents, message, setMessage, deleteVehicle, deleteAppointment };
 };

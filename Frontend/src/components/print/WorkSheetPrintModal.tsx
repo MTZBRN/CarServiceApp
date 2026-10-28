@@ -1,11 +1,11 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import { X, Printer } from "lucide-react";
-import { Vehicle, ServiceJob } from "../../types";
-import api from "../../api/api"; // ✅ API importálása
+import { Vehicle, ServiceJob, CreateWorksheetRequest, WorkshopSettings } from "../../types";
+import { useWorkshopResource } from "../../data/useWorkshopData";
 
 interface Props {
-  job: ServiceJob;
+  job: ServiceJob | CreateWorksheetRequest;
   vehicle: Vehicle;
   onClose: () => void;
 }
@@ -13,31 +13,12 @@ interface Props {
 const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
   const componentRef = useRef<HTMLDivElement>(null);
 
-  // Beállítások betöltése a szerverről
-  const [settings, setSettings] = useState<any>({});
-
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        // ✅ 1. Lekérjük a központi adatbázisból
-        const response = await api.get("/Settings");
-        if (response.data) {
-          setSettings(response.data);
-        }
-      } catch (error) {
-        console.error("Nem sikerült betölteni a cégadatokat", error);
-        // Ha hiba van (pl. nincs net), megpróbáljuk a localStorage-ból
-        const saved = localStorage.getItem("appSettings");
-        if (saved) setSettings(JSON.parse(saved));
-      }
-    };
-
-    fetchSettings();
-  }, []);
+  const { data: sharedSettings } = useWorkshopResource("settings");
+  const settings: Partial<WorkshopSettings> = sharedSettings || {};
 
   // Szerkeszthető adatok state
   const [formData, setFormData] = useState({
-    serialNumber: `GTA-${new Date().getFullYear()}-${job.id}`,
+    serialNumber: `GTA-${new Date().getFullYear()}-${'id' in job ? job.id : ''}`,
     date: new Date().toLocaleDateString("hu-HU"),
 
     // Megrendelő

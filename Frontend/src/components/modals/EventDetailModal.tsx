@@ -39,8 +39,7 @@ const EventDetailModal: React.FC<Props> = ({
       ? new Date(start.getTime() + 60 * 60 * 1000)
       : start;
 
-  // TypeScript "as any" trükk a format függvényhez
-  const formattedDate = (format as any)(displayDate, "yyyy. MM. dd.", {
+  const formattedDate = format(displayDate, "yyyy. MM. dd.", {
     locale: hu,
   });
   const timeRange = `${format(start, "HH:mm")} - ${format(end, "HH:mm")}`;

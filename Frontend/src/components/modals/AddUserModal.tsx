@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X, UserPlus } from "lucide-react";
-import api from "../../api/api";
+import { usersApi } from "../../api/users";
+import { apiErrorMessage } from "../../api/client";
 
 interface Props {
   onClose: () => void;
@@ -23,10 +24,10 @@ const AddUserModal: React.FC<Props> = ({ onClose, onSuccess }) => {
     setError("");
 
     try {
-      await api.post("/Users", formData);
+      await usersApi.create(formData);
       onSuccess();
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Hiba történt a mentés során.");
+    } catch (err: unknown) {
+      setError(apiErrorMessage(err, "Hiba történt a mentés során."));
     } finally {
       setLoading(false);
     }

@@ -1,51 +1,17 @@
-import api from "./api";
-import { Vehicle, Customer, Appointment, ServiceJob, Part } from "../types";
-
+// Compatibility facade for the existing feature pages. Transport and payloads live in resource modules.
+import { customersApi } from './customers';
+import { vehiclesApi } from './vehicles';
+import { appointmentsApi } from './appointments';
+import { worksheetsApi } from './worksheets';
+import { inventoryApi } from './inventory';
+import { seedDatabase } from './development';
 export const apiService = {
-  getVehicles: () => api.get<Vehicle[]>("/Vehicle"),
-  createVehicle: (data: Partial<Vehicle>) =>
-    api.post<Vehicle>("/Vehicle", data),
-  deleteVehicle: (id: number) => api.delete(`/Vehicle/${id}`),
-
-  // --- CUSTOMERS ---
-  getCustomers: () => api.get<Customer[]>("/Customers"),
-  createCustomer: (data: Partial<Customer>) =>
-    api.post<Customer>("/Customers", data),
-
-  // --- APPOINTMENTS ---
-  getAppointments: () => api.get<Appointment[]>("/Appointments"),
-  createAppointment: (data: Partial<Appointment>) =>
-    api.post<Appointment>(`/Appointments`, data),
-  deleteAppointment: (id: number) => api.delete(`/Appointments/${id}`),
-
-  // --- SERVICE JOBS ---
-  getServiceJob: (id: number) => api.get<ServiceJob>(`/ServiceJobs/${id}`),
-  getServiceJobs: () => api.get<ServiceJob[]>("/ServiceJobs"),
-  saveServiceJob: (data: any) => api.post("/ServiceJobs", data),
-
-  // --- PARTS ---
-  getParts: () => api.get<Part[]>("/parts"),
-  createPart: (data: Omit<Part, "id">) => api.post<Part>("/parts", data),
-  updatePart: (id: number, data: Part) => api.put(`/parts/${id}`, data),
-  deletePart: (id: number) => api.delete(`/parts/${id}`),
-
-  // 3. Létrehozás (Create)
-  createServiceJob: (data: Partial<ServiceJob>) =>
-    api.post<ServiceJob>("/ServiceJobs", data),
-
-  // 4. Frissítés (Update)
-  updateServiceJob: (id: number, data: Partial<ServiceJob>) =>
-    api.put(`/ServiceJobs/${id}`, data),
-
-  // 5. Törlés
-  deleteServiceJob: (id: number) => api.delete(`/ServiceJobs/${id}`),
-
-  // Segédfüggvények
-  getServiceJobByAppointment: (appointmentId: number) =>
-    api.get<ServiceJob>(`/ServiceJobs/ByAppointment/${appointmentId}`),
-  getServiceHistory: (vehicleId: number) =>
-    api.get<ServiceJob[]>(`/ServiceJobs/ByVehicle/${vehicleId}`),
-
-  //--- SEED DATA ---
-  seedDatabase: () => api.post("/Seed"),
+ getCustomers: customersApi.list, createCustomer: customersApi.create,
+ getVehicles: vehiclesApi.list, createVehicle: vehiclesApi.create, deleteVehicle: vehiclesApi.remove,
+ getAppointments: appointmentsApi.list, createAppointment: appointmentsApi.create, deleteAppointment: appointmentsApi.remove,
+ getServiceJob: worksheetsApi.get, getServiceJobs: worksheetsApi.list,
+ createServiceJob: worksheetsApi.create, updateServiceJob: worksheetsApi.update, deleteServiceJob: worksheetsApi.remove,
+ getServiceJobByAppointment: worksheetsApi.byAppointment, getServiceHistory: worksheetsApi.byVehicle,
+ getParts: inventoryApi.list, createPart: inventoryApi.create, updatePart: inventoryApi.update, deletePart: inventoryApi.remove,
+ seedDatabase,
 };

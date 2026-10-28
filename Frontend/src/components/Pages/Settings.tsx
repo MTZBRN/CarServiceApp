@@ -9,9 +9,13 @@ import {
   Upload,
 } from "lucide-react";
 import { InputField } from "../ui/FormElements";
-import api from "../../api/api";
+import { settingsApi } from "../../api/settings";
+import { authApi } from "../../api/auth";
+import { apiErrorMessage } from "../../api/client";
+import { useWorkshopResource } from "../../data/useWorkshopData";
 
 const Settings: React.FC = () => {
+  const { data: sharedSettings } = useWorkshopResource("settings");
   // --- STATE-EK A CÉGES ADATOKHOZ ---
   const [companyName, setCompanyName] = useState("");
   const [address, setAddress] = useState("");
@@ -32,25 +36,11 @@ const Settings: React.FC = () => {
 
   // --- ADATOK BETÖLTÉSE A BACKEND-RŐL ---
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const response = await api.get("/Settings");
-        if (response.data) {
-          setCompanyName(response.data.companyName || "");
-          setAddress(response.data.address || "");
-          setTaxNumber(response.data.taxNumber || "");
-          setPhone(response.data.phone || "");
-          setEmail(response.data.email || "");
-          setHourlyRate(response.data.hourlyRate || 15000);
-          setVatRate(response.data.vatRate || 27);
-        }
-      } catch (err) {
-        console.error("Hiba a beállítások betöltésekor:", err);
-      }
-    };
-
-    fetchSettings();
-  }, []);
+    if (!sharedSettings) return;
+    setCompanyName(sharedSettings.companyName || ''); setAddress(sharedSettings.address || '');
+    setTaxNumber(sharedSettings.taxNumber || ''); setPhone(sharedSettings.phone || ''); setEmail(sharedSettings.email || '');
+    setHourlyRate(sharedSettings.hourlyRate || 15000); setVatRate(sharedSettings.vatRate || 27);
+  }, [sharedSettings]);
 
   // --- CÉGADATOK ÉS PÉNZÜGYEK MENTÉSE A BACKEND-RE ---
   const handleSave = async (e: React.FormEvent) => {
@@ -66,7 +56,7 @@ const Settings: React.FC = () => {
         vatRate: Number(vatRate),
       };
 
-      await api.post("/Settings", settings);
+      await settingsApi.save(settings);
 
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -80,11 +70,11 @@ const Settings: React.FC = () => {
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post("/Auth/change-password", passwords);
+      await authApi.changePassword(passwords);
       alert("Sikeres jelszóváltás!");
       setPasswords({ oldPassword: "", newPassword: "" });
-    } catch (err: any) {
-      alert(err.response?.data?.message || "Hiba történt a jelszóváltáskor!");
+    } catch (err: unknown) {
+      alert(apiErrorMessage(err, "Hiba történt a jelszóváltáskor!"));
     }
   };
 
@@ -96,9 +86,7 @@ const Settings: React.FC = () => {
     formData.append("file", selectedFile);
 
     try {
-      const res = await api.post("/Auth/upload-profile-picture", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const res = await authApi.uploadProfilePicture(formData);
 
       alert("Profilkép sikeresen feltöltve!");
       setSelectedFile(null);

@@ -386,8 +386,7 @@ const MainDashboard: React.FC<MainDashboardProps> = ({
                             borderRadius: "12px",
                           }}
                         >
-                          {/* ✅ ITT VOLT A TYPE HIBA - most már működni fog a types.ts frissítése után */}
-                          {appt.type === "service" ? "Szerviz" : "Műszaki"}
+                          Szerviz
                         </span>
                       </div>
                       <div style={{ fontSize: "0.9rem", color: "#bfdbfe" }}>

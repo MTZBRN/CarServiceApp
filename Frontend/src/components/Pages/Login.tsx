@@ -1,8 +1,7 @@
 import React, { useState } from "react";
 import { Wrench, Lock, User, ArrowRight } from "lucide-react";
-//import axios from "axios";
-// import { authService } from "../../api/authService"; // Ez most nem kell, ha direkt axios-t használsz
-import api from "../../api/api"; // Az axios példány, ami már tartalmazza az Authorization headert
+import { authApi } from "../../api/auth";
+import { apiErrorMessage } from "../../api/client";
 
 interface Props {
   onLogin: (token: string, username: string, role: string) => void;
@@ -20,7 +19,7 @@ const Login: React.FC<Props> = ({ onLogin }) => {
     setError("");
 
     try {
-      const response = await api.post("/Auth/login", {
+      const response = await authApi.login( {
         email: username,
         password: password,
       });
@@ -44,10 +43,10 @@ const Login: React.FC<Props> = ({ onLogin }) => {
 
       // Értesítjük az App.tsx-et a sikeres belépésről
       onLogin(token, userName, role);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err); // Segít a debuggolásban
       setError(
-        err.response?.data?.message || "Hibás felhasználónév vagy jelszó!",
+        apiErrorMessage(err, "Hibás felhasználónév vagy jelszó!"),
       );
     } finally {
       setLoading(false);

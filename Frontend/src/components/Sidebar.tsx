@@ -12,7 +12,8 @@ import {
   ShieldCheck,
   Wrench,
 } from "lucide-react";
-import api from "../api/api";
+import { profilePictureUrl } from "../api/client";
+import { useWorkshopResource } from "../data/useWorkshopData";
 
 interface Props {
   activeTab: string;
@@ -30,38 +31,23 @@ const Sidebar: React.FC<Props> = ({
   userRole,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [serviceName, setServiceName] = useState("GTA Szerviz");
+  const { data: settings } = useWorkshopResource("settings");
+  const serviceName = settings?.companyName || "GTA Szerviz";
   const [profilePicUrl, setProfilePicUrl] = useState<string | null>(null);
   const effectiveUserRole = userRole || localStorage.getItem("userRole") || "";
 
   // --- ADATOK BETÖLTÉSE ÉS FIGYELÉSE ---
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const res = await api.get("/Settings");
-        if (res.data && res.data.companyName) {
-          setServiceName(res.data.companyName);
-        }
-      } catch (error) {
-        console.error("Nem sikerült betölteni a cégnevet", error);
-      }
-    };
 
     const updateProfilePic = () => {
       const userData = JSON.parse(localStorage.getItem("user_data") || "{}");
       if (userData.profilePicturePath) {
         // ✅ MEGOLDÁS: Ha élesben vagyunk, ne tegyen elé semmit (relatív út),
         // ha lokálisan (a te gépeden), akkor tegye elé a localhostot!
-        const isProduction = import.meta.env.PROD;
-        const baseUrl = isProduction ? "" : "http://localhost:5232";
-
-        setProfilePicUrl(`${baseUrl}/uploads/${userData.profilePicturePath}`);
+        setProfilePicUrl(profilePictureUrl(userData.profilePicturePath));
       }
     };
 
-    if (effectiveUserRole === "admin") {
-      fetchSettings();
-    }
     updateProfilePic();
 
     window.addEventListener("profile-updated", updateProfilePic);

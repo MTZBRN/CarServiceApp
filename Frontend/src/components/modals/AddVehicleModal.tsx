@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { apiService } from "../../api/apiService";
 import { Customer } from "../../types";
 import { X, Save, Car, User, Calendar, Hash } from "lucide-react";
@@ -35,12 +35,7 @@ const AddVehicleModal: React.FC<Props> = ({
     email: "",
   });
 
-  // Ügyféllista frissítése, ha üres
-  const [allCustomers, setAllCustomers] = useState<Customer[]>(customers);
-  useEffect(() => {
-    if (customers.length === 0)
-      apiService.getCustomers().then((r) => setAllCustomers(r.data));
-  }, [customers]);
+  const allCustomers = customers;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); // Megakadályozza az oldal újratöltését
@@ -56,7 +51,7 @@ const AddVehicleModal: React.FC<Props> = ({
         }
 
         // Létrehozzuk az ügyfelet
-        const customerResponse = await apiService.createCustomer(newCustomer);
+        const customerResponse = await apiService.createCustomer({ name: newCustomer.name, phoneNumber: newCustomer.phone, email: newCustomer.email });
 
         // Megkapjuk az új ID-t
         finalCustomerId = customerResponse.data.id;

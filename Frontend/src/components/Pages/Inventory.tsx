@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import { useWorkshopResource } from "../../data/useWorkshopData";
 import { apiService } from "../../api/apiService";
 import { Part } from "../../types";
 import {
@@ -16,35 +17,17 @@ import {
 import { InputField } from "../ui/FormElements";
 
 const Inventory: React.FC = () => {
-  const [parts, setParts] = useState<Part[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: parts, loading } = useWorkshopResource("inventory");
   const [searchTerm, setSearchTerm] = useState("");
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
   const [editingPart, setEditingPart] = useState<Part | null>(null);
 
-  useEffect(() => {
-    loadParts();
-  }, []);
-
-  const loadParts = async () => {
-    setLoading(true);
-    try {
-      const res = await apiService.getParts();
-      setParts(res.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleDelete = async (id: number) => {
     if (!window.confirm("Biztosan törölni akarod ezt az alkatrészt?")) return;
     try {
       await apiService.deletePart(id);
-      setParts(parts.filter((p) => p.id !== id));
     } catch (e) {
       alert("Hiba a törlésnél!");
     }
@@ -302,7 +285,6 @@ const Inventory: React.FC = () => {
           onClose={() => setShowModal(false)}
           onSuccess={() => {
             setShowModal(false);
-            loadParts();
           }}
         />
       )}
@@ -332,7 +314,7 @@ const PartModal = ({
     e.preventDefault();
     try {
       if (part) {
-        await apiService.updatePart(part.id, { ...formData, id: part.id });
+        await apiService.updatePart(part.id, formData);
       } else {
         await apiService.createPart(formData);
       }

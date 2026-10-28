@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from "react";
-import api from "../../api/api";
+import React, { useState } from "react";
+import { customersApi } from "../../api/customers";
+import { useWorkshopResource } from "../../data/useWorkshopData";
+import type { Customer, CreateCustomerRequest } from "../../types";
 import {
   Users,
   Search,
@@ -14,18 +16,10 @@ import {
 import CustomerModal from "../modals/CustomerModal";
 import { useToast } from "../ui/ToastProvider";
 
-interface Customer {
-  id: number;
-  name: string;
-  phoneNumber: string;
-  email: string | null;
-  address: string | null;
-}
 
 const Customers: React.FC = () => {
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const { data: customers, loading } = useWorkshopResource("customers");
   const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(true);
 
   // Modal statek
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -56,26 +50,11 @@ const Customers: React.FC = () => {
     }
   `;
 
-  // --- BETÖLTÉS ---
-  const fetchCustomers = () => {
-    setLoading(true);
-    api
-      .get("/Customers")
-      .then((res) => setCustomers(res.data))
-      .catch((err) => console.error("Hiba", err))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
-
   // --- TÖRLÉS ---
   const handleDelete = async (id: number) => {
     if (window.confirm("Biztosan törölni szeretnéd?")) {
       try {
-        await api.delete(`/Customers/${id}`);
-        fetchCustomers();
+        await customersApi.remove(id);
         showToast("Az ügyfél törölve.", "success");
       } catch (error) {
         showToast("Hiba történt az ügyfél törlésekor.", "error");
@@ -84,16 +63,15 @@ const Customers: React.FC = () => {
   };
 
   // --- MENTÉS ---
-  const handleSave = async (data: any) => {
+  const handleSave = async (data: CreateCustomerRequest) => {
     try {
       if (editingCustomer) {
-        await api.put(`/Customers/${editingCustomer.id}`, data);
+        await customersApi.update(editingCustomer.id, data);
       } else {
-        await api.post("/Customers", data);
+        await customersApi.create(data);
       }
       setIsModalOpen(false);
       setEditingCustomer(null);
-      fetchCustomers();
       showToast(
         editingCustomer ? "Az ügyfél módosítva." : "Az ügyfél létrehozva.",
         "success",

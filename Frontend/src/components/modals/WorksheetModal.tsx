@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useWorkshopResource } from "../../data/useWorkshopData";
 import { apiService } from "../../api/apiService";
 import {
   X,
@@ -12,7 +13,7 @@ import {
   Hash,
   DollarSign,
 } from "lucide-react";
-import { JobPart, Part, Vehicle, ServiceJob } from "../../types";
+import { JobPart, Vehicle, CreateWorksheetRequest } from "../../types";
 import WorksheetPrintModal from "../print/WorkSheetPrintModal";
 import { InputField, SelectField } from "../ui/FormElements";
 import Button from "../ui/Button";
@@ -49,7 +50,7 @@ const WorksheetModal: React.FC<Props> = ({
   const [isCompleted, setIsCompleted] = useState(false);
 
   const [jobParts, setJobParts] = useState<JobPart[]>([]);
-  const [inventory, setInventory] = useState<Part[]>([]);
+  const { data: inventory } = useWorkshopResource("inventory");
 
   // Új tétel adatok
   const [newItem, setNewItem] = useState({
@@ -63,17 +64,18 @@ const WorksheetModal: React.FC<Props> = ({
   // A Checkbox state-je TÖRÖLVE, mert mostantól automatikus!
 
   useEffect(() => {
-    loadInitData();
+    let active = true;
+    void loadInitData(() => active);
+    return () => { active = false; };
   }, [appointmentId, serviceJobId]);
 
-  const loadInitData = async () => {
+  const loadInitData = async (active: () => boolean) => {
     setLoading(true);
+    setLoadError(false);
     try {
-      const partsRes = await apiService.getParts();
-      setInventory(partsRes.data);
-
       if (serviceJobId || appointmentId) {
         const res = serviceJobId ? await apiService.getServiceJob(serviceJobId) : await apiService.getServiceJobByAppointment(appointmentId!).catch(error => { if (error.response?.status === 404) return { data: null }; throw error; });
+        if (!active()) return;
         if (res.data) {
           setLoadedJobId(res.data.id);
           setDescription(res.data.description || "");
@@ -85,11 +87,12 @@ const WorksheetModal: React.FC<Props> = ({
         setDescription("Gyors szerviz felvétel a Garázsból");
       }
     } catch (err) {
+      if (!active()) return;
       setLoadError(true);
       showToast("A munkalap betöltése nem sikerült.", "error");
       console.error(err);
     } finally {
-      setLoading(false);
+      if (active()) setLoading(false);
     }
   };
 
@@ -123,9 +126,6 @@ const WorksheetModal: React.FC<Props> = ({
           stockQuantity: 0,
         });
 
-        // Frissítjük a helyi listát, hogy legközelebb már megtalálja
-        const updated = await apiService.getParts();
-        setInventory(updated.data);
       } catch (err) {
         console.error(err);
         showToast("Hiba történt az új alkatrész mentésekor!", "error");
@@ -182,7 +182,6 @@ const WorksheetModal: React.FC<Props> = ({
         // --- FRISSÍTÉS (PUT) - EZ HIÁNYZOTT! ---
         // Ha van ID, akkor Update-et hívunk, nem Save-et/Create-et
         await apiService.updateServiceJob(loadedJobId, {
-          id: loadedJobId,
           appointmentId: appointmentId,
           description,
           laborCost,
@@ -576,7 +575,7 @@ const WorksheetModal: React.FC<Props> = ({
                 jobParts: jobParts,
                 date: new Date().toISOString(),
                 vehicleId: vehicleId || vehicle?.id || 0,
-              } as ServiceJob
+              } satisfies CreateWorksheetRequest & { id?: number }
             }
             // Átadjuk a kapott teljes vehicle objektumot
             // Ha véletlenül nincs meg (undefined), csinálunk egy üres "kamu" objektumot, hogy ne fagyjon le
@@ -588,8 +587,9 @@ const WorksheetModal: React.FC<Props> = ({
                 make: "",
                 model: "",
                 year: 0,
-                customer: { name: "Ismeretlen", address: "", phoneNumber: "" },
-              } as Vehicle)
+                customerId: 0,
+                customer: { id: 0, name: "Ismeretlen", address: "", phoneNumber: "", email: null },
+              } satisfies Vehicle)
             }
             onClose={() => setShowPrintModal(false)}
           />

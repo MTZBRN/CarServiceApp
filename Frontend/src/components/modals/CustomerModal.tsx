@@ -2,19 +2,13 @@ import React, { useState, useEffect } from "react";
 import { X, Save, User, Phone, Mail, MapPin, Plus } from "lucide-react";
 import { InputField } from "../ui/FormElements";
 
-interface CustomerData {
-  id?: number;
-  name: string;
-  phoneNumber: string;
-  email: string;
-  address: string;
-}
+import type { Customer, CreateCustomerRequest } from "../../types";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: CustomerData) => void;
-  initialData?: CustomerData | null;
+  onSave: (data: CreateCustomerRequest) => void;
+  initialData?: Customer | null;
 }
 
 const CustomerModal: React.FC<Props> = ({
@@ -23,7 +17,7 @@ const CustomerModal: React.FC<Props> = ({
   onSave,
   initialData,
 }) => {
-  const [formData, setFormData] = useState<CustomerData>({
+  const [formData, setFormData] = useState<CreateCustomerRequest>({
     name: "",
     phoneNumber: "",
     email: "",
@@ -229,7 +223,7 @@ const CustomerModal: React.FC<Props> = ({
                 <InputField
                   type="email"
                   placeholder="pelda@email.hu"
-                  value={formData.email}
+                  value={formData.email || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, email: e.target.value })
                   }
@@ -270,7 +264,7 @@ const CustomerModal: React.FC<Props> = ({
                 />
                 <InputField
                   placeholder="Település, Utca, Házszám"
-                  value={formData.address}
+                  value={formData.address || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, address: e.target.value })
                   }

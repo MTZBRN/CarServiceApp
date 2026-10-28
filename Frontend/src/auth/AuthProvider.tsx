@@ -1,10 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import api from "../api/api";
-interface SessionUser {
-    userName: string;
-    role: string;
-    profilePicturePath?: string;
-}
+import { authApi } from "../api/auth";
+import { resetApiSession } from "../api/client";
+import type { SessionUser } from "../types";
+
 interface AuthState {
     user: SessionUser | null;
     loading: boolean;
@@ -14,7 +12,7 @@ interface AuthState {
     logout: () => void;
 }
 const AuthContext = createContext<AuthState | null>(null);
-function clearSession() { for (const key of ["authToken", "currentUser", "userRole", "user_data"])
+function clearSession() { resetApiSession(); for (const key of ["authToken", "currentUser", "userRole", "user_data"])
     localStorage.removeItem(key); }
 export function AuthProvider({ children }: {
     children: ReactNode;
@@ -40,7 +38,7 @@ export function AuthProvider({ children }: {
             setLoading(false);
             return;
         }
-        api.get<SessionUser>("/Auth/me").then(({ data }) => {
+        authApi.me().then(({ data }) => {
             if (!active || current !== generation.current)
                 return;
             setUser(data);
@@ -56,6 +54,7 @@ export function AuthProvider({ children }: {
     }, [attempt]);
     const login = (token: string, name: string, role: string) => {
         generation.current++;
+        resetApiSession();
         localStorage.setItem("authToken", token);
         localStorage.setItem("currentUser", name);
         localStorage.setItem("userRole", role);

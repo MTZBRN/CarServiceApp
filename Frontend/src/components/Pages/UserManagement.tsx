@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import api from "../../api/api"; // Az új interceptoros kliensünk
+import { usersApi } from "../../api/users";
+import type { User as UserModel } from "../../types";
 import { User, Trash2, Shield, UserPlus } from "lucide-react";
 import AddUserModal from "../modals/AddUserModal";
 
 const UserManagement = () => {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<UserModel[]>([]);
   const [, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
 
@@ -15,7 +16,7 @@ const UserManagement = () => {
   const fetchUsers = async () => {
     try {
       // Itt már NEM kell manuálisan fejlécet adni, az api.ts intézi!
-      const res = await api.get("/Users");
+      const res = await usersApi.list();
       setUsers(res.data);
     } catch (err) {
       console.error("Nem sikerült lekérni a felhasználókat", err);
@@ -27,7 +28,7 @@ const UserManagement = () => {
   const handleDelete = async (id: number) => {
     if (window.confirm("Biztosan törlöd ezt a felhasználót?")) {
       try {
-        await api.delete(`/Users/${id}`);
+        await usersApi.remove(id);
         fetchUsers(); // Lista frissítése
       } catch (err) {
         alert("Hiba a törlés során! Lehet, hogy nincs admin jogod?");

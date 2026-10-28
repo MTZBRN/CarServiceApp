@@ -21,7 +21,6 @@ interface Props {
   vehicles: Vehicle[];
   customers: Customer[];
   setMessage: (msg: string | null) => void;
-  onRefreshData?: () => void;
 }
 
 const AppointmentModal: React.FC<Props> = ({
@@ -31,7 +30,6 @@ const AppointmentModal: React.FC<Props> = ({
   vehicles,
   customers,
   setMessage,
-  onRefreshData,
 }) => {
   // Csak dátumot tárolunk, időt nem!
   const [formData, setFormData] = useState({
@@ -104,7 +102,6 @@ const AppointmentModal: React.FC<Props> = ({
         customerId: custRes.data.id,
         motExpiry: new Date().toISOString(),
       });
-      if (onRefreshData) onRefreshData();
       alert("Sikeres felvétel! Válaszd ki a listából.");
       setShowQuickAdd(false);
       setNewClientData({

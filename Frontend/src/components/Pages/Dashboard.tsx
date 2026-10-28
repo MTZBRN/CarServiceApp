@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { apiErrorMessage } from "../../api/client";
 import { apiService } from "../../api/apiService";
-import { ServiceJob, Vehicle } from "../../types";
+import { useWorkshopResource } from "../../data/useWorkshopData";
 import { ArrowLeft, Trash2, RefreshCw, Database } from "lucide-react";
 
 interface Props {
@@ -8,30 +9,16 @@ interface Props {
 }
 
 const DevDashboard: React.FC<Props> = ({ onBack }) => {
-  const [jobs, setJobs] = useState<ServiceJob[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [error, setError] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(false);
-
-  useEffect(() => {
-    loadData();
-  }, []);
+  const { data: jobs, refresh: refreshJobs, loading: jobsLoading, error: jobsError } = useWorkshopResource("worksheets");
+  const { data: vehicles, refresh: refreshVehicles, loading: vehiclesLoading, error: vehiclesError } = useWorkshopResource("vehicles");
+  const [busy, setLoading] = useState(false);
+  const loading = busy || jobsLoading || vehiclesLoading;
+  const error = jobsError || vehiclesError ? apiErrorMessage(jobsError || vehiclesError, 'Hiba az adatok betöltésekor!') : '';
 
   const loadData = async () => {
     setLoading(true);
-    setError("");
-    try {
-      const [jobsRes, vehiclesRes] = await Promise.all([
-        apiService.getServiceJobs(),
-        apiService.getVehicles(),
-      ]);
-      setJobs(jobsRes.data);
-      setVehicles(vehiclesRes.data);
-    } catch (err: any) {
-      setError("Hiba: " + (err.message || ""));
-    } finally {
-      setLoading(false);
-    }
+    await Promise.all([refreshJobs(), refreshVehicles()]);
+    setLoading(false);
   };
 
   // 👇 EZT A FÜGGVÉNYT ADTUK HOZZÁ
@@ -46,10 +33,9 @@ const DevDashboard: React.FC<Props> = ({ onBack }) => {
     try {
       await apiService.seedDatabase();
       alert("Sikeres feltöltés! 🚀");
-      loadData(); // Azonnal frissítjük a listát
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Itt kezeljük le, ha a backend azt mondja, hogy már vannak adatok
-      const msg = err.response?.data || err.message || "Nem sikerült.";
+      const msg = apiErrorMessage(err, "Nem sikerült.");
       alert("Hiba: " + msg);
     } finally {
       setLoading(false);
@@ -60,7 +46,6 @@ const DevDashboard: React.FC<Props> = ({ onBack }) => {
     if (!window.confirm("Biztosan törölni akarod?")) return;
     try {
       await apiService.deleteServiceJob(id);
-      loadData();
     } catch (err) {
       alert("Hiba a törlésnél!");
     }

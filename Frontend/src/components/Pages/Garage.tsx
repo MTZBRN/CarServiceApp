@@ -12,7 +12,7 @@ import AddVehicleModal from "../modals/AddVehicleModal";
 import { useToast } from "../ui/ToastProvider";
 
 const Garage: React.FC = () => {
-  const { vehicles, customers, refreshAll, deleteVehicle } = useCarService();
+  const { vehicles, customers, deleteVehicle } = useCarService();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -35,9 +35,7 @@ const Garage: React.FC = () => {
   });
 
   const handleDelete = async (id: number) => {
-    if (window.confirm("Biztosan törölni akarod ezt a járművet?")) {
-      await deleteVehicle(id);
-      refreshAll();
+    if (await deleteVehicle(id)) {
       showToast("A jármű törölve.", "success");
     }
   };
@@ -340,7 +338,6 @@ const Garage: React.FC = () => {
           onClose={() => setShowAddModal(false)}
           onSuccess={() => {
             setShowAddModal(false);
-            refreshAll();
           }}
         />
       )}
@@ -353,7 +350,6 @@ const Garage: React.FC = () => {
           onClose={() => setWorksheetTarget(null)}
           onSave={() => {
             setWorksheetTarget(null);
-            refreshAll();
           }}
         />
       )}

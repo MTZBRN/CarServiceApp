@@ -44,6 +44,7 @@ import {
   View,
   SlotInfo,
   Components,
+  ToolbarProps,
 } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay } from "date-fns";
 import { hu } from "date-fns/locale";
@@ -67,11 +68,10 @@ const CustomEvent = ({ event }: { event: CalendarEvent }) => {
     : "rgba(59, 130, 246, 0.15)";
   const borderColor = isMot ? "#ef4444" : "#3b82f6";
   const Icon = isMot ? FileText : Wrench;
-  const vehicle = event.originalData?.vehicle;
+  const vehicle = event.type === "service" ? event.originalData.vehicle : event.originalData;
   const customerName = vehicle?.customer?.name;
   const details =
-    event.originalData?.note ||
-    event.originalData?.description ||
+    (event.type === "service" ? event.originalData.note : "") ||
     customerName ||
     event.desc ||
     "Egész napos";
@@ -122,7 +122,7 @@ const CustomEvent = ({ event }: { event: CalendarEvent }) => {
 };
 
 // --- EGYEDI FEJLÉC ---
-const CustomToolbar = (toolbar: any) => {
+const CustomToolbar = (toolbar: ToolbarProps<CalendarEvent>) => {
   const goToBack = () => toolbar.onNavigate("PREV");
   const goToNext = () => toolbar.onNavigate("NEXT");
   const goToCurrent = () => toolbar.onNavigate("TODAY");
@@ -222,7 +222,7 @@ const CustomToolbar = (toolbar: any) => {
           border: "1px solid #3f3f46",
         }}
       >
-        {["month", "week", "agenda"].map((view) => (
+        {(["month", "week", "agenda"] as View[]).map((view) => (
           <button
             key={view}
             onClick={() => toolbar.onView(view)}
@@ -270,7 +270,6 @@ function App() {
     customers,
     calendarEvents,
     setMessage,
-    refreshAll,
     deleteVehicle,
     deleteAppointment,
     appointments,
@@ -385,13 +384,12 @@ function App() {
       <DevDashboard
         onBack={() => {
           setIsDevMode(false);
-          refreshAll();
         }}
       />
     );
 
   const calendarComponents: Components<CalendarEvent> = {
-    event: CustomEvent as any,
+    event: CustomEvent,
     toolbar: CustomToolbar,
   };
 
@@ -507,18 +505,15 @@ function App() {
           onClose={() => setShowAddVehicleModal(false)}
           onSuccess={() => {
             setShowAddVehicleModal(false);
-            refreshAll();
           }}
         />
       )}
       {showApptModal && (
         <AppointmentModal
-          onRefreshData={refreshAll}
           selectedSlot={selectedSlot}
           onClose={() => setShowApptModal(false)}
           onSuccess={() => {
             setShowApptModal(false);
-            refreshAll();
           }}
           vehicles={vehicles}
           customers={customers}
@@ -547,7 +542,6 @@ function App() {
               onClose={() => setShowWorksheetModal(false)}
               onSave={() => {
                 setShowWorksheetModal(false);
-                refreshAll();
               }}
             />
           );

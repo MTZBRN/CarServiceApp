@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import api from "../api/api";
+import { vehiclesApi } from "../api/vehicles";
 import type { Vehicle } from "../types";
 import VehicleDetails from "../components/Pages/VehicleDetails";
 export default function VehicleDetailsRoute() {
@@ -17,7 +17,7 @@ export default function VehicleDetailsRoute() {
             setError("A jármű nem található.");
             return;
         }
-        api.get<Vehicle>("/Vehicle/" + vehicleId).then(r => { if (active)
+        vehiclesApi.get(Number(vehicleId)).then(r => { if (active)
             setVehicle(r.data); }).catch(e => { if (active)
             setError(e.response?.status === 404 ? "A jármű nem található." : "A jármű betöltése nem sikerült."); });
         return () => { active = false; };
