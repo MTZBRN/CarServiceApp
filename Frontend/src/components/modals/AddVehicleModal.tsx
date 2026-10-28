@@ -1,3 +1,4 @@
+import DialogSurface from '../ui/DialogSurface';
 import React, { useState } from "react";
 import { apiService } from "../../api/apiService";
 import { Customer } from "../../types";
@@ -84,7 +85,7 @@ const AddVehicleModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="modal-overlay modal-on-top" onClick={onClose}>
+    <DialogSurface title="Új jármű" onClose={onClose} className="modal-overlay modal-on-top">
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -112,7 +113,7 @@ const AddVehicleModal: React.FC<Props> = ({
           >
             <Car size={22} color="#3b82f6" /> Jármű Rögzítése
           </h3>
-          <button className="icon-btn" onClick={onClose}>
+          <button aria-label="Bezárás" className="icon-btn" onClick={onClose}>
             <X size={20} />
           </button>
         </div>
@@ -352,7 +353,7 @@ const AddVehicleModal: React.FC<Props> = ({
           </div>
         </form>
       </div>
-    </div>
+    </DialogSurface>
   );
 };
 

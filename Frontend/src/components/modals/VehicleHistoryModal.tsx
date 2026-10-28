@@ -1,3 +1,4 @@
+import DialogSurface from '../ui/DialogSurface';
 import React, { useState, useEffect } from "react";
 import { apiService } from "../../api/apiService";
 import { ServiceJob } from "../../types";
@@ -58,7 +59,7 @@ const VehicleHistoryModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="modal-overlay modal-on-top" onClick={onClose}>
+    <DialogSurface title="Szerviztörténet" onClose={onClose} className="modal-overlay modal-on-top">
       <div
         className="modal-content modal-dynamic"
         onClick={(e) => e.stopPropagation()}
@@ -349,7 +350,7 @@ const VehicleHistoryModal: React.FC<Props> = ({
           </div>
         )}
       </div>
-    </div>
+    </DialogSurface>
   );
 };
 

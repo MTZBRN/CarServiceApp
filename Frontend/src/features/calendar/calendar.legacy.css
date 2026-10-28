@@ -1,0 +1,240 @@
+/* Existing calendar appearance and daily scheduling retained. */
+@media screen {
+:where(.legacy-calendar) .calendar-nav-btn,
+:where(.legacy-calendar) .calendar-today-btn {
+  border: 1px solid var(--border-light);
+  background: #172033;
+  color: var(--text-muted);
+  border-radius: 8px;
+  min-height: 34px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+:where(.legacy-calendar) .calendar-nav-btn {
+  width: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+:where(.legacy-calendar) .calendar-today-btn {
+  padding: 0 14px;
+  color: var(--text-main);
+  font-weight: 600;
+}
+:where(.legacy-calendar) .calendar-nav-btn:hover,
+:where(.legacy-calendar) .calendar-today-btn:hover {
+  background: #263449;
+  border-color: #4b6381;
+  color: white;
+}
+:where(.legacy-calendar) .rbc-calendar {
+  font-family: inherit !important;
+  color: #e4e4e7 !important;
+}
+:where(.legacy-calendar) .rbc-month-view,
+:where(.legacy-calendar) .rbc-time-view,
+:where(.legacy-calendar) .rbc-agenda-view {
+  background-color: #172033 !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 14px 30px rgba(2, 6, 23, 0.18);
+}
+:where(.legacy-calendar) .rbc-header,
+:where(.legacy-calendar) .rbc-month-row,
+:where(.legacy-calendar) .rbc-day-bg + .rbc-day-bg,
+:where(.legacy-calendar) .rbc-time-header-content {
+  border-color: #3f3f46 !important;
+}
+:where(.legacy-calendar) .rbc-header {
+  padding: 13px 0 !important;
+  font-weight: 600 !important;
+  color: #a1a1aa !important;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+  background-color: #1e293b !important;
+  border-bottom: 1px solid var(--border-color) !important;
+}
+:where(.legacy-calendar) .rbc-today {
+  background-color: rgba(59, 130, 246, 0.12) !important;
+}
+:where(.legacy-calendar) .rbc-off-range-bg {
+  background-color: #0f0f11 !important;
+  opacity: 0.5;
+}
+:where(.legacy-calendar) .rbc-date-cell {
+  padding: 8px !important;
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: #d4d4d8;
+}
+:where(.legacy-calendar) .rbc-date-cell.rbc-now {
+  color: #93c5fd;
+  font-weight: 700;
+}
+:where(.legacy-calendar) .rbc-row-bg,
+:where(.legacy-calendar) .rbc-day-bg {
+  background: transparent;
+}
+:where(.legacy-calendar) .rbc-day-bg + .rbc-day-bg {
+  border-left-color: var(--border-color) !important;
+}
+:where(.legacy-calendar) .rbc-event {
+  background-color: transparent !important;
+  border: none !important;
+  padding: 2px !important;
+  border-radius: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  margin-bottom: 5px !important;
+  position: relative !important;
+  width: 100% !important;
+  left: auto !important;
+  top: auto !important;
+}
+:where(.legacy-calendar) .rbc-event-content {
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  padding: 2px 4px;
+  height: auto !important;
+}
+:where(.legacy-calendar) .rbc-time-header,
+:where(.legacy-calendar) .rbc-time-content,
+:where(.legacy-calendar) .rbc-time-gutter,
+:where(.legacy-calendar) .rbc-allday-cell {
+  background: transparent !important;
+}
+:where(.legacy-calendar) .rbc-time-slot {
+  border-top-color: rgba(51, 65, 85, 0.35) !important;
+}
+:where(.legacy-calendar) .rbc-event.rbc-selected {
+  background-color: transparent !important;
+  outline: none !important;
+}
+:where(.legacy-calendar) .calendar-event-title {
+  min-width: 0;
+  align-items: flex-start !important;
+}
+:where(.legacy-calendar) .calendar-event-name {
+  flex: 1;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+:where(.legacy-calendar) .calendar-event-title .ui-badge {
+  flex: 0 0 auto;
+  min-height: 21px;
+  padding: 0 7px;
+  font-size: 0.66rem;
+  color: #ffffff;
+}
+:where(.legacy-calendar) .calendar-event-details {
+  padding-left: 22px;
+  color: #ffffff;
+  font-size: 0.73rem;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+:where(.legacy-calendar) .rbc-month-view .rbc-event {
+  min-height: 58px;
+  height: auto !important;
+}
+:where(.legacy-calendar) .rbc-month-view .rbc-row-content {
+  min-height: 70px;
+}
+:where(.legacy-calendar) .rbc-month-view .rbc-row-segment {
+  padding: 2px 4px !important;
+}
+:where(.legacy-calendar) .rbc-time-content,
+:where(.legacy-calendar) .rbc-time-gutter {
+  display: none !important;
+}
+:where(.legacy-calendar) .rbc-time-view {
+  border: 1px solid #3f3f46 !important;
+  border-radius: 8px;
+  background: #18181b;
+  display: flex;
+  flex-direction: column;
+  min-height: 500px;
+}
+:where(.legacy-calendar) .rbc-time-header {
+  flex: 1;
+  height: auto !important;
+}
+:where(.legacy-calendar) .rbc-time-header-content {
+  border-left: 1px solid #3f3f46 !important;
+  height: 100%;
+}
+:where(.legacy-calendar) .rbc-allday-cell {
+  height: 100%;
+  max-height: none !important;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px !important;
+  overflow-y: auto;
+}
+:where(.legacy-calendar) .rbc-day-slot.rbc-today {
+  background: rgba(59, 130, 246, 0.05) !important;
+}
+
+    :where(.legacy-calendar) .rbc-calendar { color: #e4e4e7; font-family: inherit; }
+    
+    /* Fejléc napok */
+    :where(.legacy-calendar) .rbc-header { 
+      padding: 15px 0; 
+      font-weight: 700; 
+      color: #e4e4e7; 
+      border-bottom: 1px solid #3f3f46; 
+      text-transform: uppercase;
+      font-size: 0.9rem;
+      background: #202024;
+    }
+    
+    :where(.legacy-calendar) .rbc-today { background-color: rgba(59, 130, 246, 0.05); }
+    :where(.legacy-calendar) .rbc-off-range-bg { background: #09090b; opacity: 0.5; }
+    
+    /* Keretek és hátterek */
+    :where(.legacy-calendar) .rbc-month-view,
+:where(.legacy-calendar) .rbc-time-view { 
+      border: 1px solid #3f3f46; 
+      background: #18181b; 
+      border-radius: 12px; 
+      overflow: hidden; 
+    }
+    :where(.legacy-calendar) .rbc-day-bg + .rbc-day-bg { border-left: 1px solid #3f3f46; }
+    :where(.legacy-calendar) .rbc-header + .rbc-header { border-left: 1px solid #3f3f46; }
+
+    /* --- EZ A VARÁZSLAT A HETI NÉZETHEZ --- */
+    /* Eltüntetjük az alsó időrácsot (00:00 - 23:00) */
+    :where(.legacy-calendar) .rbc-time-content { display: none !important; }
+    
+    /* A felső részt (ahol az egész naposak vannak) kihúzzuk teljes magasságra */
+    :where(.legacy-calendar) .rbc-time-view { flex-direction: column; height: 100%; }
+    :where(.legacy-calendar) .rbc-time-header { flex: 1; height: 100%; }
+    :where(.legacy-calendar) .rbc-time-header-content { height: 100%; border-left: 1px solid #3f3f46; }
+    :where(.legacy-calendar) .rbc-allday-cell { height: 100%; max-height: none !important; }
+    :where(.legacy-calendar) .rbc-row-content { height: 100%; z-index: 10; }
+    
+    /* Események (Kártyák) */
+    :where(.legacy-calendar) .rbc-event { 
+      background: transparent !important; 
+      padding: 2px 4px !important; 
+      outline: none !important;
+    }
+    :where(.legacy-calendar) .rbc-event:focus { outline: none; }
+    :where(.legacy-calendar) .rbc-event-label { display: none; } /* Nem kell az időpont felirat */
+
+}

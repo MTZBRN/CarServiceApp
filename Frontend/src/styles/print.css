@@ -1,0 +1,38 @@
+/* Isolated worksheet print document. Loaded only through react-to-print pageStyle. */
+
+    @page {
+      size: A4;
+      margin: 10mm; 
+    }
+    @media print {
+      body, html { 
+        margin: 0; 
+        padding: 0;
+        background: white !important;
+        color: black !important;
+      }
+
+      .print-wrapper {
+        position: relative !important;
+        width: 100% !important;
+        height: auto !important;
+        background: white !important;
+        color: black !important;
+        z-index: 9999 !important;
+        display: block !important;
+        font-family: "Times New Roman", Times, serif !important;
+      }
+
+      .print-wrapper input, .print-wrapper textarea, .print-wrapper select {
+        background: transparent !important;
+        border: none !important;
+        appearance: none !important;
+        padding: 0 !important;
+        color: black !important;
+        font-family: "Times New Roman", Times, serif !important;
+      }
+      
+      .print-wrapper ::placeholder { color: transparent !important; }
+      .print-wrapper select { text-indent: 0.01px; text-overflow: ""; }
+    }
+  

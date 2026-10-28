@@ -27,9 +27,9 @@ test('shared consumers reuse lists and mutations refresh only affected resources
   await expect.poll(() => counts.Vehicle).toBe(1);
   await expect.poll(() => counts.Customers).toBe(1);
   await expect.poll(() => counts.Appointments).toBe(1);
-  await page.getByRole('button', { name: 'Járművek', exact: true }).click();
+  await page.getByRole('link', { name: 'Járművek', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Garázs', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Ügyfelek', exact: true }).click();
+  await page.getByRole('link', { name: 'Ügyfelek', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Új Ügyfél' })).toBeVisible();
   expect(counts.Vehicle).toBe(1); expect(counts.Customers).toBe(1); expect(counts.Appointments).toBe(1);
   expect(counts.parts || 0).toBe(0); expect(counts.Users || 0).toBe(0); expect(counts.ServiceJobs || 0).toBe(0);
@@ -47,7 +47,7 @@ test('shared consumers reuse lists and mutations refresh only affected resources
   }, { id, name });
   await expect(page.getByText(name + ' edited', { exact: true })).toBeVisible();
   expect(counts.Customers).toBe(before.Customers + 2); expect(counts.Vehicle).toBe(before.Vehicle + 1); expect(counts.Appointments).toBe(before.Appointments + 1);
-  await page.getByRole('button', { name: 'Raktár', exact: true }).click();
+  await page.getByRole('link', { name: 'Alkatrészek', exact: true }).click();
   await expect.poll(() => counts.parts).toBe(1);
   const inventoryBefore = { ...counts };
   await page.evaluate(async suffix => {
@@ -68,7 +68,7 @@ test('failed mutation leaves shared records and request counts unchanged', async
     try { await customersApi.create({ name: 'Must not appear', phoneNumber: '1' }); return 'saved'; } catch { return 'failed'; }
   });
   expect(result).toBe('failed'); expect(calls).toEqual([]);
-  await page.getByRole('button', { name: 'Ügyfelek', exact: true }).click();
+  await page.getByRole('link', { name: 'Ügyfelek', exact: true }).click();
   await expect(page.getByText('Must not appear', { exact: true })).toHaveCount(0);
 });
 
@@ -87,12 +87,12 @@ test(`logout cancels a delayed ${status} response before a second session`, asyn
     } else await route.fulfill({ json: [vehicle('CURRENT-USER')] });
   });
   await login(page); await started;
-  page.once('dialog', d => d.accept()); await page.getByRole('button', { name: 'Kilépés' }).click();
+  await page.getByRole('button', { name: 'Kilépés' }).click(); await page.getByRole('dialog', { name: 'Kijelentkezés', exact: true }).getByRole('button', { name: 'Kijelentkezés', exact: true }).click();
   await expect(page.getByPlaceholder('Jelszó')).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('authToken'))).toBeNull();
   await page.getByPlaceholder('Felhasználónév (Email)').fill('admin@test.com');
   await page.getByPlaceholder('Jelszó').fill('admin123'); await page.getByRole('button', { name: /belépés/i }).click();
-  await page.getByRole('button', { name: 'Járművek', exact: true }).click();
+  await page.getByRole('link', { name: 'Járművek', exact: true }).click();
   await expect(page.getByText('CURRENT-USER', { exact: true })).toBeVisible();
   release();
   // A completed current-session request gives the released old response time to be processed.
@@ -152,7 +152,7 @@ test('a mutation refresh wins over an older in-flight list response', async ({ p
     const { vehiclesApi } = await import('/src/api/vehicles.ts');
     await vehiclesApi.create(vehicle);
   }, vehicle);
-  await page.getByRole('button', { name: 'Járművek', exact: true }).click();
+  await page.getByRole('link', { name: 'Járművek', exact: true }).click();
   await expect(page.getByText('LATEST-LIST', { exact: true })).toBeVisible();
   const oldResponse = page.waitForResponse(response => response.url().endsWith('/api/Vehicle') && response.request().method() === 'GET');
   release(); await oldResponse; await settleCore(page);

@@ -159,6 +159,8 @@ const Login: React.FC<Props> = ({ onLogin }) => {
             <input
               type="text"
               placeholder="Felhasználónév (Email)"
+              aria-label="Felhasználónév (Email)"
+              autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -190,6 +192,8 @@ const Login: React.FC<Props> = ({ onLogin }) => {
             <input
               type="password"
               placeholder="Jelszó"
+              aria-label="Jelszó"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required

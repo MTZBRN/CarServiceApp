@@ -2,7 +2,6 @@ import { flushSync } from "react-dom";
 import { Outlet, useOutletContext, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "./auth/AuthProvider";
 import { useState, useCallback, useMemo, useEffect, type ReactNode } from "react";
-import "./App.css";
 
 // Ikonok
 import {
@@ -10,11 +9,11 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
-  LogOut,
 } from "lucide-react";
 
 // Komponensek
-import Sidebar from "./components/Sidebar";
+import AppShell from "./components/layout/AppShell";
+import ConfirmDialog from "./components/ui/ConfirmDialog";
 import AppointmentModal from "./components/modals/AppointmentModal";
 import EventDetailModal from "./components/modals/EventDetailModal";
 import WorksheetModal from "./components/modals/WorksheetModal";
@@ -255,14 +254,10 @@ function App() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const userName = user!.userName;
   const userRole = user!.role;
-  const routeTabs: Record<string, string> = { dashboard: "dashboard", calendar: "schedule", vehicles: "vehicles", customers: "customers", inventory: "inventory", users: "userManagement", settings: "settings" };
-  const activeTab = location.pathname.startsWith("/vehicles/") ? "vehicle_details" : routeTabs[location.pathname.split("/")[1]] || "";
-  const setActiveTab = (tab: string) => { const route = Object.keys(routeTabs).find(key => routeTabs[key] === tab); if (route) navigate("/" + route); };
-  const handleLogout = () => {
-    if (window.confirm("Biztosan ki akarsz jelentkezni?")) { flushSync(() => logout()); navigate("/login", { replace: true }); }
-  };
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  const handleLogout = () => setConfirmLogout(true);
+  const finishLogout = () => { flushSync(() => logout()); navigate('/login', { replace: true }); };
 
   // --- ADATOK BETÖLTÉSE ---
   const {
@@ -330,137 +325,14 @@ function App() {
   };
   const handleOpenHistory = (id: number) => navigate(`/vehicles/${id}`);
 
-  // --- ✅ ÚJ STÍLUSOK: HETI NÉZET OSZLOPOKKÁ ALAKÍTÁSA ---
-  const calendarStyles = `
-    .rbc-calendar { color: #e4e4e7; font-family: inherit; }
-    
-    /* Fejléc napok */
-    .rbc-header { 
-      padding: 15px 0; 
-      font-weight: 700; 
-      color: #e4e4e7; 
-      border-bottom: 1px solid #3f3f46; 
-      text-transform: uppercase;
-      font-size: 0.9rem;
-      background: #202024;
-    }
-    
-    .rbc-today { background-color: rgba(59, 130, 246, 0.05); }
-    .rbc-off-range-bg { background: #09090b; opacity: 0.5; }
-    
-    /* Keretek és hátterek */
-    .rbc-month-view, .rbc-time-view { 
-      border: 1px solid #3f3f46; 
-      background: #18181b; 
-      border-radius: 12px; 
-      overflow: hidden; 
-    }
-    .rbc-day-bg + .rbc-day-bg { border-left: 1px solid #3f3f46; }
-    .rbc-header + .rbc-header { border-left: 1px solid #3f3f46; }
-
-    /* --- EZ A VARÁZSLAT A HETI NÉZETHEZ --- */
-    /* Eltüntetjük az alsó időrácsot (00:00 - 23:00) */
-    .rbc-time-content { display: none !important; }
-    
-    /* A felső részt (ahol az egész naposak vannak) kihúzzuk teljes magasságra */
-    .rbc-time-view { flex-direction: column; height: 100%; }
-    .rbc-time-header { flex: 1; height: 100%; }
-    .rbc-time-header-content { height: 100%; border-left: 1px solid #3f3f46; }
-    .rbc-allday-cell { height: 100%; max-height: none !important; }
-    .rbc-row-content { height: 100%; z-index: 10; }
-    
-    /* Események (Kártyák) */
-    .rbc-event { 
-      background: transparent !important; 
-      padding: 2px 4px !important; 
-      outline: none !important;
-    }
-    .rbc-event:focus { outline: none; }
-    .rbc-event-label { display: none; } /* Nem kell az időpont felirat */
-  `;
-
-  if (isDevMode && userRole === "admin")
-    return (
-      <DevDashboard
-        onBack={() => {
-          setIsDevMode(false);
-        }}
-      />
-    );
-
   const calendarComponents: Components<CalendarEvent> = {
     event: CustomEvent,
     toolbar: CustomToolbar,
   };
 
   return (
-    <div className="container">
-      <style>{calendarStyles}</style>
-
-      {userRole === "admin" && <button
-        onClick={() => setIsDevMode(true)}
-        className="dev-mode-btn"
-        style={{
-          position: "fixed",
-          bottom: "10px",
-          right: "10px",
-          zIndex: 9999,
-          opacity: 0.3,
-        }}
-      >
-        <Wrench size={14} />
-      </button>}
-
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onLogout={handleLogout}
-        currentUser={userName}
-        userRole={userRole}
-      />
-
-      <div className="content-area">
-        {activeTab !== "vehicle_details" && (
-          <div className="header">
-            <div>
-              <h1 style={{ textTransform: "capitalize" }}>
-                {activeTab === "dashboard"
-                  ? "Áttekintés"
-                  : activeTab === "schedule"
-                    ? "Szerviz Naptár"
-                    : activeTab === "vehicles"
-                      ? "Járművek"
-                      : activeTab === "customers"
-                        ? "Ügyfelek"
-                        : activeTab === "userManagement"
-                          ? "Felhasználók"
-                          : "Beállítások"}
-              </h1>
-            </div>
-            <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
-              <div className="mini-stat">
-                <span className="mini-stat-label">Szerepkör:</span>{" "}
-                <span className="mini-stat-value" style={{ color: "#3b82f6" }}>
-                  {userRole}
-                </span>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="icon-btn"
-                style={{
-                  border: "1px solid #ef4444",
-                  color: "#ef4444",
-                  padding: "6px 12px",
-                  fontSize: "0.8rem",
-                  gap: 6,
-                }}
-              >
-                <LogOut size={14} /> Kilépés
-              </button>
-            </div>
-          </div>
-        )}
-
+    <AppShell onLogout={handleLogout} onDevTools={userRole === 'admin' ? () => setIsDevMode(true) : undefined} title={isDevMode ? 'Fejlesztői eszközök' : undefined}>
+      {isDevMode && userRole === 'admin' ? <DevDashboard onBack={() => setIsDevMode(false)} /> : (
         <Outlet context={{ dashboard: (
           <MainDashboard
             vehicles={vehicles}
@@ -472,7 +344,7 @@ function App() {
             onDeleteVehicle={deleteVehicle}
           />), calendar: (
           <div
-            className="card"
+            className="card legacy-calendar"
             style={{
               height: "100%",
               padding: "20px",
@@ -497,7 +369,7 @@ function App() {
               views={["month", "week", "agenda"]}
             />
           </div>) } satisfies ScreenContext} />
-      </div>
+      )}
 
       {showAddVehicleModal && (
         <AddVehicleModal
@@ -546,7 +418,8 @@ function App() {
             />
           );
         })()}
-    </div>
+      {confirmLogout && <ConfirmDialog title="Kijelentkezés" confirmLabel="Kijelentkezés" onConfirm={finishLogout} onCancel={() => setConfirmLogout(false)}>Biztosan ki akarsz jelentkezni?</ConfirmDialog>}
+    </AppShell>
   );
 }
 

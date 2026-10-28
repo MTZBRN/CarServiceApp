@@ -1,3 +1,4 @@
+import DialogSurface from '../ui/DialogSurface';
 import React, { useState } from "react"; // useEffect nem is kell már az időhöz
 import { apiService } from "../../api/apiService";
 import { Vehicle, Customer } from "../../types";
@@ -119,7 +120,7 @@ const AppointmentModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="modal-overlay modal-on-top" onClick={onClose}>
+    <DialogSurface title="Új munka felvétele" onClose={onClose} className="modal-overlay modal-on-top">
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -147,7 +148,7 @@ const AppointmentModal: React.FC<Props> = ({
           >
             <Calendar size={22} color="#3b82f6" /> Új Munka Felvétele
           </h3>
-          <button className="icon-btn" onClick={onClose}>
+          <button aria-label="Bezárás" className="icon-btn" onClick={onClose}>
             <X size={20} />
           </button>
         </div>
@@ -468,7 +469,7 @@ const AppointmentModal: React.FC<Props> = ({
           </div>
         </div>
       </div>
-    </div>
+    </DialogSurface>
   );
 };
 

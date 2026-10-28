@@ -1,3 +1,4 @@
+import DialogSurface from '../ui/DialogSurface';
 import React, { useState } from "react";
 import { X, UserPlus } from "lucide-react";
 import { usersApi } from "../../api/users";
@@ -34,14 +35,14 @@ const AddUserModal: React.FC<Props> = ({ onClose, onSuccess }) => {
   };
 
   return (
-    <div className="modal-overlay">
+    <DialogSurface title="Új felhasználó" onClose={onClose} className="modal-overlay">
       <div className="modal-content" style={{ maxWidth: "400px" }}>
         <div className="modal-header">
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <UserPlus color="#3b82f6" />
             <h2 style={{ margin: 0 }}>Új Felhasználó</h2>
           </div>
-          <button onClick={onClose} className="icon-btn">
+          <button aria-label="Bezárás" onClick={onClose} className="icon-btn">
             <X />
           </button>
         </div>
@@ -137,7 +138,7 @@ const AddUserModal: React.FC<Props> = ({ onClose, onSuccess }) => {
           </div>
         </form>
       </div>
-    </div>
+    </DialogSurface>
   );
 };
 

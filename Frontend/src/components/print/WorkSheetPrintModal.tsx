@@ -1,3 +1,5 @@
+import DialogSurface from '../ui/DialogSurface';
+import printStyles from "../../styles/print.css?raw";
 import React, { useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import { X, Printer } from "lucide-react";
@@ -53,51 +55,10 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
 
   const handlePrint = useReactToPrint({
     contentRef: componentRef,
+    ignoreGlobalStyles: true,
+    pageStyle: printStyles,
     documentTitle: `Munkalap_${formData.licensePlate}`,
   });
-
-  // --- VÉGLEGES STÍLUSOK ---
-  const printStyles = `
-    @page {
-      size: A4;
-      margin: 10mm; 
-    }
-    @media print {
-      body, html { 
-        margin: 0; 
-        padding: 0;
-        background: white !important;
-        color: black !important;
-      }
-      
-      .modal-overlay > *:not(.print-wrapper) {
-        display: none !important;
-      }
-
-      .print-wrapper {
-        position: relative !important;
-        width: 100% !important;
-        height: auto !important;
-        background: white !important;
-        color: black !important;
-        z-index: 9999 !important;
-        display: block !important;
-        font-family: "Times New Roman", Times, serif !important;
-      }
-
-      input, textarea, select {
-        background: transparent !important;
-        border: none !important;
-        appearance: none !important;
-        padding: 0 !important;
-        color: black !important;
-        font-family: "Times New Roman", Times, serif !important;
-      }
-      
-      ::placeholder { color: transparent !important; }
-      select { text-indent: 0.01px; text-overflow: ""; }
-    }
-  `;
 
   const inputStyle: React.CSSProperties = {
     border: "none",
@@ -128,7 +89,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
   };
 
   return (
-    <div
+    <DialogSurface title="Munkalap nyomtatási előnézet" onClose={onClose}
       className="modal-overlay"
       style={{
         zIndex: 2000,
@@ -143,7 +104,6 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
         alignItems: "center",
       }}
     >
-      <style>{printStyles}</style>
 
       <div
         className="modal-content"
@@ -206,7 +166,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
             >
               <Printer size={18} /> Nyomtatás
             </button>
-            <button
+            <button aria-label="Bezárás"
               onClick={onClose}
               style={{
                 background: "#333",
@@ -875,7 +835,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
           </div>
         </div>
       </div>
-    </div>
+    </DialogSurface>
   );
 };
 

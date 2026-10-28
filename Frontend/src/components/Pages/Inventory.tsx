@@ -1,3 +1,4 @@
+import DialogSurface from '../ui/DialogSurface';
 import React, { useState } from "react";
 import { useWorkshopResource } from "../../data/useWorkshopData";
 import { apiService } from "../../api/apiService";
@@ -334,7 +335,7 @@ const PartModal = ({
   };
 
   return (
-    <div className="modal-overlay modal-on-top" onClick={onClose}>
+    <DialogSurface title="Alkatrész adatai" onClose={onClose} className="modal-overlay modal-on-top">
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -359,7 +360,7 @@ const PartModal = ({
             <Box color="#eab308" />{" "}
             {part ? "Alkatrész Szerkesztése" : "Új Alkatrész"}
           </h3>
-          <button className="icon-btn" onClick={onClose}>
+          <button aria-label="Bezárás" className="icon-btn" onClick={onClose}>
             <X size={20} />
           </button>
         </div>
@@ -433,7 +434,7 @@ const PartModal = ({
           </button>
         </form>
       </div>
-    </div>
+    </DialogSurface>
   );
 };
 

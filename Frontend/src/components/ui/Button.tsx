@@ -8,12 +8,14 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 
 const Button: React.FC<ButtonProps> = ({
   variant = "primary",
+  type = "button",
   className = "",
   children,
   ...props
 }) => (
   <button
     {...props}
+    type={type}
     className={`ui-button ui-button-${variant} ${className}`.trim()}
   >
     {children}

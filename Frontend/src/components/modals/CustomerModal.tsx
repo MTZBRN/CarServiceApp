@@ -1,3 +1,4 @@
+import DialogSurface from '../ui/DialogSurface';
 import React, { useState, useEffect } from "react";
 import { X, Save, User, Phone, Mail, MapPin, Plus } from "lucide-react";
 import { InputField } from "../ui/FormElements";
@@ -40,7 +41,7 @@ const CustomerModal: React.FC<Props> = ({
   };
 
   return (
-    <div
+    <DialogSurface title="Ügyfél adatai" onClose={onClose}
       className="modal-overlay"
       style={{
         position: "fixed",
@@ -49,7 +50,6 @@ const CustomerModal: React.FC<Props> = ({
         width: "100%",
         height: "100%",
         background: "rgba(0,0,0,0.6)", // Áttetsző sötét háttér
-        backdropFilter: "blur(4px)", // Homályosítás a háttérben
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
@@ -92,7 +92,7 @@ const CustomerModal: React.FC<Props> = ({
             {initialData ? <User color="#3b82f6" /> : <Plus color="#10b981" />}
             {initialData ? "Ügyfél Szerkesztése" : "Új Ügyfél"}
           </h2>
-          <button
+          <button aria-label="Bezárás"
             onClick={onClose}
             className="icon-btn"
             style={{
@@ -304,7 +304,7 @@ const CustomerModal: React.FC<Props> = ({
           </button>
         </form>
       </div>
-    </div>
+    </DialogSurface>
   );
 };
 

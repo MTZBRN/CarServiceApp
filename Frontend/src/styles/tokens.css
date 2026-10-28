@@ -1,0 +1,41 @@
+:root {
+  --color-bg: #10151e;
+  --color-sidebar: #131a25;
+  --color-surface: #192231;
+  --color-surface-raised: #202c3e;
+  --color-input: #141d2a;
+  --color-text: #edf2f8;
+  --color-muted: #a6b3c5;
+  --color-subtle: #8291a7;
+  --color-border: #2b384c;
+  --color-border-strong: #41536d;
+  --color-primary: #3879db;
+  --color-primary-hover: #4789eb;
+  --color-primary-soft: #1c304d;
+  --color-success: #73d8a2;
+  --color-success-soft: #17372d;
+  --color-warning: #efc46a;
+  --color-warning-soft: #3b3020;
+  --color-danger: #f39398;
+  --color-danger-soft: #3b252e;
+  --color-focus: #8bbaff;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px;
+  --font-sans: 'Segoe UI', Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-xs: .75rem; --font-sm: .8125rem; --font-base: .875rem;
+  --font-lg: 1rem; --font-title: 1.375rem;
+  --line-height: 1.5;
+  --control-height: 38px; --control-small: 32px;
+  --radius-sm: 6px; --radius-md: 8px; --radius-lg: 10px;
+  --shadow-panel: 0 2px 8px #00000018;
+  --shadow-dialog: 0 16px 48px #00000045;
+  --sidebar-width: 248px; --sidebar-width-collapsed: 72px;
+  --content-max: 1600px;
+  /* Compatibility tokens used by pages until their approved feature stages. */
+  --bg-dark: var(--color-bg); --bg-card: var(--color-surface);
+  --bg-sidebar: var(--color-sidebar); --bg-input: var(--color-input);
+  --text-main: var(--color-text); --text-muted: var(--color-muted);
+  --accent-blue: var(--color-primary); --accent-green: #22c55e;
+  --accent-red: #ef4444; --accent-yellow: #f59e0b; --accent-purple: #8b5cf6;
+  --border-color: var(--color-border); --border-light: var(--color-border-strong);
+}

@@ -1,3 +1,4 @@
+import DialogSurface from '../ui/DialogSurface';
 import React from "react";
 import { CalendarEvent } from "../../types";
 import {
@@ -61,7 +62,7 @@ const EventDetailModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="modal-overlay modal-on-top" onClick={onClose}>
+    <DialogSurface title="Időpont részletei" onClose={onClose} className="modal-overlay modal-on-top">
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -110,7 +111,7 @@ const EventDetailModal: React.FC<Props> = ({
               </span>
             </div>
           </div>
-          <button
+          <button aria-label="Bezárás"
             onClick={onClose}
             style={{
               background: "rgba(0,0,0,0.2)",
@@ -277,7 +278,7 @@ const EventDetailModal: React.FC<Props> = ({
           </div>}
         </div>
       </div>
-    </div>
+    </DialogSurface>
   );
 };
 

@@ -1,3 +1,4 @@
+import DialogSurface from '../ui/DialogSurface';
 import React, { useState, useEffect } from "react";
 import { useWorkshopResource } from "../../data/useWorkshopData";
 import { apiService } from "../../api/apiService";
@@ -221,7 +222,7 @@ const WorksheetModal: React.FC<Props> = ({
   if (loading) return null;
 
   return (
-    <div className="modal-overlay modal-on-top" onClick={onClose}>
+    <DialogSurface title="Munkalap" onClose={onClose} className="modal-overlay modal-on-top">
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
@@ -273,7 +274,7 @@ const WorksheetModal: React.FC<Props> = ({
                 <Printer size={18} />
               </button>
             )}
-            <button className="icon-btn" onClick={onClose}>
+            <button aria-label="Bezárás" className="icon-btn" onClick={onClose}>
               <X size={20} />
             </button>
           </div>
@@ -595,7 +596,7 @@ const WorksheetModal: React.FC<Props> = ({
           />
         )}
       </div>
-    </div>
+    </DialogSurface>
   );
 };
 

@@ -1,9 +1,10 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthProvider";
+import { LoadingState, ErrorState } from "../components/ui/StateViews";
 import Login from "../components/Pages/Login";
 function SessionStatus() {
     const { error, retry } = useAuth();
-    return error ? <div role="alert">A munkamenet ellenőrzése nem sikerült. <button onClick={retry}>Újrapróbálás</button></div> : <div role="status">Betöltés...</div>;
+    return error ? <ErrorState message="A munkamenet ellenőrzése nem sikerült." onRetry={retry} /> : <LoadingState />;
 }
 export function RequireAuth() {
     const { user, loading, error } = useAuth();
@@ -16,7 +17,7 @@ export function RequireAuth() {
 }
 export function RequireAdmin() {
     const { user } = useAuth();
-    return user?.role === "admin" ? <Outlet /> : <div role="alert">Nincs jogosultságod az oldal megtekintéséhez.</div>;
+    return user?.role === "admin" ? <Outlet /> : <ErrorState message="Nincs jogosultságod az oldal megtekintéséhez." />;
 }
 export function LoginRoute() {
     const { user, loading, error, login } = useAuth();
