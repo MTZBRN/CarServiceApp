@@ -8,7 +8,7 @@ import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
 import DialogSurface from '../ui/DialogSurface';
-const titles: Record<string, string> = { dashboard: 'Áttekintés', calendar: 'Szerviz Naptár', customers: 'Ügyfelek', vehicles: 'Járművek', inventory: 'Alkatrészek', users: 'Felhasználók', settings: 'Beállítások' };
+const titles: Record<string, string> = { dashboard: 'Áttekintés', calendar: 'Szerviz Naptár', customers: 'Ügyfelek', vehicles: 'Járművek', worksheets: 'Munkalapok', inventory: 'Alkatrészek', users: 'Felhasználók', settings: 'Beállítások' };
 export default function AppShell({ children, onLogout, onDevTools, title }: { children: ReactNode; onLogout: () => void; onDevTools?: () => void; title?: string }) {
   const { user } = useAuth();
   const location = useLocation();
@@ -30,7 +30,8 @@ export default function AppShell({ children, onLogout, onDevTools, title }: { ch
   const toggle = () => { setCollapsed(value => { localStorage.setItem('workshop.sidebar-collapsed', String(!value)); return !value; }); };
   const section = location.pathname.split('/')[1];
   const details = section === 'vehicles' && location.pathname.split('/').length > 2;
-  const heading = title || (details ? 'Jármű adatlapja' : titles[section] || 'Az oldal nem található');
+  const worksheetDetail = section === 'worksheets' && location.pathname !== '/worksheets';
+  const heading = title || (worksheetDetail ? (location.pathname.endsWith('/new') ? 'Új munkalap' : 'Munkalap') : details ? 'Jármű adatlapja' : titles[section] || 'Az oldal nem található');
   const close = () => setOpen(false);
   return <div className={'app-shell' + (!mobile && collapsed ? ' shell-collapsed' : '')}>
     <a className="skip-link" href="#main-content" onClick={() => main.current?.focus()}>Ugrás a tartalomra</a>
@@ -39,7 +40,7 @@ export default function AppShell({ children, onLogout, onDevTools, title }: { ch
     <div className="shell-workspace">
       <header className="shell-topbar">
         {mobile && <IconButton label="Menü megnyitása" aria-expanded={open} aria-controls="mobile-navigation" onClick={() => setOpen(true)}><Menu size={21} aria-hidden="true" /></IconButton>}
-        <PageHeader title={heading} breadcrumbs={details ? [{ label: 'Járművek', to: '/vehicles' }, { label: 'Adatlap' }] : undefined} actions={<><span className="shell-role"><Badge tone="neutral">{user?.role === 'admin' ? 'Rendszergazda' : 'Szerelő'}</Badge></span><Button variant="ghost" onClick={onLogout}><LogOut size={16} aria-hidden="true" /><span>Kilépés</span></Button></>} />
+        <PageHeader title={heading} breadcrumbs={worksheetDetail ? [{label:'Munkalapok',to:'/worksheets'},{label:location.pathname.endsWith('/new')?'Új munkalap':'Szerkesztés'}] : details ? [{ label: 'Járművek', to: '/vehicles' }, { label: 'Adatlap' }] : undefined} actions={<><span className="shell-role"><Badge tone="neutral">{user?.role === 'admin' ? 'Rendszergazda' : 'Szerelő'}</Badge></span><Button variant="ghost" onClick={onLogout}><LogOut size={16} aria-hidden="true" /><span>Kilépés</span></Button></>} />
       </header>
       <main className="app-main" id="main-content" ref={main} tabIndex={-1} aria-label={heading}><div className={'shell-page' + (section === 'calendar' ? ' shell-page-calendar' : '')}>{children}</div></main>
     </div>

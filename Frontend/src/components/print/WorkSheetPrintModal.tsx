@@ -1,13 +1,16 @@
 import DialogSurface from '../ui/DialogSurface';
+import {worksheetTotal,partsSubtotal} from '../../features/worksheets/model';
+import {money} from '../../features/records/shared';
+import {ErrorState} from '../ui/StateViews';
 import printStyles from "../../styles/print.css?raw";
 import React, { useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import { X, Printer } from "lucide-react";
-import { Vehicle, ServiceJob, CreateWorksheetRequest, WorkshopSettings } from "../../types";
+import { Vehicle, ServiceJob, WorkshopSettings } from "../../types";
 import { useWorkshopResource } from "../../data/useWorkshopData";
 
 interface Props {
-  job: ServiceJob | CreateWorksheetRequest;
+  job: ServiceJob;
   vehicle: Vehicle;
   onClose: () => void;
 }
@@ -15,13 +18,14 @@ interface Props {
 const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
   const componentRef = useRef<HTMLDivElement>(null);
 
-  const { data: sharedSettings } = useWorkshopResource("settings");
+  const settingsState = useWorkshopResource("settings");
+  const sharedSettings=settingsState.data;
   const settings: Partial<WorkshopSettings> = sharedSettings || {};
 
   // Szerkeszthető adatok state
   const [formData, setFormData] = useState({
-    serialNumber: `GTA-${new Date().getFullYear()}-${'id' in job ? job.id : ''}`,
-    date: new Date().toLocaleDateString("hu-HU"),
+    serialNumber: `GTA-${new Date(job.date).getFullYear()}-${'id' in job ? job.id : ''}`,
+    date: new Date(job.date).toLocaleDateString("hu-HU"),
 
     // Megrendelő
     customerName: vehicle.customer?.name || "",
@@ -105,6 +109,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
       }}
     >
 
+      {settingsState.error!=null&&<ErrorState message="A cégadatok nem tölthetők be. Nyomtatás előtt próbáld újra." onRetry={settingsState.refresh} />}
       <div
         className="modal-content"
         style={{
@@ -149,6 +154,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
           </div>
           <div style={{ display: "flex", gap: "10px" }}>
             <button
+              disabled={!settingsState.loaded || !!settingsState.error}
               onClick={() => handlePrint && handlePrint()}
               className="btn-add"
               style={{
@@ -765,6 +771,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                 </div>
               </div>
 
+              <table aria-label="Mentett munkalap költségei" style={{width:'100%',borderCollapse:'collapse',border:'2px solid black',marginTop:8,fontSize:12}}><caption style={{textAlign:'left',color:'black'}}>Munkalap #{job.id} · {job.isCompleted?'Befejezett':'Nyitott'}</caption><thead><tr>{['Alkatrész / cikkszám','Mennyiség','Egységár','Sorösszeg'].map(label=><th key={label} style={cellStyle}>{label}</th>)}</tr></thead><tbody>{job.jobParts.map((part,i)=><tr key={i}><td style={cellStyle}>{part.partName} · {part.partNumber||'—'}</td><td style={cellStyle}>{part.quantity}</td><td style={cellStyle}>{money(part.unitPrice)}</td><td style={cellStyle}>{money(part.quantity*part.unitPrice)}</td></tr>)}<tr><td colSpan={3} style={cellStyle}>Alkatrészek összesen</td><td style={cellStyle}>{money(partsSubtotal(job.jobParts))}</td></tr><tr><td colSpan={3} style={cellStyle}>Munkadíj</td><td style={cellStyle}>{money(job.laborCost)}</td></tr><tr><th colSpan={3} style={cellStyle}>Végösszeg</th><td style={cellStyle} data-testid="print-total">{money(worksheetTotal(job))}</td></tr></tbody></table>
               <table
                 style={{
                   width: "100%",

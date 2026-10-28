@@ -11,6 +11,7 @@ const primary: { to: string; label: string; icon: LucideIcon }[] = [
   { to: '/calendar', label: 'Naptár', icon: CalendarDays },
   { to: '/customers', label: 'Ügyfelek', icon: Users },
   { to: '/vehicles', label: 'Járművek', icon: Car },
+  { to: '/worksheets', label: 'Munkalapok', icon: FileText },
   { to: '/inventory', label: 'Alkatrészek', icon: Package },
 ];
 export default function Sidebar({ collapsed = false, mobile = false, onToggle, onClose, onNavigate, onLogout, onDevTools }: Props) {
@@ -30,7 +31,6 @@ export default function Sidebar({ collapsed = false, mobile = false, onToggle, o
   return <aside id={mobile ? 'mobile-navigation' : 'desktop-navigation'} className={'workshop-sidebar' + (collapsed ? ' is-collapsed' : '')} aria-label="Műhely navigáció">
     <div className="shell-brand"><span className="shell-brand-icon"><Wrench size={20} aria-hidden="true" /></span><div className="shell-brand-text"><strong title={settings?.companyName}>{settings?.companyName || 'GTA Szerviz'}</strong><span>Műhelykezelés</span></div>{mobile && <IconButton label="Menü bezárása" onClick={onClose}><X size={18} /></IconButton>}</div>
     <nav aria-label="Fő navigáció" className="shell-nav"><span className="shell-nav-caption">Munkaterület</span>{primary.slice(0, 4).map(link)}
-      <button className="shell-nav-item shell-nav-unavailable" disabled aria-describedby={collapsed ? undefined : 'worksheet-nav-help'} title="A munkalapokat a jármű adatlapjáról nyithatod meg."><FileText size={19} aria-hidden="true" /><span className="shell-nav-label">Munkalapok<small id="worksheet-nav-help">Jármű adatlapjáról érhető el</small></span></button>
       {primary.slice(4).map(link)}
     </nav>
     <div className="shell-sidebar-lower">

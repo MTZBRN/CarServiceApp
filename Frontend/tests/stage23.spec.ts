@@ -28,9 +28,9 @@ test('desktop shell has semantic routes, admin controls, persistent collapse and
   await login(page);
   await expect(page.locator('body')).toHaveCSS('font-family', /Segoe UI/);
   const nav = page.getByRole('navigation', { name: 'Fő navigáció' });
-  await expect(nav.getByRole('link')).toHaveCount(5);
+  await expect(nav.getByRole('link')).toHaveCount(6);
   await expect(nav.getByRole('link', { name: 'Áttekintés' })).toHaveAttribute('aria-current', 'page');
-  await expect(nav.getByRole('button', { name: /Munkalapok/ })).toBeDisabled();
+  await expect(nav.getByRole('link', { name: 'Munkalapok' })).toHaveAttribute('href', '/worksheets');
   await expect(page.getByRole('navigation', { name: 'Adminisztráció' }).getByRole('link')).toHaveCount(2);
   await page.keyboard.press('Tab');
   await nav.getByRole('link', { name: 'Ügyfelek' }).focus();
@@ -142,21 +142,17 @@ test('reduced motion preference suppresses application animations', async ({ pag
 
 
 
-test('nested print dialog restores its worksheet and releases background inertness', async ({ page }) => {
+test('print dialog restores focus to the worksheet and releases background inertness', async ({ page }) => {
   await login(page); await page.goto(ui + '/vehicles/' + vehicleId);
   const edit = page.locator('button[title*="szerkeszt"]').first();
   await edit.click();
-  const worksheet = page.getByRole('dialog', { name: 'Munkalap', exact: true });
-  const print = worksheet.locator('button[title="Nyomtatás"]');
+  const worksheet = page.getByRole('region', { name: 'Munkalap szerkesztő' });
+  const print = worksheet.getByRole('button', { name: 'Nyomtatás', exact: true });
   await print.click();
   const preview = page.getByRole('dialog', { name: 'Munkalap nyomtatási előnézet' });
   await expect(preview).toBeVisible();
-  expect(await worksheet.evaluate(el => el.inert)).toBe(true);
+  expect(await page.locator('#root').evaluate(el => el.inert)).toBe(true);
   await page.keyboard.press('Escape'); await expect(preview).toHaveCount(0);
   await expect(worksheet).toBeVisible(); await expect(print).toBeFocused();
-  expect(await worksheet.evaluate(el => el.inert)).toBe(false);
-  expect(await page.locator('#root').evaluate(el => el.inert)).toBe(true);
-  await page.keyboard.press('Escape'); await expect(worksheet).toHaveCount(0);
-  await expect(edit).toBeFocused();
   expect(await page.locator('#root').evaluate(el => el.inert)).toBe(false);
 });

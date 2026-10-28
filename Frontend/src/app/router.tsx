@@ -1,3 +1,5 @@
+import WorksheetList from '../features/worksheets/WorksheetList';
+import WorksheetRoute from '../features/worksheets/WorksheetRoute';
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import App, { DashboardRoute, CalendarRoute } from "../App";
 import { LoginRoute, RequireAuth, RequireAdmin } from "./RouteGuards";
@@ -16,6 +18,9 @@ export const router = createBrowserRouter([
                     { path: "customers", element: <Customers /> },
                     { path: "vehicles", element: <Garage /> },
                     { path: "vehicles/:vehicleId", element: <VehicleDetailsRoute /> },
+                    { path: "worksheets", element: <WorksheetList /> },
+                    { path: "worksheets/new", element: <WorksheetRoute /> },
+                    { path: "worksheets/:worksheetId", element: <WorksheetRoute /> },
                     { path: "inventory", element: <Inventory /> },
                     { element: <RequireAdmin />, children: [
                             { path: "users", element: <UserManagement /> },
