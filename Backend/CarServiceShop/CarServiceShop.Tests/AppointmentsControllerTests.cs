@@ -93,6 +93,48 @@ public class AppointmentsControllerTests
         Assert.Null(await context.Appointments.FindAsync(appointment.Id));
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task PutAppointment_VehicleChangeRespectsWorksheet(bool linked)
+    {
+        using var context = CreateContext();
+        var appointment = CreateAppointment();
+        context.Appointments.Add(appointment);
+        await context.SaveChangesAsync();
+        if (linked) {
+            context.ServiceJobs.Add(new ServiceJob { VehicleId = 1, AppointmentId = appointment.Id, Description = "Existing job" });
+            await context.SaveChangesAsync();
+        }
+        var result = await new AppointmentsController(context).PutAppointment(appointment.Id,
+            new Appointment { Id = appointment.Id, VehicleId = 2, StartTime = appointment.StartTime, EndTime = appointment.EndTime, Note = "Updated" });
+        if (linked) {
+            Assert.IsType<ConflictObjectResult>(result);
+            Assert.Equal(1, appointment.VehicleId);
+            Assert.Equal("Olajcsere", appointment.Note);
+        } else {
+            Assert.IsType<NoContentResult>(result);
+            Assert.Equal(2, appointment.VehicleId);
+        }
+    }
+
+    [Fact]
+    public async Task PutAppointment_LinkedNoteEditPreservesTimesAndRelationship()
+    {
+        using var context = CreateContext();
+        var appointment = CreateAppointment();
+        context.Appointments.Add(appointment);
+        await context.SaveChangesAsync();
+        context.ServiceJobs.Add(new ServiceJob { VehicleId = 1, AppointmentId = appointment.Id, Description = "Existing job" });
+        await context.SaveChangesAsync();
+        var start = appointment.StartTime; var end = appointment.EndTime;
+        var result = await new AppointmentsController(context).PutAppointment(appointment.Id,
+            new Appointment { Id = appointment.Id, VehicleId = 1, StartTime = start, EndTime = end, Note = "New note" });
+        Assert.IsType<NoContentResult>(result);
+        Assert.Equal(start, appointment.StartTime); Assert.Equal(end, appointment.EndTime);
+        Assert.Equal(appointment.Id, (await context.ServiceJobs.SingleAsync()).AppointmentId);
+    }
+
     private static ApplicationDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()

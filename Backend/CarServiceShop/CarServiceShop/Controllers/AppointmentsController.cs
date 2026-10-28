@@ -54,6 +54,10 @@ public class AppointmentsController : ControllerBase
         var appointmentInDb = await _context.Appointments.FindAsync(id);
         if (appointmentInDb == null) return NotFound();
 
+        if (appointmentInDb.VehicleId != appointment.VehicleId &&
+            await _context.ServiceJobs.AnyAsync(j => j.AppointmentId == id))
+            return Conflict("Munkalappal rendelkező időpont járműve nem módosítható.");
+
         appointmentInDb.StartTime = appointment.StartTime;
         appointmentInDb.EndTime = appointment.EndTime;
         appointmentInDb.Note = appointment.Note;

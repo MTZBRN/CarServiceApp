@@ -5,6 +5,6 @@ export const appointmentsApi = {
   list: () => client.get<Appointment[]>('/Appointments'),
   get: (id: number) => client.get<Appointment>(`/Appointments/${id}`),
   create: (data: CreateAppointmentRequest) => mutation(client.post<Appointment>('/Appointments', data), ['appointments']),
-  update: (id: number, data: UpdateAppointmentRequest) => mutation(client.put<void>(`/Appointments/${id}`, data), ["appointments","worksheets"]),
+  update: (id: number, data: UpdateAppointmentRequest) => mutation(client.put<void>(`/Appointments/${id}`, { ...data, id }), ["appointments","worksheets"]),
   remove: (id: number) => mutation(client.delete<void>(`/Appointments/${id}`), ["appointments","worksheets"]),
 };
