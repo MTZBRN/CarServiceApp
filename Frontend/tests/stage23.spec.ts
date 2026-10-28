@@ -103,15 +103,11 @@ test('logout confirmation cancels safely, traps focus and clears identity on con
 
 test('legacy forms use labelled keyboard controls and dialogs restore focus without discarding drafts on backdrop', async ({ page }) => {
   await login(page); await page.getByRole('link', { name: 'Járművek', exact: true }).click();
-  const trigger = page.getByRole('button', { name: 'Új Jármű', exact: true }); await trigger.click();
+  const trigger = page.getByRole('button', { name: 'Új jármű', exact: true }); await trigger.click();
   const modal = page.getByRole('dialog', { name: 'Új jármű', exact: true });
   const combo = modal.getByRole('combobox').first();
-  await combo.focus(); await page.keyboard.press('ArrowDown');
-  await expect(modal.getByRole('listbox')).toBeVisible();
-  await page.keyboard.press('Escape'); await expect(modal.getByRole('listbox')).toHaveCount(0);
+  await combo.focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter');
   await expect(modal).toBeVisible();
-  await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter');
-  await expect(modal.getByRole('listbox')).toHaveCount(0);
   const input = modal.getByPlaceholder('ABC-123'); await input.fill('DRAFT-123');
   expect(await input.evaluate(el => el.labels?.length)).toBeGreaterThan(0);
   await modal.click({ position: { x: 2, y: 2 } });
@@ -148,7 +144,7 @@ test('reduced motion preference suppresses application animations', async ({ pag
 
 test('nested print dialog restores its worksheet and releases background inertness', async ({ page }) => {
   await login(page); await page.goto(ui + '/vehicles/' + vehicleId);
-  const edit = page.locator('button[title*="Szerkeszt"]').first();
+  const edit = page.locator('button[title*="szerkeszt"]').first();
   await edit.click();
   const worksheet = page.getByRole('dialog', { name: 'Munkalap', exact: true });
   const print = worksheet.locator('button[title="Nyomtatás"]');

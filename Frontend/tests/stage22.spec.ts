@@ -28,9 +28,9 @@ test('shared consumers reuse lists and mutations refresh only affected resources
   await expect.poll(() => counts.Customers).toBe(1);
   await expect.poll(() => counts.Appointments).toBe(1);
   await page.getByRole('link', { name: 'Járművek', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Garázs', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Járművek', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Ügyfelek', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Új Ügyfél' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Új ügyfél' })).toBeVisible();
   expect(counts.Vehicle).toBe(1); expect(counts.Customers).toBe(1); expect(counts.Appointments).toBe(1);
   expect(counts.parts || 0).toBe(0); expect(counts.Users || 0).toBe(0); expect(counts.ServiceJobs || 0).toBe(0);
   const before = { ...counts };
