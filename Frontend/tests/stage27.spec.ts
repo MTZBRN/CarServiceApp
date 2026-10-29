@@ -1,3 +1,4 @@
+import {expectedVersion} from './versioned-request';
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
 import { createHmac } from 'node:crypto';
 
@@ -102,7 +103,7 @@ test('company settings validate, retain failed values, prevent duplicates, save 
       await page.goto(ui+'/worksheets/'+jobs[0].id+'?print=1');
       await expect(page.getByRole('dialog',{name:'Munkalap nyomtatási előnézet'})).toContainText(company);
     }
-  } finally {expect((await request.post(api+'/Settings',{headers,data:previous})).ok()).toBeTruthy();}
+  } finally {expect((await request.post(api+'/Settings',await expectedVersion(request,api+'/Settings',{headers,data:previous}))).ok()).toBeTruthy();}
 });
 
 test('settings company load error retries while personal controls remain available',async({page})=>{
