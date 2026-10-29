@@ -20,16 +20,21 @@ namespace CarServiceShop.Tests;
 
 public sealed class SecurityHost : WebApplicationFactory<Program>
 {
+    public const string Issuer="urn:carserviceapp:security-tests:issuer";
+    public const string Audience="urn:carserviceapp:security-tests:client";
     public string Root { get; } = Path.Combine(Path.GetTempPath(), "car-security-" + Guid.NewGuid().ToString("N"));
     public string Key { get; } = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
     public LogCapture Logs { get; } = new();
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         Directory.CreateDirectory(Root);
+        Directory.CreateDirectory(Path.Combine(Root,"wwwroot"));
+        File.WriteAllText(Path.Combine(Root,"wwwroot","index.html"),"<!doctype html><title>Security test document</title>");
+        builder.UseWebRoot(Path.Combine(Root,"wwwroot"));
         builder.UseEnvironment("Production");
         builder.ConfigureLogging(logging => logging.AddProvider(Logs));
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string,string?> {
-            ["Jwt:Key"] = Key, ["ConnectionStrings:DefaultConnection"] = "Data Source=" + Path.Combine(Root,"test.db"),
+            ["Jwt:Key"] = Key, ["Jwt:Issuer"]=Issuer, ["Jwt:Audience"]=Audience, ["ConnectionStrings:DefaultConnection"] = "Data Source=" + Path.Combine(Root,"test.db"),
             ["Uploads:Path"] = Path.Combine(Root,"uploads")
         }));
     }
@@ -105,6 +110,7 @@ public class SecurityIntegrationTests
         Assert.Equal(HttpStatusCode.OK,(await client.GetAsync("/api/Auth/me")).StatusCode);
         foreach(var wrongKey in new[]{true,false}) {
             var token=new JwtSecurityTokenHandler().CreateToken(new SecurityTokenDescriptor {
+                Issuer=SecurityHost.Issuer,Audience=SecurityHost.Audience,
                 Subject=new ClaimsIdentity(new[]{new Claim(ClaimTypes.NameIdentifier,"1"),new Claim(ClaimTypes.Role,"admin"),new Claim("session_version","initial")}),
                 NotBefore=DateTime.UtcNow.AddHours(-2), Expires=wrongKey?DateTime.UtcNow.AddHours(1):DateTime.UtcNow.AddHours(-1),
                 SigningCredentials=new SigningCredentials(new SymmetricSecurityKey(wrongKey?RandomNumberGenerator.GetBytes(48):Convert.FromBase64String(host.Key)),SecurityAlgorithms.HmacSha256)
@@ -191,6 +197,7 @@ public class SecurityIntegrationTests
             Assert.Matches(@"^/uploads/profile_1_[a-f0-9]{32}\.png$",path);
             var served=await client.GetAsync(path); Assert.Equal("image/png",served.Content.Headers.ContentType!.MediaType);
             Assert.Equal("nosniff",served.Headers.GetValues("X-Content-Type-Options").Single());
+            Assert.Equal("default-src 'none'; sandbox",served.Headers.GetValues("Content-Security-Policy").Single());
             if(previous!=null) Assert.False(File.Exists(Path.Combine(host.Root,"uploads",previous)));
             previous=Path.GetFileName(path);
         }

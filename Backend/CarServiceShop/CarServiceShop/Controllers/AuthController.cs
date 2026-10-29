@@ -112,6 +112,8 @@ public class AuthController : ControllerBase
                 new Claim(ClaimTypes.Role, user.Role),
                 new Claim("session_version", user.SessionVersion)
             }),
+            Issuer = ProductionHardening.JwtScope(_configuration,"Issuer",HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment()),
+            Audience = ProductionHardening.JwtScope(_configuration,"Audience",HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment()),
             Expires = DateTime.UtcNow.AddDays(7), // 7 napig érvényes
             SigningCredentials = new SigningCredentials(
                 new SymmetricSecurityKey(key),

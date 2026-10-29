@@ -52,13 +52,20 @@ builder.Services.AddAuthentication(options =>
     {
         ValidateIssuerSigningKey = true,
 
-        ValidateIssuer = false,
-        ValidateAudience = false,
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        RequireSignedTokens = true,
+        RequireExpirationTime = true,
+        ValidateLifetime = true,
+        ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
         ClockSkew = TimeSpan.Zero
     };
 });
 
-builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme).Configure<IConfiguration>((options, config) => {
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme).Configure<IConfiguration, IWebHostEnvironment>((options, config, environment) => {
+    options.IncludeErrorDetails = false;
+    options.TokenValidationParameters.ValidIssuer = ProductionHardening.JwtScope(config,"Issuer",environment.IsDevelopment());
+    options.TokenValidationParameters.ValidAudience = ProductionHardening.JwtScope(config,"Audience",environment.IsDevelopment());
     options.TokenValidationParameters.IssuerSigningKey = new SymmetricSecurityKey(SecurityRules.SigningKey(config["Jwt:Key"]));
 });
 // --- 2. ADATBÁZIS ÉS KÖZÖS SZOLGÁLTATÁSOK ---
@@ -66,19 +73,18 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddAuthorization(o => o.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
-builder.Services.AddControllers();
-
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll",
-        policy =>
-        {
-            policy.AllowAnyOrigin()
-                .AllowAnyHeader()
-                .AllowAnyMethod();
-        });
+builder.Services.AddControllers().ConfigureApplicationPartManager(parts => {
+    if (!builder.Environment.IsDevelopment()) parts.FeatureProviders.Add(new NonDevelopmentControllers());
 });
 
+builder.Services.AddCors(options => options.AddPolicy("Browser", policy => {
+    // Same-origin Production needs no CORS grants. Only explicit local Development frontends may call cross-origin.
+    if (builder.Environment.IsDevelopment()) policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+        .WithMethods("GET", "HEAD", "POST", "PUT", "DELETE").WithHeaders("Authorization", "Content-Type");
+}));
+builder.Services.AddHsts(options => { options.MaxAge=TimeSpan.FromDays(180); options.IncludeSubDomains=false; options.Preload=false; });
+// The framework exception handler otherwise logs exception messages before invoking the safe handler.
+builder.Logging.AddFilter("Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware", LogLevel.None);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(); 
 
@@ -100,6 +106,8 @@ builder.Services.AddRateLimiter(options => {
 builder.Services.AddSingleton<LoginThrottle>();
 var app = builder.Build();
 _ = SecurityRules.SigningKey(app.Configuration["Jwt:Key"]);
+_ = ProductionHardening.JwtScope(app.Configuration,"Issuer",app.Environment.IsDevelopment());
+_ = ProductionHardening.JwtScope(app.Configuration,"Audience",app.Environment.IsDevelopment());
 
 using (var scope = app.Services.CreateScope())
 {
@@ -113,7 +121,19 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseForwardedHeaders();
+app.Use(async (context,next) => {
+    context.Response.OnStarting(() => { ProductionHardening.AddHeaders(context,app.Environment.IsDevelopment()); return Task.CompletedTask; });
+    await next();
+});
+// Same sanitized client responses in Development too: accidental environment changes do not expose stack/headers.
+app.UseExceptionHandler(handler => handler.Run(ProductionHardening.UnexpectedError));
+if (!app.Environment.IsDevelopment()) app.UseHsts();
+app.Use(async (context,next) => {
+    if (!app.Environment.IsDevelopment() && context.Request.Path.StartsWithSegments("/api/Seed")) { context.Response.StatusCode=404; return; }
+    await next();
+});
 app.UseRouting();
+app.UseCors("Browser");
 app.UseRateLimiter();
 // --- 4. MIDDLEWARE SORREND (Kritikus!) ---
 if (app.Environment.IsDevelopment())
@@ -123,7 +143,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("AllowAll");
+
 
 // ✅ ÚJ: Ezek kellenek a React kiszolgálásához!
 app.UseDefaultFiles(); // Megkeresi az index.html-t a wwwroot-ban

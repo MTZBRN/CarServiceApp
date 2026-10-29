@@ -26,6 +26,7 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 60000,
     },
+    { command: 'node scripts/start-test-backend.mjs --production', url: 'http://localhost:15232/api/Auth/me', reuseExistingServer: false, timeout: 120000 },
   ],
   outputDir: path.resolve('test-results'),
 });

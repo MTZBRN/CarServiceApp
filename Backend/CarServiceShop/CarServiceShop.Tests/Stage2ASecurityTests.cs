@@ -21,6 +21,7 @@ public class Stage2ASecurityTests
         if(version!=null)claims.Add(new("session_version",version));
         var handler=new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
         var token=handler.CreateToken(new Microsoft.IdentityModel.Tokens.SecurityTokenDescriptor {
+            Issuer=SecurityHost.Issuer,Audience=SecurityHost.Audience,
             Subject=new System.Security.Claims.ClaimsIdentity(claims),Expires=DateTime.UtcNow.AddMinutes(10),
             SigningCredentials=new(new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(Convert.FromBase64String(host.Key)),Microsoft.IdentityModel.Tokens.SecurityAlgorithms.HmacSha256)
         });
