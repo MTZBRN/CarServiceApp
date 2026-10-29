@@ -8,6 +8,13 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;               
 using System.Text;                                  
 
+// Container probe is a bounded loopback HTTP client, not a second application startup.
+if (args is ["--healthcheck"])
+{
+    Environment.ExitCode = await ContainerHealthProbe.RunAsync();
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Explicit development-only offline recovery: no HTTP listener and no signing key required.
@@ -168,6 +175,10 @@ app.UseAuthentication();
 app.UseAuthorization();  
 
 app.MapControllers();
+app.MapGet("/healthz", (HttpContext context) => {
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.Text("healthy", "text/plain");
+}).AllowAnonymous();
 
 // ✅ ÚJ: Ha a felhasználó pl. a /customers url-re megy, a C# nem tudja mi az, 
 // ezért visszaadja a React alkalmazást, és a React Router majd megoldja!

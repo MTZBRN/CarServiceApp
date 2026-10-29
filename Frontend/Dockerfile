@@ -12,7 +12,11 @@ RUN npm run build
 FROM nginx:1.30.6-alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx-main.conf /etc/nginx/nginx.conf
 COPY security-headers.conf /etc/nginx/security-headers.conf
-# Ha React Router-t használsz, egy alap Nginx config kellhet ide (opcionális)
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# No root entrypoint setup: configuration and static content are complete at build time.
+USER 101:101
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD ["wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+ENTRYPOINT ["nginx"]
+CMD ["-g", "daemon off;"]

@@ -1,14 +1,29 @@
 services:
   backend:
     build:
-      # A kép alapján a Dockerfile a Backend/CarServiceShop mappában van
       context: ./Backend/CarServiceShop
       dockerfile: Dockerfile
     expose:
       - "8080"
     volumes:
-      - ./backend-data:/app/data
-      - ./user-uploads:/app/uploads
+      - type: bind
+        source: ./backend-data
+        target: /app/data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./user-uploads
+        target: /app/uploads
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=134217728,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 1g
+    cpus: 1.0
+    pids_limit: 256
     networks:
       workshop:
         ipv4_address: 172.30.90.2
@@ -23,13 +38,21 @@ services:
 
   frontend:
     build:
-      # A kép alapján a Frontend mappa közvetlenül a gyökérben van
       context: ./Frontend
       dockerfile: Dockerfile
     ports:
-      - "127.0.0.1:5173:80"
+      - "127.0.0.1:5173:8080"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=33554432,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 64
 
     networks:
       workshop:

@@ -10,19 +10,24 @@ RUN npm run build
 FROM mcr.microsoft.com/dotnet/sdk:10.0.403-noble AS backend-build
 WORKDIR /src
 
-# Átmásoljuk az egész Backend mappát
-COPY Backend/ ./Backend/
-
-# A Docker automatikusan megkeresi a .csproj fájlt és lefordítja
-RUN PROJECT_FILE=$(find Backend -name "*.csproj" | head -n 1) && \
-    echo "Megtalalt projekt fajl: $PROJECT_FILE" && \
-    dotnet publish "$PROJECT_FILE" -c Release -o /app/publish
+COPY Backend/CarServiceShop/CarServiceShop/ ./Backend/CarServiceShop/CarServiceShop/
+RUN dotnet publish Backend/CarServiceShop/CarServiceShop/CarServiceShop.csproj -c Release -o /app/publish
 
 # 3. Fázis: Összeolvasztás és Futtatás (.NET 10 LTS)
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.14-noble
 WORKDIR /app
 COPY --from=backend-build /app/publish .
 COPY --from=frontend-build /app/frontend/dist ./wwwroot
-
-# Futtatás
+ENV ASPNETCORE_HTTP_PORTS=8080 \
+    ConnectionStrings__DefaultConnection="Data Source=/app/data/app.db" \
+    Uploads__Path=/app/uploads \
+    HOME=/tmp
+RUN mkdir -p /app/data /app/uploads \
+    && chown 1654:1654 /app/data /app/uploads \
+    && chmod 0700 /app/data /app/uploads \
+    && chmod -R go-w /app
+VOLUME ["/app/data", "/app/uploads"]
+USER 1654:1654
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD ["dotnet", "CarServiceShop.dll", "--healthcheck"]
 ENTRYPOINT ["dotnet", "CarServiceShop.dll"]
