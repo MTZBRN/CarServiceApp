@@ -1,6 +1,0 @@
-*.db
-.idea/
-bin/
-obj/
-*.log
-.DS_Store
