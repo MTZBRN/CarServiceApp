@@ -1,15 +1,15 @@
 # 1. Build szakasz
-FROM node:20 AS build
+FROM node:24.22.2-bookworm-slim AS build
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 COPY . .
 RUN npm run build
 
 # 2. Szerver szakasz (Nginx fogja kiszolgálni a statikus fájlokat)
-FROM nginx:alpine
+FROM nginx:1.30.6-alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY security-headers.conf /etc/nginx/security-headers.conf

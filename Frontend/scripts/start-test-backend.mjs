@@ -20,12 +20,12 @@ console.log('Disposable validation data: '+path.relative(frontend,data));
 let child=spawn('dotnet',production?['--version']:['build',path.join(backend,'CarServiceShop.csproj'),'--nologo'],{stdio:'inherit'});
 child.on('exit',async code=>{
   if(code!==0)process.exit(code??1);
-  const dll=path.join(backend,'bin/Debug/net9.0/CarServiceShop.dll');
+  const dll=path.join(backend,'bin/Debug/net10.0/CarServiceShop.dll');
   const isolated={...testEnv,ASPNETCORE_ENVIRONMENT:environment,ConnectionStrings__DefaultConnection:'Data Source='+path.join(data,'regression.db'),Uploads__Path:path.join(data,'uploads')};
   const provision=spawn('dotnet',[dll,'--contentRoot',backend,'--provision-admin'],{cwd:data,stdio:'inherit',env:isolated});
   const provisionCode=await new Promise(resolve=>provision.on('exit',resolve));
   if(provisionCode!==0)process.exit(provisionCode??1);
-  child=spawn('dotnet',[path.join(backend,'bin/Debug/net9.0/CarServiceShop.dll'),'--contentRoot',backend,'--webroot',webroot],{
+  child=spawn('dotnet',[dll,'--contentRoot',backend,'--webroot',webroot],{
     cwd:data,stdio:'inherit',env:{...isolated,
       Login__SourcePermitLimit:'1000',ASPNETCORE_ENVIRONMENT:environment,ASPNETCORE_URLS:'http://localhost:'+port,
       ConnectionStrings__DefaultConnection:'Data Source='+path.join(data,'regression.db'),
