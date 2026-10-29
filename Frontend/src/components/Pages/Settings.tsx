@@ -1,416 +1,131 @@
-import React, { useState, useEffect } from "react";
-import {
-  Save,
-  Building,
-  CreditCard,
-  Wrench,
-  Lock,
-  Camera,
-  Upload,
-} from "lucide-react";
-import { InputField } from "../ui/FormElements";
-import { settingsApi } from "../../api/settings";
-import { authApi } from "../../api/auth";
-import { apiErrorMessage } from "../../api/client";
-import { useWorkshopResource } from "../../data/useWorkshopData";
+import { useRef, useState, type FormEvent } from 'react';
+import { useAuth } from '../../auth/AuthProvider';
+import { authApi } from '../../api/auth';
+import { settingsApi } from '../../api/settings';
+import { apiErrorMessage, profilePictureUrl } from '../../api/client';
+import { useWorkshopResource } from '../../data/useWorkshopData';
+import type { SaveSettingsRequest, WorkshopSettings } from '../../types';
+import Card from '../ui/Card';
+import Button from '../ui/Button';
+import Badge from '../ui/Badge';
+import { FormField, Input } from '../ui/Fields';
+import { LoadingState, ErrorState } from '../ui/StateViews';
+import { useToast } from '../ui/ToastProvider';
+import '../../features/records/records.css';
+import '../../styles/final-pages.css';
 
-const Settings: React.FC = () => {
-  const { data: sharedSettings } = useWorkshopResource("settings");
-  // --- STATE-EK A CÉGES ADATOKHOZ ---
-  const [companyName, setCompanyName] = useState("");
-  const [address, setAddress] = useState("");
-  const [taxNumber, setTaxNumber] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [hourlyRate, setHourlyRate] = useState<number>(15000);
-  const [vatRate, setVatRate] = useState<number>(27);
-  const [saved, setSaved] = useState(false);
-
-  // --- ÚJ STATE-EK: JELSZÓ ÉS PROFILKÉP ---
-  const [passwords, setPasswords] = useState({
-    oldPassword: "",
-    newPassword: "",
+function PersonalAccount() {
+  const { user } = useAuth();
+  const { showToast } = useToast();
+  const [passwords, setPasswords] = useState({ oldPassword:'', newPassword:'', confirm:'' });
+  const [errors, setErrors] = useState<Record<string,string>>({});
+  const [passwordError, setPasswordError] = useState(''), [uploadError, setUploadError] = useState('');
+  const [saving, setSaving] = useState(false), [uploading, setUploading] = useState(false);
+  const passwordLock = useRef(false), uploadLock = useRef(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File|null>(null);
+  const [picture, setPicture] = useState<string|null>(() => {
+    try { return JSON.parse(localStorage.getItem('user_data') || '{}').profilePicturePath || user?.profilePicturePath || null; }
+    catch { return user?.profilePicturePath || null; }
   });
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-
-  // --- ADATOK BETÖLTÉSE A BACKEND-RŐL ---
-  useEffect(() => {
-    if (!sharedSettings) return;
-    setCompanyName(sharedSettings.companyName || ''); setAddress(sharedSettings.address || '');
-    setTaxNumber(sharedSettings.taxNumber || ''); setPhone(sharedSettings.phone || ''); setEmail(sharedSettings.email || '');
-    setHourlyRate(sharedSettings.hourlyRate || 15000); setVatRate(sharedSettings.vatRate || 27);
-  }, [sharedSettings]);
-
-  // --- CÉGADATOK ÉS PÉNZÜGYEK MENTÉSE A BACKEND-RE ---
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  async function changePassword(event:FormEvent) {
+    event.preventDefault();
+    if (passwordLock.current) return;
+    const next:Record<string,string> = {};
+    if (!passwords.oldPassword) next.oldPassword='Add meg a jelenlegi jelszót.';
+    if (!passwords.newPassword.trim()) next.newPassword='Add meg az új jelszót.';
+    if (passwords.confirm !== passwords.newPassword) next.confirm='A két új jelszó nem egyezik.';
+    setErrors(next); setPasswordError('');
+    if (Object.keys(next).length) return;
+    passwordLock.current=true; setSaving(true);
     try {
-      const settings = {
-        companyName,
-        address,
-        taxNumber,
-        phone,
-        email,
-        hourlyRate: Number(hourlyRate),
-        vatRate: Number(vatRate),
-      };
-
-      await settingsApi.save(settings);
-
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch (err) {
-      alert("Hiba történt a rendszeradatok mentésekor!");
-      console.error(err);
-    }
-  };
-
-  // --- JELSZÓ MÓDOSÍTÁS (BACKEND) ---
-  const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
+      await authApi.changePassword({ oldPassword:passwords.oldPassword, newPassword:passwords.newPassword });
+      setPasswords({oldPassword:'',newPassword:'',confirm:''});
+      showToast('A jelszó módosítva.', 'success');
+    } catch(e) { setPasswordError(apiErrorMessage(e,'A jelszóváltás nem sikerült.')); }
+    finally { passwordLock.current=false; setSaving(false); }
+  }
+  async function upload(event:FormEvent) {
+    event.preventDefault();
+    if (uploadLock.current || !file) return;
+    setUploadError('');
+    if (!file.type.startsWith('image/') || !file.size) { setUploadError('Válassz egy nem üres képfájlt.'); return; }
+    uploadLock.current=true; setUploading(true);
+    const data=new FormData(); data.append('file',file);
     try {
-      await authApi.changePassword(passwords);
-      alert("Sikeres jelszóváltás!");
-      setPasswords({ oldPassword: "", newPassword: "" });
-    } catch (err: unknown) {
-      alert(apiErrorMessage(err, "Hiba történt a jelszóváltáskor!"));
-    }
-  };
-
-  // --- PROFILKÉP FELTÖLTÉS (BACKEND) ---
-  const handleFileUpload = async () => {
-    if (!selectedFile) return;
-    setUploading(true);
-    const formData = new FormData();
-    formData.append("file", selectedFile);
-
-    try {
-      const res = await authApi.uploadProfilePicture(formData);
-
-      alert("Profilkép sikeresen feltöltve!");
-      setSelectedFile(null);
-
-      // ✅ 1. Frissítjük a localStorage-ot az új képpel
-      // A backend visszaadja a teljes utat: "/uploads/kepneve.jpg"
-      // Nekünk csak a fájlnév kell a végéről
-      const filePath = res.data.filePath;
-      const fileName = filePath.split("/").pop(); // Levágjuk a "/uploads/" részt
-
-      const userData = JSON.parse(localStorage.getItem("user_data") || "{}");
-      userData.profilePicturePath = fileName;
-      localStorage.setItem("user_data", JSON.stringify(userData));
-
-      // ✅ 2. Üzenünk a Sidebar-nak, hogy frissüljön!
-      window.dispatchEvent(new Event("profile-updated"));
-    } catch (err) {
-      alert("Hiba a kép feltöltése során!");
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  return (
-    <div style={{ maxWidth: "800px", margin: "0 auto", paddingBottom: "50px" }}>
-      <h1
-        style={{
-          marginBottom: "30px",
-          fontSize: "1.8rem",
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-        }}
-      >
-        <Wrench size={28} color="#3b82f6" /> Rendszer Beállítások
-      </h1>
-
-      {/* 1. PROFILKÉP ÉS SZEMÉLYES BEÁLLÍTÁSOK */}
-      <div className="card" style={{ padding: "25px", marginBottom: "25px" }}>
-        <h3
-          style={{
-            marginTop: 0,
-            borderBottom: "1px solid #333",
-            paddingBottom: "15px",
-            marginBottom: "20px",
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            color: "#e4e4e7",
-          }}
-        >
-          <Camera size={20} color="#3b82f6" /> Profilkép módosítása
-        </h3>
-        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-            style={{ color: "#a1a1aa" }}
-          />
-          <button
-            onClick={handleFileUpload}
-            disabled={!selectedFile || uploading}
-            className="btn-add"
-            style={{
-              padding: "8px 20px",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <Upload size={16} />
-            {uploading ? "Feltöltés..." : "Kép Mentése"}
-          </button>
-        </div>
-      </div>
-
-      {/* 2. BIZTONSÁG (JELSZÓ) */}
-      <form
-        onSubmit={handlePasswordChange}
-        className="card"
-        style={{ padding: "25px", marginBottom: "25px" }}
-      >
-        <h3
-          style={{
-            marginTop: 0,
-            borderBottom: "1px solid #333",
-            paddingBottom: "15px",
-            marginBottom: "20px",
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            color: "#e4e4e7",
-          }}
-        >
-          <Lock size={20} color="#ef4444" /> Jelszó módosítása
-        </h3>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "20px",
-          }}
-        >
-          <InputField
-            type="password"
-            placeholder="Jelenlegi jelszó"
-            value={passwords.oldPassword}
-            onChange={(e) =>
-              setPasswords({ ...passwords, oldPassword: e.target.value })
-            }
-            required
-          />
-          <InputField
-            type="password"
-            placeholder="Új jelszó"
-            value={passwords.newPassword}
-            onChange={(e) =>
-              setPasswords({ ...passwords, newPassword: e.target.value })
-            }
-            required
-          />
-        </div>
-        <button
-          type="submit"
-          className="btn-add"
-          style={{ marginTop: "20px", background: "#ef4444", width: "100%" }}
-        >
-          Jelszó Frissítése
-        </button>
+      const response=await authApi.uploadProfilePicture(data);
+      const name=response.data.filePath.split('/').pop() || null;
+      const stored=JSON.parse(localStorage.getItem('user_data') || '{}');
+      localStorage.setItem('user_data',JSON.stringify({...stored,profilePicturePath:name}));
+      setPicture(name); setFile(null);
+      if (fileInput.current) fileInput.current.value='';
+      window.dispatchEvent(new Event('profile-updated'));
+      showToast('A profilkép mentve.', 'success');
+    } catch(e) { setUploadError(apiErrorMessage(e,'A profilkép feltöltése nem sikerült.')); }
+    finally { uploadLock.current=false; setUploading(false); }
+  }
+  return <section className="settings-section" aria-labelledby="personal-heading">
+    <h2 id="personal-heading">Személyes fiók</h2>
+    <Card><h3>Profiladatok és profilkép</h3><div className="account-profile">
+      {picture && <img className="account-picture" src={profilePictureUrl(picture)} alt="Saját profilkép" onError={()=>setPicture(null)} />}
+      <div><strong>{user?.userName}</strong><p><Badge tone="neutral">{user?.role==='admin'?'Rendszergazda':'Szerelő'}</Badge></p></div>
+    </div><p className="records-note">A név és a szerepkör ezen az oldalon nem módosítható.</p>
+      <form className="records-form" onSubmit={upload} noValidate aria-busy={uploading}>
+        <FormField label="Új profilkép" error={uploadError}><Input ref={fileInput} type="file" accept="image/*" disabled={uploading} onChange={e=>setFile(e.target.files?.[0] || null)} /></FormField>
+        <div><Button type="submit" disabled={!file || uploading}>{uploading?'Feltöltés…':'Kép mentése'}</Button></div>
       </form>
-
-      {/* 3. CÉGES ADATOK ÉS PÉNZÜGYEK (BACKEND MENTÉS) */}
-      <form
-        onSubmit={handleSave}
-        style={{ display: "flex", flexDirection: "column", gap: "25px" }}
-      >
-        <div className="card" style={{ padding: "25px" }}>
-          <h3
-            style={{
-              marginTop: 0,
-              borderBottom: "1px solid #333",
-              paddingBottom: "15px",
-              marginBottom: "20px",
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              color: "#e4e4e7",
-            }}
-          >
-            <Building size={20} color="#10b981" /> Cégadatok (Nyomtatáshoz)
-          </h3>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "20px",
-            }}
-          >
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  color: "#a1a1aa",
-                  fontSize: "0.9rem",
-                }}
-              >
-                Cégnév
-              </label>
-              <InputField
-                type="text"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  color: "#a1a1aa",
-                  fontSize: "0.9rem",
-                }}
-              >
-                Cím
-              </label>
-              <InputField
-                type="text"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  color: "#a1a1aa",
-                  fontSize: "0.9rem",
-                }}
-              >
-                Adószám
-              </label>
-              <InputField
-                type="text"
-                value={taxNumber}
-                onChange={(e) => setTaxNumber(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  color: "#a1a1aa",
-                  fontSize: "0.9rem",
-                }}
-              >
-                Telefonszám
-              </label>
-              <InputField
-                type="text"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  color: "#a1a1aa",
-                  fontSize: "0.9rem",
-                }}
-              >
-                Email
-              </label>
-              <InputField
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: "25px" }}>
-          <h3
-            style={{
-              marginTop: 0,
-              borderBottom: "1px solid #333",
-              paddingBottom: "15px",
-              marginBottom: "20px",
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              color: "#e4e4e7",
-            }}
-          >
-            <CreditCard size={20} color="#f59e0b" /> Árazás és Pénzügy
-          </h3>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "20px",
-            }}
-          >
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  color: "#a1a1aa",
-                  fontSize: "0.9rem",
-                }}
-              >
-                Rezsióradíj (Ft)
-              </label>
-              <InputField
-                type="number"
-                value={hourlyRate}
-                onChange={(e) => setHourlyRate(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  color: "#a1a1aa",
-                  fontSize: "0.9rem",
-                }}
-              >
-                ÁFA (%)
-              </label>
-              <InputField
-                type="number"
-                value={vatRate}
-                onChange={(e) => setVatRate(Number(e.target.value))}
-              />
-            </div>
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          className="btn-add"
-          style={{
-            padding: "12px 30px",
-            background: saved ? "#10b981" : "var(--accent-blue)",
-          }}
-        >
-          <Save size={20} style={{ marginRight: "10px" }} />
-          {saved ? "Beállítások Mentve! ✅" : "Rendszeradatok Mentése"}
-        </button>
-      </form>
-    </div>
-  );
-};
-
-export default Settings;
+    </Card>
+    <Card><h3>Jelszó módosítása</h3><form className="records-form" onSubmit={changePassword} noValidate aria-busy={saving}>
+      <fieldset disabled={saving} className="form-fieldset records-form-grid">
+        <FormField label="Jelenlegi jelszó" error={errors.oldPassword}><Input type="password" autoComplete="current-password" value={passwords.oldPassword} onChange={e=>setPasswords({...passwords,oldPassword:e.target.value})} /></FormField>
+        <FormField label="Új jelszó" error={errors.newPassword}><Input type="password" autoComplete="new-password" value={passwords.newPassword} onChange={e=>setPasswords({...passwords,newPassword:e.target.value})} /></FormField>
+        <FormField label="Új jelszó megerősítése" error={errors.confirm}><Input type="password" autoComplete="new-password" value={passwords.confirm} onChange={e=>setPasswords({...passwords,confirm:e.target.value})} /></FormField>
+      </fieldset>
+      {passwordError && <p role="alert" className="records-error">{passwordError}</p>}
+      <div><Button type="submit" disabled={saving}>{saving?'Mentés…':'Jelszó frissítése'}</Button></div>
+    </form></Card>
+  </section>;
+}
+function CompanyForm({ initial }:{initial:WorkshopSettings}) {
+  const [draft,setDraft]=useState<SaveSettingsRequest>(()=>({...initial}));
+  const [errors,setErrors]=useState<Record<string,string>>({});
+  const [error,setError]=useState(''), [saving,setSaving]=useState(false);
+  const lock=useRef(false);
+  const {showToast}=useToast();
+  async function save(event:FormEvent) {
+    event.preventDefault(); if(lock.current)return;
+    const next:Record<string,string>={};
+    if (!draft.companyName.trim()) next.companyName='Add meg a cégnevet.';
+    if (draft.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email)) next.email='Adj meg érvényes email címet.';
+    if (!Number.isFinite(draft.hourlyRate) || draft.hourlyRate<0) next.hourlyRate='Adj meg nem negatív óradíjat.';
+    if (!Number.isFinite(draft.vatRate) || draft.vatRate<0 || draft.vatRate>100) next.vatRate='Az ÁFA 0 és 100% közötti lehet.';
+    setErrors(next); setError(''); if(Object.keys(next).length)return;
+    lock.current=true;setSaving(true);
+    try {
+      const { companyName,address,taxNumber,phone,email,hourlyRate,vatRate }=draft;
+      await settingsApi.save({companyName,address,taxNumber,phone,email,hourlyRate,vatRate});
+      showToast('A cégbeállítások mentve.','success');
+    } catch(e) {setError(apiErrorMessage(e,'A beállítások mentése nem sikerült. A beírt adatok megmaradtak.'));}
+    finally {lock.current=false;setSaving(false);}
+  }
+  const textFields=[['companyName','Cégnév'],['address','Cím'],['taxNumber','Adószám'],['phone','Telefonszám'],['email','Email']] as const;
+  return <form className="settings-section" onSubmit={save} noValidate aria-busy={saving}>
+    <h2>Cégbeállítások</h2>
+    <Card><h3>Cégadatok a nyomtatott munkalaphoz</h3><p className="records-note">Ezeket az adatokat használja a munkalap nyomtatási előnézete.</p>
+      <fieldset disabled={saving} className="form-fieldset records-form-grid">{textFields.map(([key,label])=><FormField key={key} label={label} error={errors[key]}><Input type={key==='email'?'email':key==='phone'?'tel':'text'} value={draft[key]} onChange={e=>setDraft({...draft,[key]:e.target.value})} /></FormField>)}</fieldset>
+    </Card>
+    <Card><h3>Meglévő árazási alapértékek</h3><fieldset disabled={saving} className="form-fieldset records-form-grid">
+      <FormField label="Rezsióradíj (Ft)" error={errors.hourlyRate}><Input type="number" min="0" step="any" value={Number.isNaN(draft.hourlyRate)?'':draft.hourlyRate} onChange={e=>setDraft({...draft,hourlyRate:e.target.value===''?NaN:Number(e.target.value)})} /></FormField>
+      <FormField label="ÁFA (%)" error={errors.vatRate}><Input type="number" min="0" max="100" step="any" value={Number.isNaN(draft.vatRate)?'':draft.vatRate} onChange={e=>setDraft({...draft,vatRate:e.target.value===''?NaN:Number(e.target.value)})} /></FormField>
+    </fieldset></Card>
+    {error && <p role="alert" className="records-error">{error}</p>}
+    <div><Button type="submit" disabled={saving}>{saving?'Mentés…':'Rendszeradatok mentése'}</Button></div>
+  </form>;
+}
+export default function Settings() {
+  const state=useWorkshopResource('settings');
+  const {user}=useAuth();
+  return <div className="settings-page"><PersonalAccount />{user?.role==='admin' && <>
+    {state.error ? <ErrorState message={apiErrorMessage(state.error,'A cégadatok nem tölthetők be.')} onRetry={state.refresh} /> : !state.loaded || !state.data ? <LoadingState /> : <CompanyForm initial={state.data} />}
+  </>}</div>;
+}

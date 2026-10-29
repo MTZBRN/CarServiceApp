@@ -32,7 +32,8 @@ test('shared consumers reuse lists and mutations refresh only affected resources
   await page.getByRole('link', { name: 'Ügyfelek', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Új ügyfél' })).toBeVisible();
   expect(counts.Vehicle).toBe(1); expect(counts.Customers).toBe(1); expect(counts.Appointments).toBe(1);
-  expect(counts.parts || 0).toBe(0); expect(counts.Users || 0).toBe(0); expect(counts.ServiceJobs || 0).toBe(0);
+  // Stage 2.7 dashboard consumes inventory and worksheets; each is still fetched exactly once.
+  expect(counts.parts).toBe(1); expect(counts.Users || 0).toBe(0); expect(counts.ServiceJobs).toBe(1);
   const before = { ...counts };
   const name = 'Shared ' + Date.now();
   const id = await page.evaluate(async name => {

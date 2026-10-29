@@ -1,120 +1,31 @@
-import { useEffect, useState } from "react";
-import { usersApi } from "../../api/users";
-import type { User as UserModel } from "../../types";
-import { User, Trash2, Shield, UserPlus } from "lucide-react";
-import AddUserModal from "../modals/AddUserModal";
-
-const UserManagement = () => {
-  const [users, setUsers] = useState<UserModel[]>([]);
-  const [, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
-    try {
-      // Itt már NEM kell manuálisan fejlécet adni, az api.ts intézi!
-      const res = await usersApi.list();
-      setUsers(res.data);
-    } catch (err) {
-      console.error("Nem sikerült lekérni a felhasználókat", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    if (window.confirm("Biztosan törlöd ezt a felhasználót?")) {
-      try {
-        await usersApi.remove(id);
-        fetchUsers(); // Lista frissítése
-      } catch (err) {
-        alert("Hiba a törlés során! Lehet, hogy nincs admin jogod?");
-      }
-    }
-  };
-
-  return (
-    <div className="card" style={{ padding: "20px", height: "100%" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginBottom: "20px",
-        }}
-      >
-        <h2 style={{ color: "white", margin: 0 }}>Rendszerfelhasználók</h2>
-        <button
-          className="btn-primary"
-          style={{ display: "flex", gap: 8 }}
-          onClick={() => setShowAddModal(true)} // ✅ Modál megnyitása
-        >
-          <UserPlus size={18} /> Új hozzáadása
-        </button>
-      </div>
-
-      <div style={{ overflowY: "auto", flex: 1 }}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            color: "#e4e4e7",
-          }}
-        >
-          <thead>
-            <tr
-              style={{ textAlign: "left", borderBottom: "1px solid #27272a" }}
-            >
-              <th style={{ padding: "12px" }}>Név</th>
-              <th style={{ padding: "12px" }}>Azonosító (Email)</th>
-              <th style={{ padding: "12px" }}>Szerepkör</th>
-              <th style={{ padding: "12px" }}>Műveletek</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id} style={{ borderBottom: "1px solid #18181b" }}>
-                <td style={{ padding: "12px" }}>{u.name}</td>
-                <td style={{ padding: "12px" }}>{u.email}</td>
-                <td style={{ padding: "12px" }}>
-                  <span
-                    className={`status-badge ${u.role === "admin" ? "badge-blue" : "badge-green"}`}
-                  >
-                    {u.role === "admin" ? (
-                      <Shield size={12} />
-                    ) : (
-                      <User size={12} />
-                    )}{" "}
-                    {u.role}
-                  </span>
-                </td>
-                <td style={{ padding: "12px" }}>
-                  <button
-                    onClick={() => handleDelete(u.id)}
-                    className="icon-btn"
-                    style={{ color: "#ef4444" }}
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {showAddModal && (
-        <AddUserModal
-          onClose={() => setShowAddModal(false)}
-          onSuccess={() => {
-            setShowAddModal(false);
-            fetchUsers(); // Lista frissítése a szerverről
-          }}
-        />
-      )}
-    </div>
-  );
-};
-
-export default UserManagement;
+import { useCallback, useEffect, useState } from 'react';
+import { UserPlus } from 'lucide-react';
+import { usersApi } from '../../api/users';
+import { apiErrorMessage } from '../../api/client';
+import type { User } from '../../types';
+import Card from '../ui/Card';
+import Button from '../ui/Button';
+import Badge from '../ui/Badge';
+import Table from '../ui/Table';
+import { LoadingState,ErrorState,EmptyState } from '../ui/StateViews';
+import { useRemoval } from '../../features/records/shared';
+import AddUserModal from '../modals/AddUserModal';
+export default function UserManagement() {
+  const [users,setUsers]=useState<User[]>([]), [loading,setLoading]=useState(true);
+  const [error,setError]=useState(''), [add,setAdd]=useState(false);
+  const load=useCallback(async()=>{
+    setLoading(true);setError('');
+    try {setUsers((await usersApi.list()).data);}
+    catch(e) {setError(apiErrorMessage(e,'A felhasználók nem tölthetők be.'));}
+    finally {setLoading(false);}
+  },[]);
+  useEffect(()=>{void load();},[load]);
+  const removal=useRemoval<User>(async id=>{await usersApi.remove(id);await load();});
+  const lastAdmin=users.filter(u=>u.role==='admin').length===1;
+  return <div className="records-page users-page">
+    <div className="page-intro"><div><h2>Rendszerfelhasználók</h2><p>Műhelyhozzáférés és szerepkörök kezelése.</p></div><Button onClick={()=>setAdd(true)}><UserPlus size={17} aria-hidden="true" />Új hozzáadása</Button></div>
+    <Card><p className="records-note">Rendszergazda: cégbeállítások és felhasználók kezelése is. Szerelő: műhelymunkák kezelése. Az utolsó rendszergazda nem törölhető.</p></Card>
+    {loading?<LoadingState />:error?<ErrorState message={error} onRetry={()=>void load()} />:!users.length?<EmptyState title="Nincs felhasználó" />:<Table caption="Felhasználók"><thead><tr>{['Név','Azonosító (Email)','Szerepkör','Műveletek'].map(label=><th key={label} scope="col">{label}</th>)}</tr></thead><tbody>{users.map(u=><tr key={u.id}><td data-label="Név">{u.name}</td><td data-label="Azonosító (Email)">{u.email}</td><td data-label="Szerepkör"><Badge tone={u.role==='admin'?'info':'neutral'}>{u.role==='admin'?'Rendszergazda':u.role==='mechanic'?'Szerelő':'Ismeretlen szerepkör'}</Badge></td><td data-label="Műveletek"><Button variant="danger" disabled={lastAdmin&&u.role==='admin'} title={lastAdmin&&u.role==='admin'?'Az utolsó rendszergazda nem törölhető.':undefined} aria-label={u.name+' törlése'} onClick={()=>removal.ask(u)}>Törlés</Button></td></tr>)}</tbody></Table>}
+    {add && <AddUserModal onClose={()=>setAdd(false)} onSuccess={()=>{setAdd(false);void load();}} />}{removal.dialog}
+  </div>;
+}

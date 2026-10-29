@@ -172,3 +172,13 @@ appsettings.Development.json  # Ha vannak benne titkos kulcsok!
 
 # --- OS Files --x.DS_Store
 Thumbs.db
+
+# Browser regression output and disposable local test data
+Frontend/test-results/
+Frontend/playwright-report/
+Frontend/review-artifacts/
+Frontend/.playwright-data/
+
+# SQLite local development sidecars
+*.db-wal
+*.db-shm

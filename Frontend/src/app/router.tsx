@@ -1,31 +1,29 @@
-import WorksheetList from '../features/worksheets/WorksheetList';
-import WorksheetRoute from '../features/worksheets/WorksheetRoute';
-import { createBrowserRouter, Navigate } from "react-router-dom";
-import App, { DashboardRoute, CalendarRoute } from "../App";
-import { LoginRoute, RequireAuth, RequireAdmin } from "./RouteGuards";
-import VehicleDetailsRoute from "./VehicleDetailsRoute";
-import Garage from "../components/Pages/Garage";
-import Customers from "../components/Pages/Customers";
-import Inventory from "../components/Pages/Inventory";
-import Settings from "../components/Pages/Settings";
-import UserManagement from "../components/Pages/UserManagement";
+import { lazy, Suspense, type ComponentType } from 'react';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
+import App from '../App';
+import { LoginRoute, RequireAuth, RequireAdmin } from './RouteGuards';
+import { ErrorState, LoadingState } from '../components/ui/StateViews';
+function page(load: () => Promise<{ default: ComponentType }>) {
+  const Page = lazy(load);
+  return <Suspense fallback={<LoadingState message="Oldal betöltése…" />}><Page /></Suspense>;
+}
 export const router = createBrowserRouter([
-    { path: "/login", element: <LoginRoute /> },
-    { element: <RequireAuth />, children: [{ element: <App />, children: [
-                    { index: true, element: <Navigate to="/dashboard" replace/> },
-                    { path: "dashboard", element: <DashboardRoute /> },
-                    { path: "calendar", element: <CalendarRoute /> },
-                    { path: "customers", element: <Customers /> },
-                    { path: "vehicles", element: <Garage /> },
-                    { path: "vehicles/:vehicleId", element: <VehicleDetailsRoute /> },
-                    { path: "worksheets", element: <WorksheetList /> },
-                    { path: "worksheets/new", element: <WorksheetRoute /> },
-                    { path: "worksheets/:worksheetId", element: <WorksheetRoute /> },
-                    { path: "inventory", element: <Inventory /> },
-                    { element: <RequireAdmin />, children: [
-                            { path: "users", element: <UserManagement /> },
-                            { path: "settings", element: <Settings /> },
-                        ] },
-                    { path: "*", element: <div role="alert">Az oldal nem található.</div> },
-                ] }] },
+  { path: '/login', element: <LoginRoute /> },
+  { element: <RequireAuth />, errorElement: <ErrorState message="Az oldal nem tölthető be." onRetry={() => window.location.reload()} />, children: [{ element: <App />, children: [
+    { index: true, element: <Navigate to="/dashboard" replace /> },
+    { path: 'dashboard', element: page(() => import('../components/Pages/MainDashboard')) },
+    { path: 'calendar', element: page(() => import('../features/calendar/CalendarPage')) },
+    { path: 'customers', element: page(() => import('../components/Pages/Customers')) },
+    { path: 'vehicles', element: page(() => import('../components/Pages/Garage')) },
+    { path: 'vehicles/:vehicleId', element: page(() => import('./VehicleDetailsRoute')) },
+    { path: 'worksheets', element: page(() => import('../features/worksheets/WorksheetList')) },
+    { path: 'worksheets/new', element: page(() => import('../features/worksheets/WorksheetRoute')) },
+    { path: 'worksheets/:worksheetId', element: page(() => import('../features/worksheets/WorksheetRoute')) },
+    { path: 'inventory', element: page(() => import('../components/Pages/Inventory')) },
+    { element: <RequireAdmin />, children: [
+      { path: 'users', element: page(() => import('../components/Pages/UserManagement')) },
+      { path: 'settings', element: page(() => import('../components/Pages/Settings')) },
+    ] },
+    { path: '*', element: <ErrorState message="Az oldal nem található." /> },
+  ] }] },
 ]);

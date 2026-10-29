@@ -1,0 +1,13 @@
+/* Shared dialog layout, notifications and saved-data print action. */
+@media screen {
+  .modal-overlay { position:fixed; inset:0; display:flex; justify-content:center; align-items:center; z-index:1000; }
+  .modal-content { width:90%; max-width:500px; position:relative; padding:25px; background:var(--color-surface); border:1px solid var(--color-border); color:var(--color-text); }
+  .toast-region { position:fixed; right:24px; bottom:24px; z-index:3000; display:flex; flex-direction:column; gap:10px; width:min(380px,calc(100vw - 32px)); }
+  .toast { display:flex; align-items:center; gap:10px; padding:13px 14px; border:1px solid var(--color-border); color:var(--color-text); animation:toast-in .2s ease-out; }
+  .toast span { flex:1; font-size:var(--font-sm); }
+  .toast button { display:inline-flex; padding:3px; border:0; background:transparent; color:var(--color-muted); cursor:pointer; }
+  .toast-success { border-color:#3d745e; } .toast-success > svg { color:var(--color-success); }
+  .toast-error { border-color:#70414b; } .toast-error > svg { color:var(--color-danger); }
+  .toast-info > svg { color:#b8d5ff; }
+  @keyframes toast-in { from {opacity:0;transform:translateY(8px);} to {opacity:1;transform:translateY(0);} }
+}

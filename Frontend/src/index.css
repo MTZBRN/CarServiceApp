@@ -1,5 +1,5 @@
 @import './styles/tokens.css';
-@import './styles/legacy-features.css';
+@import './styles/overlays.css';
 @import './styles/global.css';
 @import './styles/ui.css';
 @import './components/layout/AppShell.css';

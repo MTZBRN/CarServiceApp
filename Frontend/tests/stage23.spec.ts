@@ -41,7 +41,7 @@ test('desktop shell has semantic routes, admin controls, persistent collapse and
   await expect(page).toHaveURL(ui + '/customers');
   await expect(nav.getByRole('link', { name: 'Ügyfelek' })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('main')).toBeFocused();
-  await page.screenshot({ path: 'C:/CarServiceApp/stage23-artifacts/desktop-customers.png' });
+  await page.screenshot({ path: 'review-artifacts/stage23/desktop-customers.png' });
   await page.getByRole('button', { name: 'Oldalsáv összecsukása', exact: true }).click();
   await expect(page.locator('.workshop-sidebar')).toHaveCSS('width', '72px');
   await expect(nav.getByRole('link', { name: 'Járművek' })).toBeVisible();
@@ -66,7 +66,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 
     await expect(drawer.getByRole('button', { name: 'Kijelentkezés', exact: true })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(drawer.getByRole('button', { name: 'Menü bezárása' })).toBeFocused();
-    if (viewport.width === 390) await page.screenshot({ path: 'C:/CarServiceApp/stage23-artifacts/mobile-navigation.png' });
+    if (viewport.width === 390) await page.screenshot({ path: 'review-artifacts/stage23/mobile-navigation.png' });
     await page.keyboard.press('Escape');
     await expect(drawer).toHaveCount(0); await expect(trigger).toBeFocused();
     await trigger.click(); await drawer.getByRole('link', { name: 'Ügyfelek', exact: true }).click();
@@ -123,7 +123,7 @@ test('vehicle breadcrumbs and print frame remain independent of the dark shell',
   const preview = page.getByRole('dialog', { name: 'Munkalap nyomtatási előnézet' }); await expect(preview).toBeVisible();
   await expect(preview.locator('.print-wrapper')).toContainText('Shell print isolation');
   expect(await preview.locator('.print-wrapper').evaluate(el => getComputedStyle(el).backgroundColor)).toBe('rgb(255, 255, 255)');
-  await page.screenshot({ path: 'C:/CarServiceApp/stage23-artifacts/print-preview.png' });
+  await page.screenshot({ path: 'review-artifacts/stage23/print-preview.png' });
   page.on('frameattached', async frame => { await frame.evaluate(() => { window.print = () => {}; }).catch(() => {}); });
   const printFramePromise = page.waitForEvent('frameattached');
   await preview.getByRole('button', { name: 'Nyomtatás', exact: true }).click();

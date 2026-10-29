@@ -156,7 +156,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
             <button
               disabled={!settingsState.loaded || !!settingsState.error}
               onClick={() => handlePrint && handlePrint()}
-              className="btn-add"
+              className="ui-button ui-button-primary"
               style={{
                 background: "#3b82f6",
                 color: "white",

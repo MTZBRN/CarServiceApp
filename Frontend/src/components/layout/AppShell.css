@@ -16,7 +16,6 @@
   .shell-nav-item.is-active::before { content: ''; position: absolute; left: -1px; height: 18px; width: 3px; background: #78acfa; border-radius: 2px; }
   .shell-nav-label { min-width: 0; }
   .shell-nav-label small { display: block; margin-top: 2px; font-size: .66rem; font-weight: 400; }
-  .shell-nav-unavailable { color: var(--color-subtle); opacity: .8; cursor: default; }
   .shell-sidebar-lower { margin-top: auto; padding-top: 32px; }
   .shell-dev-tools { font-size: var(--font-xs); margin-top: 8px; }
   .shell-profile { display: flex; align-items: center; gap: 10px; padding: 20px 4px 14px; margin-top: 20px; border-top: 1px solid var(--color-border); }
