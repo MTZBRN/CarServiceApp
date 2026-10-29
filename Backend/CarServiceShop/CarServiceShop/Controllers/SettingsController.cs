@@ -1,3 +1,4 @@
+using CarServiceShop.Requests;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -26,12 +27,12 @@ public class SettingsController : ControllerBase
 
     [Authorize(Roles = "admin")]
     [HttpPost]
-    public async Task<IActionResult> UpdateSettings([FromBody] GlobalSettings settings)
+    public async Task<IActionResult> UpdateSettings([FromBody] SettingsRequest settings)
     {
         var existing = await _context.GlobalSettings.FirstOrDefaultAsync();
 
         if (existing == null) {
-            _context.GlobalSettings.Add(settings);
+            _context.GlobalSettings.Add(settings.ToEntity());
         } else {
             // Frissítjük a meglévőt
             existing.CompanyName = settings.CompanyName;

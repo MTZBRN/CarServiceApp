@@ -1,3 +1,4 @@
+using CarServiceShop.Requests;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using CarServiceShop.Data;
@@ -39,17 +40,20 @@ public class AppointmentsController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<Appointment>> PostAppointment(Appointment appointment)
+    public async Task<ActionResult<Appointment>> PostAppointment(AppointmentRequest input)
     {
+        if (!await _context.Vehicles.AnyAsync(v=>v.Id==input.VehicleId)) return BadRequest("Invalid vehicle.");
+        var appointment = input.ToEntity();
         _context.Appointments.Add(appointment);
         await _context.SaveChangesAsync();
         return Ok(appointment);
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> PutAppointment(int id, Appointment appointment)
+    public async Task<IActionResult> PutAppointment(int id, AppointmentRequest appointment)
     {
-        if (id != appointment.Id) return BadRequest();
+        if (appointment.Id.HasValue && id != appointment.Id) return BadRequest();
+        if (!await _context.Vehicles.AnyAsync(v=>v.Id==appointment.VehicleId)) return BadRequest("Invalid vehicle.");
 
         var appointmentInDb = await _context.Appointments.FindAsync(id);
         if (appointmentInDb == null) return NotFound();

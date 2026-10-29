@@ -23,7 +23,8 @@ builder.Services.AddAuthentication(options =>
         var db = ctx.HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
         var id = ctx.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         var role = ctx.Principal?.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-        if (!int.TryParse(id, out var userId) || !await db.Users.AnyAsync(u => u.Id == userId && u.Role == role)) ctx.Fail("Invalid session");
+        var version = ctx.Principal?.FindFirst("session_version")?.Value;
+        if (string.IsNullOrEmpty(version) || !int.TryParse(id, out var userId) || !await db.Users.AnyAsync(u => u.Id == userId && u.Role == role && u.SessionVersion == version)) ctx.Fail("Invalid session");
     }};
     options.TokenValidationParameters = new TokenValidationParameters
     {

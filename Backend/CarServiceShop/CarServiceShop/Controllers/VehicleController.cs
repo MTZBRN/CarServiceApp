@@ -1,3 +1,4 @@
+using CarServiceShop.Requests;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using CarServiceShop.Data;
@@ -50,15 +51,16 @@ public class VehicleController : ControllerBase
     // 3. Új autó felvétele
     // POST: api/vehicles
     [HttpPost]
-    public async Task<ActionResult<Vehicle>> PostVehicle(Vehicle vehicle)
+    public async Task<ActionResult<Vehicle>> PostVehicle(VehicleRequest input)
     {
         // Ellenőrizzük, hogy létezik-e az ügyfél, akihez hozzáadjuk
-        var customerExists = await _context.Customers.AnyAsync(c => c.Id == vehicle.CustomerId);
+        var customerExists = await _context.Customers.AnyAsync(c => c.Id == input.CustomerId);
         if (!customerExists)
         {
             return BadRequest("A megadott ügyfél (CustomerId) nem létezik!");
         }
 
+        var vehicle = input.ToEntity();
         _context.Vehicles.Add(vehicle);
         await _context.SaveChangesAsync();
 

@@ -1,3 +1,4 @@
+using CarServiceShop.Requests;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using CarServiceShop.Data;
@@ -34,8 +35,9 @@ public class CustomersController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateCustomer(int id, Customer input)
+    public async Task<IActionResult> UpdateCustomer(int id, CustomerRequest input)
     {
+        if (input.Id.HasValue && input.Id != id) return BadRequest();
         var customer = await _context.Customers.FindAsync(id);
         if (customer == null) return NotFound();
         if (string.IsNullOrWhiteSpace(input.Name) || string.IsNullOrWhiteSpace(input.PhoneNumber)) return BadRequest("Név és telefonszám kötelező.");
@@ -52,8 +54,9 @@ public class CustomersController : ControllerBase
         _context.Customers.Remove(customer); await _context.SaveChangesAsync(); return NoContent();
     }
     [HttpPost]
-    public async Task<ActionResult<Customer>> PostCustomer(Customer customer)
+    public async Task<ActionResult<Customer>> PostCustomer(CustomerRequest input)
     {
+        var customer = input.ToEntity();
         _context.Customers.Add(customer);
         await _context.SaveChangesAsync();
         return CreatedAtAction(nameof(GetCustomer), new { id = customer.Id }, customer);

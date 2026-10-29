@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { authApi } from "../api/auth";
-import { resetApiSession } from "../api/client";
+import { resetApiSession, serverOrigin } from "../api/client";
 import type { SessionUser } from "../types";
 
 interface AuthState {
@@ -62,7 +62,9 @@ export function AuthProvider({ children }: {
         setLoading(false);
         setError(false);
     };
-    const logout = () => { generation.current++; clearSession(); setUser(null); setLoading(false); setError(false); };
+    const logout = () => { const token=localStorage.getItem("authToken");
+        if (token) void fetch(serverOrigin+"/api/Auth/logout", {method:"POST",headers:{Authorization:"Bearer "+token},keepalive:true}).catch(()=>{});
+        generation.current++; clearSession(); setUser(null); setLoading(false); setError(false); };
     return <AuthContext.Provider value={{ user, loading, error, retry: () => setAttempt(a => a + 1), login, logout }}>{children}</AuthContext.Provider>;
 }
 export function useAuth() { const auth = useContext(AuthContext); if (!auth)

@@ -1,3 +1,4 @@
+using CarServiceShop.Requests;
 using CarServiceShop.Controllers;
 using CarServiceShop.Data;
 using CarServiceShop.Models;
@@ -15,10 +16,12 @@ public class AppointmentsControllerTests
         var controller = new AppointmentsController(context);
         var appointment = CreateAppointment();
 
-        var result = await controller.PostAppointment(appointment);
+        var result = await controller.PostAppointment(ToRequest(appointment));
 
         var response = Assert.IsType<OkObjectResult>(result.Result);
-        Assert.Same(appointment, response.Value);
+        var saved=Assert.IsType<Appointment>(response.Value);
+        appointment.Id=saved.Id;
+        Assert.Equal(appointment.Note,saved.Note);
         Assert.NotEqual(0, appointment.Id);
         Assert.Equal(appointment.Note, await context.Appointments
             .Where(a => a.Id == appointment.Id)
@@ -30,6 +33,7 @@ public class AppointmentsControllerTests
     public async Task GetAppointment_ReturnsStoredAppointment()
     {
         using var context = CreateContext();
+        context.Vehicles.Remove(context.Vehicles.Find(1)!);
         context.Vehicles.Add(new Vehicle
         {
             Id = 1,
@@ -69,7 +73,7 @@ public class AppointmentsControllerTests
             VehicleId = appointment.VehicleId
         };
 
-        var result = await controller.PutAppointment(appointment.Id, updatedAppointment);
+        var result = await controller.PutAppointment(appointment.Id, ToRequest(updatedAppointment));
 
         Assert.IsType<NoContentResult>(result);
         var appointmentInDb = await context.Appointments.FindAsync(appointment.Id);
@@ -107,7 +111,7 @@ public class AppointmentsControllerTests
             await context.SaveChangesAsync();
         }
         var result = await new AppointmentsController(context).PutAppointment(appointment.Id,
-            new Appointment { Id = appointment.Id, VehicleId = 2, StartTime = appointment.StartTime, EndTime = appointment.EndTime, Note = "Updated" });
+            new AppointmentRequest { Id = appointment.Id, VehicleId = 2, StartTime = appointment.StartTime, EndTime = appointment.EndTime, Note = "Updated" });
         if (linked) {
             Assert.IsType<ConflictObjectResult>(result);
             Assert.Equal(1, appointment.VehicleId);
@@ -129,7 +133,7 @@ public class AppointmentsControllerTests
         await context.SaveChangesAsync();
         var start = appointment.StartTime; var end = appointment.EndTime;
         var result = await new AppointmentsController(context).PutAppointment(appointment.Id,
-            new Appointment { Id = appointment.Id, VehicleId = 1, StartTime = start, EndTime = end, Note = "New note" });
+            new AppointmentRequest { Id = appointment.Id, VehicleId = 1, StartTime = start, EndTime = end, Note = "New note" });
         Assert.IsType<NoContentResult>(result);
         Assert.Equal(start, appointment.StartTime); Assert.Equal(end, appointment.EndTime);
         Assert.Equal(appointment.Id, (await context.ServiceJobs.SingleAsync()).AppointmentId);
@@ -141,9 +145,12 @@ public class AppointmentsControllerTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
-        return new ApplicationDbContext(options);
+        var db=new ApplicationDbContext(options);
+        db.Vehicles.AddRange(new Vehicle {Id=1, LicensePlate="ONE"},new Vehicle {Id=2,LicensePlate="TWO"}); db.SaveChanges();
+        return db;
     }
 
+    private static AppointmentRequest ToRequest(Appointment a) => new() {Id=a.Id,VehicleId=a.VehicleId,StartTime=a.StartTime,EndTime=a.EndTime,Note=a.Note};
     private static Appointment CreateAppointment()
     {
         return new Appointment

@@ -39,7 +39,8 @@ function PersonalAccount() {
     if (Object.keys(next).length) return;
     passwordLock.current=true; setSaving(true);
     try {
-      await authApi.changePassword({ oldPassword:passwords.oldPassword, newPassword:passwords.newPassword });
+      const response=await authApi.changePassword({ oldPassword:passwords.oldPassword, newPassword:passwords.newPassword });
+      if(response.data.token) { localStorage.setItem("authToken",response.data.token); }
       setPasswords({oldPassword:'',newPassword:'',confirm:''});
       showToast('A jelszó módosítva.', 'success');
     } catch(e) { setPasswordError(apiErrorMessage(e,'A jelszóváltás nem sikerült.')); }

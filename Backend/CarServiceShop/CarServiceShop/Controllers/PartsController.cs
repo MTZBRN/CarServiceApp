@@ -1,3 +1,4 @@
+using CarServiceShop.Requests;
 using CarServiceShop.Data;
 using CarServiceShop.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -23,18 +24,22 @@ namespace CarServiceShop.Controllers;
         }
 
         [HttpPost]
-        public async Task<ActionResult<Part>> CreatePart(Part part)
+        public async Task<ActionResult<Part>> CreatePart(PartRequest input)
         {
+            var part=input.ToEntity();
             _context.Parts.Add(part);
             await _context.SaveChangesAsync();
             return CreatedAtAction(nameof(GetParts), new { id = part.Id }, part);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdatePart(int id, Part part)
+        public async Task<IActionResult> UpdatePart(int id, PartRequest input)
         {
-            if (id != part.Id) return BadRequest();
-            _context.Entry(part).State = EntityState.Modified;
+            if (input.Id.HasValue && id != input.Id) return BadRequest();
+            var part = await _context.Parts.FindAsync(id);
+            if (part == null) return NotFound();
+            part.PartNumber=input.PartNumber.Trim(); part.Name=input.Name.Trim();
+            part.NetPrice=input.NetPrice; part.GrossPrice=input.GrossPrice; part.StockQuantity=input.StockQuantity;
             await _context.SaveChangesAsync();
             return NoContent();
         }

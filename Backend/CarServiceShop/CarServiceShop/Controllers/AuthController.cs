@@ -40,34 +40,17 @@ public class AuthController : ControllerBase
             valid = BCrypt.Net.BCrypt.Verify(loginDto.Password, user?.PasswordHash ?? SecurityRules.DummyHash);
         } finally { throttle.Exit(loginDto.Email, valid); }
         if (user == null || !valid) return Unauthorized(new { message = "Hibás bejelentkezési adatok!" });
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var key = SecurityRules.SigningKey(_configuration["Jwt:Key"]);
-        var tokenDescriptor = new SecurityTokenDescriptor
-        {
-            Subject = new ClaimsIdentity(new[] 
-            { 
-                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new Claim(ClaimTypes.Name, user.Name),
-                new Claim(ClaimTypes.Role, user.Role)
-            }),
-            Expires = DateTime.UtcNow.AddDays(7), // 7 napig érvényes
-            SigningCredentials = new SigningCredentials(
-                new SymmetricSecurityKey(key), 
-                SecurityAlgorithms.HmacSha256Signature)
-        };
-
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        var tokenString = tokenHandler.WriteToken(token);
+        var tokenString = IssueToken(user);
 
         // 4. Visszaküldjük a generált tokent és a felhasználó adatait
-        return Ok(new { 
-            Token = tokenString, 
+        return Ok(new {
+            Token = tokenString,
             UserName = user.Name,
             Role = user.Role,
             ProfilePicturePath = user.ProfilePicturePath
         });
     }
-    
+
     [Authorize]
     [HttpGet("me")]
     public async Task<IActionResult> Me()
@@ -97,11 +80,49 @@ public class AuthController : ControllerBase
 
         // 3. Új jelszó hashelése és mentése
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+        user.SessionVersion = Guid.NewGuid().ToString("N");
         await _context.SaveChangesAsync();
 
-        return Ok(new { message = "Jelszó sikeresen megváltoztatva!" });
+        return Ok(new { message = "Jelszó sikeresen megváltoztatva!", token = IssueToken(user) });
     }
-    
+
+    // Logout revokes all access tokens for this identity, never a supplied user ID.
+    [Authorize]
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout()
+    {
+        var id=int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        // SQL assignment avoids lost invalidation under simultaneous password/logout requests.
+        var version = Guid.NewGuid().ToString("N");
+        await _context.Users.Where(u=>u.Id==id).ExecuteUpdateAsync(s=>s.SetProperty(u=>u.SessionVersion,version));
+        return NoContent();
+    }
+
+    private string IssueToken(User user)
+    {
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var key = SecurityRules.SigningKey(_configuration["Jwt:Key"]);
+        var tokenDescriptor = new SecurityTokenDescriptor
+        {
+            Subject = new ClaimsIdentity(new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim(ClaimTypes.Name, user.Name),
+                new Claim(ClaimTypes.Role, user.Role),
+                new Claim("session_version", user.SessionVersion)
+            }),
+            Expires = DateTime.UtcNow.AddDays(7), // 7 napig érvényes
+            SigningCredentials = new SigningCredentials(
+                new SymmetricSecurityKey(key),
+                SecurityAlgorithms.HmacSha256Signature)
+        };
+
+        var token = tokenHandler.CreateToken(tokenDescriptor);
+        var tokenString = tokenHandler.WriteToken(token);
+
+        return tokenString;
+    }
+
     [Authorize]
     [HttpPost("upload-profile-picture")]
     [RequestSizeLimit(ProfileImages.MaxBytes + 65536)]
@@ -134,12 +155,16 @@ public class AuthController : ControllerBase
 }
 public class LoginDto
 {
+    [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(254)]
     public string Email { get; set; } = string.Empty;
+    [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(72)]
     public string Password { get; set; } = string.Empty;
 }
 
 public class ChangePasswordDto
 {
+    [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(72)]
     public string OldPassword { get; set; } = string.Empty;
+    [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(72)]
     public string NewPassword { get; set; } = string.Empty;
 }

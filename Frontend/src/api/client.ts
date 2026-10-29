@@ -37,6 +37,8 @@ client.interceptors.response.use(response => {
 export function apiErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError<{ message?: string } | string>(error)) {
     const data = error.response?.data;
+    const validation = data as {errors?:Record<string,string[]>} | undefined;
+    if(validation?.errors) return Object.values(validation.errors).flat().join(' ');
     if (typeof data === 'string' && data) return data;
     if (data && typeof data === 'object' && typeof data.message === 'string') return data.message;
   }

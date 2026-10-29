@@ -105,7 +105,7 @@ public class SecurityIntegrationTests
         Assert.Equal(HttpStatusCode.OK,(await client.GetAsync("/api/Auth/me")).StatusCode);
         foreach(var wrongKey in new[]{true,false}) {
             var token=new JwtSecurityTokenHandler().CreateToken(new SecurityTokenDescriptor {
-                Subject=new ClaimsIdentity(new[]{new Claim(ClaimTypes.NameIdentifier,"1"),new Claim(ClaimTypes.Role,"admin")}),
+                Subject=new ClaimsIdentity(new[]{new Claim(ClaimTypes.NameIdentifier,"1"),new Claim(ClaimTypes.Role,"admin"),new Claim("session_version","initial")}),
                 NotBefore=DateTime.UtcNow.AddHours(-2), Expires=wrongKey?DateTime.UtcNow.AddHours(1):DateTime.UtcNow.AddHours(-1),
                 SigningCredentials=new SigningCredentials(new SymmetricSecurityKey(wrongKey?RandomNumberGenerator.GetBytes(48):Convert.FromBase64String(host.Key)),SecurityAlgorithms.HmacSha256)
             });

@@ -1,3 +1,4 @@
+using CarServiceShop.Requests;
 using CarServiceShop.Controllers;
 using CarServiceShop.Data;
 using CarServiceShop.Models;
@@ -45,11 +46,12 @@ public class CoreWorkflowTests
         var appointment = new Appointment { Id = 42, Vehicle = vehicle, Note = "Brake repair", StartTime = DateTime.Today, EndTime = DateTime.Today.AddHours(2) };
         db.Add(appointment); await db.SaveChangesAsync();
         var controller = new ServiceJobsController(db);
-        var job = new ServiceJob { AppointmentId = 42, VehicleId = vehicle.Id, Description = "Repair", JobParts = [new JobPart { PartName = "Pads", Quantity = 2, UnitPrice = 500 }] };
-        Assert.IsType<CreatedAtActionResult>((await controller.CreateServiceJob(job)).Result);
+        var request = new CreateWorksheetRequest { AppointmentId = 42, VehicleId = vehicle.Id, Description = "Repair", JobParts = [new LineItemRequest { PartName = "Pads", Quantity = 2, UnitPrice = 500 }] };
+        var created=Assert.IsType<CreatedAtActionResult>((await controller.CreateServiceJob(request)).Result);
+        var job=Assert.IsType<ServiceJob>(created.Value);
         Assert.NotEqual(42, job.Id);
         Assert.IsType<OkObjectResult>((await controller.GetByAppointment(42)).Result);
-        var input = new ServiceJob { Id = job.Id, Description = "Done", IsCompleted = true, JobParts = [new JobPart { Id = job.JobParts[0].Id, PartName = "New pads", Quantity = 2, UnitPrice = 600 }] };
+        var input = new UpdateWorksheetRequest { Id = job.Id, Description = "Done", IsCompleted = true, JobParts = [new LineItemRequest { PartName = "New pads", Quantity = 2, UnitPrice = 600 }] };
         Assert.IsType<NoContentResult>(await controller.UpdateServiceJob(job.Id, input));
         Assert.Equal("New pads", (await db.JobParts.SingleAsync()).PartName);
         Assert.IsType<ConflictObjectResult>(await new CustomersController(db).DeleteCustomer(customer.Id));

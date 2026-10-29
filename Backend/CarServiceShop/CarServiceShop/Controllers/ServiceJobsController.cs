@@ -1,3 +1,4 @@
+using CarServiceShop.Requests;
 using CarServiceShop.Data;
 using CarServiceShop.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -65,10 +66,10 @@ public class ServiceJobsController : ControllerBase
     // POST: api/ServiceJobs
     // ÚJ LÉTREHOZÁSA (Standard Create)
     [HttpPost]
-    public async Task<ActionResult<ServiceJob>> CreateServiceJob(ServiceJob serviceJob)
+    public async Task<ActionResult<ServiceJob>> CreateServiceJob(CreateWorksheetRequest input)
     {
-        // Ha nem küldtek dátumot, legyen a mostani
-        if (serviceJob.Date == default) serviceJob.Date = DateTime.Now;
+        var serviceJob = new ServiceJob { VehicleId=input.VehicleId, AppointmentId=input.AppointmentId, Date=input.Date ?? DateTime.Now,
+            Description=input.Description, LaborCost=input.LaborCost, IsCompleted=input.IsCompleted, JobParts=input.JobParts.Select(p=>p.ToEntity()).ToList() };
 
         // Ha AppointmentId alapján jön (pl. naptárból konvertáljuk), keressük meg az autót
         if (serviceJob.AppointmentId != null && serviceJob.VehicleId == 0)
@@ -94,9 +95,9 @@ public class ServiceJobsController : ControllerBase
     // PUT: api/ServiceJobs/5
     // FRISSÍTÉS (Javított verzió: Alkatrészeket is frissíti!)
     [HttpPut("{id}")]
-    public async Task<IActionResult> UpdateServiceJob(int id, ServiceJob serviceJob)
+    public async Task<IActionResult> UpdateServiceJob(int id, UpdateWorksheetRequest serviceJob)
     {
-        if (id != serviceJob.Id) return BadRequest();
+        if (serviceJob.Id.HasValue && id != serviceJob.Id) return BadRequest();
 
         // 1. Betöltjük a meglévő munkalapot az alkatrészeivel együtt
         var existingJob = await _context.ServiceJobs
@@ -105,6 +106,8 @@ public class ServiceJobsController : ControllerBase
 
         if (existingJob == null) return NotFound();
 
+        if (!await _context.Vehicles.AnyAsync(v=>v.Id==existingJob.VehicleId)) return BadRequest("Invalid vehicle.");
+        if (existingJob.AppointmentId.HasValue && !await _context.Appointments.AnyAsync(a=>a.Id==existingJob.AppointmentId && a.VehicleId==existingJob.VehicleId)) return BadRequest("Invalid appointment.");
         // 2. Frissítjük az alap adatokat
         existingJob.Description = serviceJob.Description;
         existingJob.LaborCost = serviceJob.LaborCost;

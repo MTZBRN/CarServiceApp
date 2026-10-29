@@ -1,3 +1,4 @@
+using CarServiceShop.Requests;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -71,10 +72,17 @@ public class UsersController : ControllerBase
 }
 
 // DTO az új felhasználóhoz
-public class CreateUserDto
+public class CreateUserDto : System.ComponentModel.DataAnnotations.IValidatableObject
 {
+    [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(200)]
     public string Name { get; set; } = string.Empty;
+    [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(254)]
     public string Email { get; set; } = string.Empty;
+    [System.ComponentModel.DataAnnotations.Required, System.ComponentModel.DataAnnotations.StringLength(72)]
     public string Password { get; set; } = string.Empty;
+    [System.ComponentModel.DataAnnotations.RegularExpression("^(admin|mechanic)$")]
     public string Role { get; set; } = "mechanic";
+    public IEnumerable<System.ComponentModel.DataAnnotations.ValidationResult> Validate(System.ComponentModel.DataAnnotations.ValidationContext context) {
+        if (Email.Contains('@') && !InputRules.Email(Email)) yield return new("Invalid email.", [nameof(Email)]);
+    }
 }
