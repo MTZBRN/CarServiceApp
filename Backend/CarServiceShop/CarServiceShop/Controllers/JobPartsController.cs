@@ -21,10 +21,15 @@ public class JobPartsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<JobPart>> PostJobPart(JobPartRequest input)
     {
-        if (!await _context.ServiceJobs.AnyAsync(j=>j.Id==input.ServiceJobId)) return BadRequest("Invalid worksheet.");
+        var job=await _context.ServiceJobs.FindAsync(input.ServiceJobId);
+        if (job==null) return BadRequest("Invalid worksheet.");
+        if (job.IsCompleted && !User.IsInRole("admin")) return Forbid();
+        if (string.IsNullOrEmpty(input.Version) || input.Version!=job.Version) return Conflict(new {message=Integrity.Conflict});
+        _context.Entry(job).Property(j=>j.Version).OriginalValue=input.Version;
+        _context.Entry(job).Property(j=>j.Version).IsModified=true;
         var jobPart=input.ToEntity(); jobPart.ServiceJobId=input.ServiceJobId;
         _context.JobParts.Add(jobPart);
-        await _context.SaveChangesAsync();
+        try { await _context.SaveChangesAsync(); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); }
         return Ok(jobPart);
     }
 }

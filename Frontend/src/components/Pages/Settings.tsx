@@ -104,7 +104,8 @@ function CompanyForm({ initial }:{initial:WorkshopSettings}) {
     lock.current=true;setSaving(true);
     try {
       const { companyName,address,taxNumber,phone,email,hourlyRate,vatRate }=draft;
-      await settingsApi.save({companyName,address,taxNumber,phone,email,hourlyRate,vatRate});
+      const response=await settingsApi.save({companyName,address,taxNumber,phone,email,hourlyRate,vatRate,version:draft.version});
+      setDraft(previous=>({...previous,version:response.data.version}));
       showToast('A cégbeállítások mentve.','success');
     } catch(e) {setError(apiErrorMessage(e,'A beállítások mentése nem sikerült. A beírt adatok megmaradtak.'));}
     finally {lock.current=false;setSaving(false);}

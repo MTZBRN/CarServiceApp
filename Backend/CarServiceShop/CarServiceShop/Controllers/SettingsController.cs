@@ -32,8 +32,12 @@ public class SettingsController : ControllerBase
         var existing = await _context.GlobalSettings.FirstOrDefaultAsync();
 
         if (existing == null) {
-            _context.GlobalSettings.Add(settings.ToEntity());
+            var created=settings.ToEntity(); created.Id=1;
+            _context.GlobalSettings.Add(created);
         } else {
+            if (string.IsNullOrEmpty(settings.Version) || settings.Version != existing.Version) return Conflict(new {message=Integrity.Conflict});
+            _context.Entry(existing).Property(s=>s.Version).OriginalValue=settings.Version;
+        _context.Entry(existing).Property(s=>s.Version).IsModified=true;
             // Frissítjük a meglévőt
             existing.CompanyName = settings.CompanyName;
             existing.Address = settings.Address;
@@ -44,7 +48,8 @@ public class SettingsController : ControllerBase
             existing.VatRate = settings.VatRate;
         }
 
-        await _context.SaveChangesAsync();
-        return Ok(new { message = "Beállítások elmentve az adatbázisba!" });
+        try { await _context.SaveChangesAsync(); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); }
+        catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return Conflict(new {message=Integrity.Conflict}); }
+        return Ok(await _context.GlobalSettings.FirstAsync());
     }
 }

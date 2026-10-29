@@ -74,8 +74,9 @@ public class Stage2ASecurityTests
     public async Task DeletedOrRoleChangedUserStillRejected(bool delete)
     {
         using var host=new SecurityHost();using var client=await host.SignedIn();
+        host.AddUser("surviving-admin");
         using(var scope=host.Services.CreateScope()) {
-            var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();var user=await db.Users.SingleAsync();
+            var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();var user=await db.Users.SingleAsync(u=>u.Email=="owner");
             if(delete)db.Users.Remove(user);else user.Role="mechanic";await db.SaveChangesAsync();
         }
         Assert.Equal(HttpStatusCode.Unauthorized,(await client.GetAsync("/api/Auth/me")).StatusCode);
@@ -154,7 +155,7 @@ public class Stage2ASecurityTests
     public async Task LinkedAppointmentStillLocked_ZeroSettingsRemainValid()
     {
         using var host=new SecurityHost();using var client=await host.SignedIn();Records(host);
-        Assert.Equal(HttpStatusCode.Conflict,(await client.PutAsJsonAsync("/api/Appointments/1",new{id=1,vehicleId=2,startTime="2026-01-01",endTime="2026-01-02"})).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,(await client.PutAsJsonAsync("/api/Appointments/1",new{version=(await client.GetFromJsonAsync<JsonElement>("/api/Appointments/1")).GetProperty("version").GetString(),id=1,vehicleId=2,startTime="2026-01-01",endTime="2026-01-02"})).StatusCode);
         (await client.PostAsJsonAsync("/api/Settings",new{hourlyRate=0,vatRate=0})).EnsureSuccessStatusCode();
         var data=await client.GetFromJsonAsync<JsonElement>("/api/Settings");Assert.Equal(0,data.GetProperty("hourlyRate").GetDecimal());Assert.Equal(0,data.GetProperty("vatRate").GetInt32());
     }

@@ -1,7 +1,8 @@
 namespace CarServiceShop.Models;
 
-public class GlobalSettings
+public class GlobalSettings : CarServiceShop.Data.IVersioned
 {
+    public string Version { get; set; } = Guid.NewGuid().ToString("N");
     public int Id { get; set; } // Mindig 1-es lesz az ID-ja, mert csak egy sor kell
     public string CompanyName { get; set; } = string.Empty;
     public string Address { get; set; } = string.Empty;

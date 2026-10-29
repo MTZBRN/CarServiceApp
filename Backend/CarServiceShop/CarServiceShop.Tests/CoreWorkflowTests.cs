@@ -19,16 +19,12 @@ public class CoreWorkflowTests
         await connection.OpenAsync();
         await using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite(connection).Options);
         await db.GetService<IMigrator>().MigrateAsync("20260212210503_AddGlobalSettings");
-        var customer = new Customer { Name = "Customer", PhoneNumber = "123" };
-        var vehicle = new Vehicle { Customer = customer, LicensePlate = "TEST" };
-        var appointment = new Appointment { Vehicle = vehicle, Note = "Oil change", StartTime = DateTime.Today, EndTime = DateTime.Today.AddHours(1) };
-        var job = new ServiceJob { Vehicle = vehicle, Appointment = appointment, Description = "Historical job", JobParts = [new JobPart { PartName = "Oil", Quantity = 1, UnitPrice = 100 }] };
-        db.Add(job);
-        await db.SaveChangesAsync();
+        // Seed the historical schema with SQL: the current EF model now includes Version columns.
+        await db.Database.ExecuteSqlRawAsync("INSERT INTO Customers (Id,Name,PhoneNumber) VALUES (1,'Customer','123'); INSERT INTO Vehicles (Id,LicensePlate,Make,Model,Year,CustomerId) VALUES (1,'TEST','','',2020,1); INSERT INTO Appointments (Id,VehicleId,Note,StartTime,EndTime) VALUES (1,1,'Oil change','2026-01-01','2026-01-02'); INSERT INTO ServiceJobs (Id,VehicleId,AppointmentId,Date,Description,IsCompleted,LaborCost) VALUES (1,1,1,'2026-01-01','Historical job',0,0); INSERT INTO JobParts (Id,ServiceJobId,PartName,PartNumber,Quantity,UnitPrice) VALUES (1,1,'Oil','',1,100);");
         await db.Database.MigrateAsync();
         db.ChangeTracker.Clear();
         // Exercise the database FK itself, independently of controller detachment.
-        await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM Appointments WHERE Id = {appointment.Id}");
+        await db.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM Appointments WHERE Id = {1}");
         var saved = await db.ServiceJobs.Include(j => j.JobParts).SingleAsync();
         Assert.Null(saved.AppointmentId);
         Assert.Equal("Oil", Assert.Single(saved.JobParts).PartName);
@@ -51,8 +47,8 @@ public class CoreWorkflowTests
         var job=Assert.IsType<ServiceJob>(created.Value);
         Assert.NotEqual(42, job.Id);
         Assert.IsType<OkObjectResult>((await controller.GetByAppointment(42)).Result);
-        var input = new UpdateWorksheetRequest { Id = job.Id, Description = "Done", IsCompleted = true, JobParts = [new LineItemRequest { PartName = "New pads", Quantity = 2, UnitPrice = 600 }] };
-        Assert.IsType<NoContentResult>(await controller.UpdateServiceJob(job.Id, input));
+        var input = new UpdateWorksheetRequest { Version=job.Version, Id = job.Id, Description = "Done", IsCompleted = true, JobParts = [new LineItemRequest { PartName = "New pads", Quantity = 2, UnitPrice = 600 }] };
+        Assert.IsType<OkObjectResult>(await controller.UpdateServiceJob(job.Id, input));
         Assert.Equal("New pads", (await db.JobParts.SingleAsync()).PartName);
         Assert.IsType<ConflictObjectResult>(await new CustomersController(db).DeleteCustomer(customer.Id));
         Assert.IsType<NoContentResult>(await new AppointmentsController(db).DeleteAppointment(42));

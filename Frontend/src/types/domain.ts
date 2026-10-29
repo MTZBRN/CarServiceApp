@@ -19,6 +19,7 @@ export interface Vehicle {
 }
 
 export interface Appointment {
+  version?: string;
   id: number;
   vehicleId: number;
   startTime: string;
@@ -38,6 +39,7 @@ export interface JobPart {
 
 // --- ITT A LÉNYEG! ---
 export interface ServiceJob {
+  version?: string;
   id: number;
   appointmentId?: number | null;
   appointment?: Appointment;
@@ -51,6 +53,7 @@ export interface ServiceJob {
 }
 
 export interface Part {
+  version?: string;
   id: number;
   partNumber: string;
   name: string;
@@ -61,4 +64,4 @@ export interface Part {
 
 export interface SessionUser { userName: string; role: string; profilePicturePath?: string | null; }
 export interface User { id: number; name: string; email: string; role: string; profilePicturePath?: string | null; }
-export interface WorkshopSettings { id: number; companyName: string; address: string; taxNumber: string; phone: string; email: string; hourlyRate: number; vatRate: number; }
+export interface WorkshopSettings { version?: string; id: number; companyName: string; address: string; taxNumber: string; phone: string; email: string; hourlyRate: number; vatRate: number; }

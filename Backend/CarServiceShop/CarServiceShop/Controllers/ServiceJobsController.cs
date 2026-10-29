@@ -105,6 +105,10 @@ public class ServiceJobsController : ControllerBase
             .FirstOrDefaultAsync(j => j.Id == id);
 
         if (existingJob == null) return NotFound();
+        if (existingJob.IsCompleted && !User.IsInRole("admin")) return Forbid();
+        if (string.IsNullOrEmpty(serviceJob.Version) || serviceJob.Version != existingJob.Version) return Conflict(new {message=Integrity.Conflict});
+        _context.Entry(existingJob).Property(j=>j.Version).OriginalValue=serviceJob.Version;
+        _context.Entry(existingJob).Property(j=>j.Version).IsModified=true;
 
         if (!await _context.Vehicles.AnyAsync(v=>v.Id==existingJob.VehicleId)) return BadRequest("Invalid vehicle.");
         if (existingJob.AppointmentId.HasValue && !await _context.Appointments.AnyAsync(a=>a.Id==existingJob.AppointmentId && a.VehicleId==existingJob.VehicleId)) return BadRequest("Invalid appointment.");
@@ -127,15 +131,15 @@ public class ServiceJobsController : ControllerBase
         }
         catch (DbUpdateConcurrencyException)
         {
-            if (!_context.ServiceJobs.Any(e => e.Id == id)) return NotFound();
-            else throw;
+            return Conflict(new {message=Integrity.Conflict});
         }
 
-        return NoContent();
+        return Ok(existingJob);
     }
 
     // DELETE: api/ServiceJobs/5
     // TÖRLÉS
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteServiceJob(int id)
     {
@@ -143,7 +147,7 @@ public class ServiceJobsController : ControllerBase
         if (serviceJob == null) return NotFound();
 
         _context.ServiceJobs.Remove(serviceJob);
-        await _context.SaveChangesAsync();
+        try { await _context.SaveChangesAsync(); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); } catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return Conflict(new {message="A kapcsolódó üzleti adatok védik ezt a rekordot."}); }
 
         return NoContent();
     }

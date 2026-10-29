@@ -8,6 +8,6 @@ export const worksheetsApi = {
   byAppointment: (id: number) => client.get<ServiceJob>(`/ServiceJobs/ByAppointment/${id}`),
   byVehicle: (id: number) => client.get<ServiceJob[]>(`/ServiceJobs/ByVehicle/${id}`),
   create: (data: CreateWorksheetRequest) => mutation(client.post<ServiceJob>('/ServiceJobs', data), affected),
-  update: (id: number, data: UpdateWorksheetRequest) => mutation(client.put<void>(`/ServiceJobs/${id}`, { ...data, id }), affected),
+  update: (id: number, data: UpdateWorksheetRequest) => mutation(client.put<ServiceJob>(`/ServiceJobs/${id}`, { ...data, id }), affected),
   remove: (id: number) => mutation(client.delete<void>(`/ServiceJobs/${id}`), affected),
 };

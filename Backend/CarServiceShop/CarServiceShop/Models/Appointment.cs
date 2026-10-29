@@ -1,7 +1,8 @@
 namespace CarServiceShop.Models;
 
-public class Appointment
+public class Appointment : CarServiceShop.Data.IVersioned
 {
+    public string Version { get; set; } = Guid.NewGuid().ToString("N");
     public int Id { get; set; }
         
     public DateTime StartTime { get; set; }

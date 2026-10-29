@@ -42,6 +42,7 @@ public class VehicleRequest : IValidatableObject
 
 public class AppointmentRequest : IValidatableObject
 {
+    [StringLength(64)] public string? Version { get; set; }
     public int? Id { get; set; }
     [Range(1,int.MaxValue)] public int VehicleId { get; set; }
     public DateTime StartTime { get; set; }
@@ -63,10 +64,12 @@ public class LineItemRequest
 }
 public class JobPartRequest : LineItemRequest
 {
+    [StringLength(64)] public string? Version { get; set; }
     [Range(1,int.MaxValue)] public int ServiceJobId { get; set; }
 }
 public class UpdateWorksheetRequest : IValidatableObject
 {
+    [StringLength(64)] public string? Version { get; set; }
     public int? Id { get; set; }
     [Required, StringLength(10000)] public string Description { get; set; } = "";
     [Range(0,InputRules.MoneyMax)] public int LaborCost { get; set; }
@@ -90,6 +93,7 @@ public class CreateWorksheetRequest : UpdateWorksheetRequest
 }
 public class PartRequest
 {
+    [StringLength(64)] public string? Version { get; set; }
     public int? Id { get; set; }
     [Required, StringLength(100)] public string PartNumber { get; set; } = "";
     [Required, StringLength(200)] public string Name { get; set; } = "";
@@ -100,6 +104,7 @@ public class PartRequest
 }
 public class SettingsRequest : IValidatableObject
 {
+    [StringLength(64)] public string? Version { get; set; }
     [StringLength(200)] public string CompanyName { get; set; } = "";
     [StringLength(500)] public string Address { get; set; } = "";
     [StringLength(50)] public string TaxNumber { get; set; } = "";

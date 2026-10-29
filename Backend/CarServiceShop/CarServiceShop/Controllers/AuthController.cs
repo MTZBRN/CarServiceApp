@@ -36,7 +36,8 @@ public class AuthController : ControllerBase
         User? user;
         bool valid = false;
         try {
-            user = _context.Users.FirstOrDefault(u => u.Email == loginDto.Email);
+            var normalized = Integrity.NormalizeLogin(loginDto.Email);
+            user = _context.Users.FirstOrDefault(u => u.NormalizedLogin == normalized);
             valid = BCrypt.Net.BCrypt.Verify(loginDto.Password, user?.PasswordHash ?? SecurityRules.DummyHash);
         } finally { throttle.Exit(loginDto.Email, valid); }
         if (user == null || !valid) return Unauthorized(new { message = "Hibás bejelentkezési adatok!" });

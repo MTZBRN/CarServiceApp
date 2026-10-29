@@ -19,6 +19,8 @@ namespace CarServiceShop.Migrations
 
             modelBuilder.Entity("CarServiceShop.Models.Appointment", b =>
                 {
+                    b.Property<string>("Version").IsRequired().IsConcurrencyToken().HasColumnType("TEXT");
+
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
@@ -70,6 +72,8 @@ namespace CarServiceShop.Migrations
 
             modelBuilder.Entity("CarServiceShop.Models.GlobalSettings", b =>
                 {
+                    b.Property<string>("Version").IsRequired().IsConcurrencyToken().HasColumnType("TEXT");
+
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
@@ -137,6 +141,8 @@ namespace CarServiceShop.Migrations
 
             modelBuilder.Entity("CarServiceShop.Models.Part", b =>
                 {
+                    b.Property<string>("Version").IsRequired().IsConcurrencyToken().HasColumnType("TEXT");
+
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
@@ -165,6 +171,8 @@ namespace CarServiceShop.Migrations
 
             modelBuilder.Entity("CarServiceShop.Models.ServiceJob", b =>
                 {
+                    b.Property<string>("Version").IsRequired().IsConcurrencyToken().HasColumnType("TEXT");
+
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
@@ -200,6 +208,8 @@ namespace CarServiceShop.Migrations
 
             modelBuilder.Entity("CarServiceShop.Models.User", b =>
                 {
+                    b.Property<string>("NormalizedLogin").IsRequired().ValueGeneratedOnAddOrUpdate().HasColumnType("TEXT").HasComputedColumnSql("upper(trim(Email))", false);
+
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
@@ -224,6 +234,8 @@ namespace CarServiceShop.Migrations
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.HasIndex("NormalizedLogin").IsUnique();
 
                     b.HasKey("Id");
 

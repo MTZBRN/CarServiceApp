@@ -1,3 +1,4 @@
+import {useAuth} from '../../auth/AuthProvider';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { differenceInCalendarDays, isSameDay } from 'date-fns';
@@ -15,7 +16,7 @@ import AddVehicleModal from '../modals/AddVehicleModal';
 import { date, inspection, stock, useRemoval } from '../../features/records/shared';
 import '../../styles/final-pages.css';
 
-export default function MainDashboard() {
+export default function MainDashboard() {const {user}=useAuth();
   const vehicles = useWorkshopResource('vehicles'), customers = useWorkshopResource('customers');
   const appointments = useWorkshopResource('appointments'), jobs = useWorkshopResource('worksheets'), inventory = useWorkshopResource('inventory');
   const [search, setSearch] = useState(''), [add, setAdd] = useState(false);
@@ -52,7 +53,7 @@ export default function MainDashboard() {
       <Card id="inspections"><header><h2>Műszaki figyelmeztetések</h2><Link to="/vehicles">Járműlista megnyitása</Link></header><p className="records-note">Lejárt és 30 napon belül lejáró vizsgák ({inspections.length}).</p>{!inspections.length && <p className="panel-empty">Nincs közelgő vagy lejárt műszaki vizsga.</p>}<ul className="attention-list">{inspections.slice(0,6).map(v => <li key={v.id}><div><Link className="records-plate" to={'/vehicles/'+v.id}>{v.licensePlate}</Link><small>{date(v.motExpiry)} · {owner(v)}</small></div><Badge tone={inspection(v.motExpiry).tone}>{inspection(v.motExpiry).text}</Badge></li>)}</ul></Card>
       <Card id="stock"><header><h2>Készletfigyelmeztetések</h2><Link to="/inventory">Készlet megnyitása</Link></header><p className="records-note">0–4 db készleten; a munkalap nem csökkenti automatikusan a készletet.</p>{!low.length && <p className="panel-empty">Nincs alacsony készletű alkatrész.</p>}<ul className="attention-list">{low.slice(0,6).map(p => <li key={p.id}><div><strong>{p.name}</strong><small>{p.partNumber} · {p.stockQuantity} db</small></div><Badge tone={stock(p.stockQuantity).tone}>{stock(p.stockQuantity).text}</Badge></li>)}</ul></Card>
       <Card><header><h2>Legutóbbi munkalapdátumok</h2><Link to="/worksheets">Munkalapok</Link></header><p className="records-note">A munkalap dátuma szerint; nem a módosítás ideje alapján.</p>{!recent.length && <p className="panel-empty">Még nincs munkalap.</p>}<ul className="attention-list">{recent.map(j => <li key={j.id}><div><Link className="records-plate" to={'/worksheets/'+j.id}>{vehicle(j.vehicleId)?.licensePlate || '#'+j.vehicleId}</Link><small>#{j.id} · {date(j.date)} · {j.description}</small></div><Badge tone={j.isCompleted?'success':'warning'}>{j.isCompleted?'Befejezett':'Nyitott'}</Badge></li>)}</ul></Card>
-      <Card><header><h2>Járműkereső</h2><Button onClick={()=>setAdd(true)}>Új jármű</Button></header><Input aria-label="Járműkereső" placeholder="Keresés rendszám vagy név…" value={search} onChange={e=>setSearch(e.target.value)} /><ul className="attention-list">{vehicles.data.filter(v => [v.licensePlate,v.make,v.model,owner(v)].join(' ').toLocaleLowerCase('hu').includes(search.toLocaleLowerCase('hu'))).slice(0,6).map(v => <li key={v.id}><div><Link className="records-plate" to={'/vehicles/'+v.id}>{v.licensePlate}</Link><small>{v.make} {v.model} · {owner(v)}</small></div><Button variant="danger" onClick={()=>removal.ask(v)} aria-label={v.licensePlate+' törlése'}>Törlés</Button></li>)}</ul>{!vehicles.data.length && <p className="panel-empty">Még nincs jármű.</p>}<Link to="/vehicles">Összes jármű</Link></Card>
+      <Card><header><h2>Járműkereső</h2><Button onClick={()=>setAdd(true)}>Új jármű</Button></header><Input aria-label="Járműkereső" placeholder="Keresés rendszám vagy név…" value={search} onChange={e=>setSearch(e.target.value)} /><ul className="attention-list">{vehicles.data.filter(v => [v.licensePlate,v.make,v.model,owner(v)].join(' ').toLocaleLowerCase('hu').includes(search.toLocaleLowerCase('hu'))).slice(0,6).map(v => <li key={v.id}><div><Link className="records-plate" to={'/vehicles/'+v.id}>{v.licensePlate}</Link><small>{v.make} {v.model} · {owner(v)}</small></div>{user?.role==='admin'&&<Button variant="danger" onClick={()=>removal.ask(v)} aria-label={v.licensePlate+' törlése'}>Törlés</Button>}</li>)}</ul>{!vehicles.data.length && <p className="panel-empty">Még nincs jármű.</p>}<Link to="/vehicles">Összes jármű</Link></Card>
     </div>
     {add && <AddVehicleModal customers={customers.data} onClose={()=>setAdd(false)} onSuccess={()=>setAdd(false)} />}{removal.dialog}
   </div>;

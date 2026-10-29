@@ -35,7 +35,8 @@ test('stage 1 booking worksheet history and permissions', async ({ page, request
  await modal.getByLabel('Munka leírása *').fill('Updated worksheet');await modal.getByTestId('save-worksheet').click();await expect(modal.getByRole('status')).toHaveText('Nincs nem mentett módosítás');
  await modal.getByRole('button',{name:'Nyomtatás',exact:true}).click();await expect(page.locator('.modal-overlay').last()).toBeVisible();await expect(page.getByRole('dialog',{name:'Munkalap nyomtatási előnézet'}).locator('input[value="'+vehicle.licensePlate+'"]')).toHaveCount(1);
  expect((await request.delete(`${base}/Customers/${customer.id}`,{headers})).status()).toBe(409);
- expect((await request.delete(`${base}/Appointments/${appointment.id}`,{headers:mh})).ok()).toBeTruthy();
+ expect((await request.delete(`${base}/Appointments/${appointment.id}`,{headers:mh})).status()).toBe(403);
+ expect((await request.delete(`${base}/Appointments/${appointment.id}`,{headers})).ok()).toBeTruthy();
  const retained=await (await request.get(`${base}/ServiceJobs/${job.id}`,{headers:mh})).json();expect(retained.appointmentId).toBeNull();expect(retained.jobParts[0].partName).toBe('Brake pads');
  await page.reload();await page.getByRole('button',{name:'Kijelentkezés',exact:true}).click(); await page.getByRole('dialog', { name: 'Kijelentkezés', exact: true }).getByRole('button', { name: 'Kijelentkezés', exact: true }).click();await expect(page.getByPlaceholder('Jelszó')).toBeVisible();expect(await page.evaluate(()=>localStorage.getItem('user_data'))).toBeNull();
 });

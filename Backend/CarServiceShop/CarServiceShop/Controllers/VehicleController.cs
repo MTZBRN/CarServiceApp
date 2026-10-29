@@ -69,6 +69,7 @@ public class VehicleController : ControllerBase
 
     // 4. Autó törlése
     // DELETE: api/vehicles/5
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteVehicle(int id)
     {
@@ -80,7 +81,7 @@ public class VehicleController : ControllerBase
 
         if (await _context.ServiceJobs.AnyAsync(j => j.VehicleId == id) || await _context.Appointments.AnyAsync(a => a.VehicleId == id)) return Conflict("Szerviztörténettel vagy időponttal rendelkező jármű nem törölhető.");
         _context.Vehicles.Remove(vehicle);
-        await _context.SaveChangesAsync();
+        try { await _context.SaveChangesAsync(); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); } catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return Conflict(new {message="A kapcsolódó üzleti adatok védik ezt a rekordot."}); }
 
         return NoContent();
     }

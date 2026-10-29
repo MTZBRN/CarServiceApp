@@ -12,6 +12,7 @@ import AddVehicleModal from './AddVehicleModal';
 import '../../features/calendar/calendar.css';
 interface Props { selectedSlot: Date | null; onClose:()=>void; onSuccess:()=>void; vehicles:Vehicle[]; customers:Customer[]; setMessage:(s:string|null)=>void; appointment?:Appointment; }
 export default function AppointmentModal({selectedSlot,onClose,onSuccess,vehicles,customers,setMessage,appointment}:Props){
+ const [expectedVersion]=useState(appointment?.version);
  const fleet=useWorkshopResource('vehicles'); const people=useWorkshopResource('customers');
  const jobs=useWorkshopResource('worksheets'); const store=useWorkshopData();
  const locked=!!appointment&&jobs.data.some(j=>j.appointmentId===appointment.id);
@@ -33,7 +34,7 @@ export default function AppointmentModal({selectedSlot,onClose,onSuccess,vehicle
  if(!Number.isFinite(new Date(endTime).getTime())||new Date(endTime)<=new Date(startTime))validation.end='A befejezés legyen a kezdés után.';
  setErrors(validation);if(Object.keys(validation).length)return;
  if(appointment&&(!jobs.loaded||jobs.error)){setError('A munkalapkapcsolat ellenőrzése nem sikerült. Próbáld újra.');return;}
- busy.current=true;setSaving(true);setError('');try{const data={vehicleId:Number(vehicleId),startTime,endTime,note};if(appointment)await appointmentsApi.update(appointment.id,data);else await appointmentsApi.create(data);setMessage('Időpont mentve.');onSuccess();}catch(e){setError(apiErrorMessage(e,'Az időpont mentése nem sikerült.'));}finally{busy.current=false;setSaving(false);}
+ busy.current=true;setSaving(true);setError('');try{const data={vehicleId:Number(vehicleId),startTime,endTime,note};if(appointment)await appointmentsApi.update(appointment.id,{...data,version:expectedVersion});else await appointmentsApi.create(data);setMessage('Időpont mentve.');onSuccess();}catch(e){setError(apiErrorMessage(e,'Az időpont mentése nem sikerült.'));}finally{busy.current=false;setSaving(false);}
  }}>
  {fleet.error!=null&&<ErrorState message="A járművek betöltése nem sikerült." onRetry={fleet.refresh} />}{people.error!=null&&<ErrorState message="Az ügyfelek betöltése nem sikerült." onRetry={people.refresh} />}
  {!appointment&&<FormField label="Ügyfél szűrése"><Select value={customer} onChange={e=>{setCustomer(e.target.value);setVehicleId('');}}><option value="">Minden ügyfél</option>{customers.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</Select></FormField>}

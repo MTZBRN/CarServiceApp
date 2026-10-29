@@ -17,8 +17,22 @@ public class ApplicationDbContext : DbContext
     
     public DbSet<GlobalSettings> GlobalSettings { get; set; }
 
+    private void StampVersions() {
+        foreach(var entry in ChangeTracker.Entries<IVersioned>().Where(e=>e.State==EntityState.Modified))
+            entry.Entity.Version=Guid.NewGuid().ToString("N");
+    }
+    public override int SaveChanges(bool acceptAllChangesOnSuccess) { StampVersions(); return base.SaveChanges(acceptAllChangesOnSuccess); }
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken=default) {
+        StampVersions(); return base.SaveChangesAsync(acceptAllChangesOnSuccess,cancellationToken);
+    }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<User>().Property(u=>u.NormalizedLogin).HasComputedColumnSql("upper(trim(Email))", stored: false);
+        modelBuilder.Entity<User>().HasIndex(u=>u.NormalizedLogin).IsUnique();
+        modelBuilder.Entity<ServiceJob>().Property(j=>j.Version).IsConcurrencyToken();
+        modelBuilder.Entity<Appointment>().Property(j=>j.Version).IsConcurrencyToken();
+        modelBuilder.Entity<Part>().Property(j=>j.Version).IsConcurrencyToken();
+        modelBuilder.Entity<GlobalSettings>().Property(j=>j.Version).IsConcurrencyToken();
         // 1 Időpont -> 1 Munkalap (Opcionális)
         modelBuilder.Entity<Appointment>()
             .HasOne(a => a.ServiceJob)

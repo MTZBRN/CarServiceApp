@@ -10,6 +10,28 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Explicit development-only offline recovery: no HTTP listener and no signing key required.
+var recoveryIndex = Array.IndexOf(args, "--recover-test-admin");
+if (recoveryIndex >= 0)
+{
+    if (!builder.Environment.IsDevelopment()) throw new InvalidOperationException("Test recovery is available only in Development.");
+    if (recoveryIndex + 1 >= args.Length || args[recoveryIndex + 1].StartsWith("--"))
+        throw new InvalidOperationException("Usage: --recover-test-admin <existing username>");
+    var connection = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(builder.Configuration.GetConnectionString("DefaultConnection"));
+    connection.DataSource = Path.GetFullPath(connection.DataSource, builder.Environment.ContentRootPath);
+    if (!File.Exists(connection.DataSource)) throw new InvalidOperationException("Existing database not found; recovery does not create databases.");
+    Console.WriteLine($"Test account recovery in: {connection.DataSource}");
+    var password = TestAdminRecovery.ReadPassword("New password (12+ characters, at most 72 UTF-8 bytes; input hidden): ");
+    var confirmation = TestAdminRecovery.ReadPassword("Confirm password: ");
+    if (password != confirmation) throw new InvalidOperationException("Passwords do not match. Nothing changed.");
+    if (!SecurityRules.ValidPassword(password)) throw new InvalidOperationException(SecurityRules.PasswordMessage);
+    using var recoveryDb = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite(connection.ConnectionString).Options);
+    recoveryDb.Database.Migrate();
+    TestAdminRecovery.Recover(recoveryDb, args[recoveryIndex + 1], password);
+    Console.WriteLine("Administrator recovered. Existing sessions revoked. Start the application normally to sign in.");
+    return;
+}
+
 // --- 1. JWT KONFIGURÁCIÓ ---
 
 builder.Services.AddAuthentication(options =>

@@ -3,8 +3,9 @@ using System.ComponentModel.DataAnnotations.Schema; // Ez kell a ForeignKey miat
 
 namespace CarServiceShop.Models;
 
-public class ServiceJob
+public class ServiceJob : CarServiceShop.Data.IVersioned
 {
+    public string Version { get; set; } = Guid.NewGuid().ToString("N");
     public int Id { get; set; }
     
     // --- MÓDOSÍTÁS: Legyen opcionális (int?) az időpont, ha csak úgy beesik valaki ---

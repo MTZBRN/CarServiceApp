@@ -45,13 +45,14 @@ public class CustomersController : ControllerBase
         customer.Email = input.Email; customer.Address = input.Address;
         await _context.SaveChangesAsync(); return NoContent();
     }
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteCustomer(int id)
     {
         var customer = await _context.Customers.FindAsync(id);
         if (customer == null) return NotFound();
         if (await _context.Vehicles.AnyAsync(v => v.CustomerId == id)) return Conflict("A járművel rendelkező ügyfél nem törölhető.");
-        _context.Customers.Remove(customer); await _context.SaveChangesAsync(); return NoContent();
+        _context.Customers.Remove(customer); try { await _context.SaveChangesAsync(); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); } catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return Conflict(new {message="A kapcsolódó üzleti adatok védik ezt a rekordot."}); } return NoContent();
     }
     [HttpPost]
     public async Task<ActionResult<Customer>> PostCustomer(CustomerRequest input)

@@ -36,7 +36,8 @@ public class UsersController : ControllerBase
         if (dto.Role != "admin" && dto.Role != "mechanic")
             return BadRequest(new { message = "Érvénytelen szerepkör." });
 
-        if (await _context.Users.AnyAsync(u => u.Email == dto.Email))
+        var normalized=Integrity.NormalizeLogin(dto.Email);
+        if (await _context.Users.AnyAsync(u => u.NormalizedLogin == normalized))
             return BadRequest(new { message = "Ez a felhasználónév már foglalt!" });
 
         var user = new User
@@ -48,7 +49,8 @@ public class UsersController : ControllerBase
         };
 
         _context.Users.Add(user);
-        await _context.SaveChangesAsync();
+        try { await _context.SaveChangesAsync(); }
+        catch (DbUpdateException ex) when (Integrity.Constraint(ex)) { return BadRequest(new {message="A felhasználónév már foglalt, vagy az utolsó adminisztrátor nem törölhető."}); }
 
         return Ok(new { message = "Felhasználó sikeresen létrehozva!" });
     }
@@ -66,7 +68,7 @@ public class UsersController : ControllerBase
 
         if (user.Role == "admin" && await _context.Users.CountAsync(u => u.Role == "admin") <= 1) return BadRequest("Az utolsó adminisztrátor nem törölhető.");
         _context.Users.Remove(user);
-        await _context.SaveChangesAsync();
+        try { await _context.SaveChangesAsync(); } catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return BadRequest(new {message="Az utolsó adminisztrátor nem törölhető."}); }
         return Ok(new { message = "Felhasználó törölve." });
     }
 }

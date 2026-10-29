@@ -57,6 +57,9 @@ public class AppointmentsController : ControllerBase
 
         var appointmentInDb = await _context.Appointments.FindAsync(id);
         if (appointmentInDb == null) return NotFound();
+        if (string.IsNullOrEmpty(appointment.Version) || appointment.Version != appointmentInDb.Version) return Conflict(new {message=Integrity.Conflict});
+        _context.Entry(appointmentInDb).Property(a=>a.Version).OriginalValue=appointment.Version;
+        _context.Entry(appointmentInDb).Property(a=>a.Version).IsModified=true;
 
         if (appointmentInDb.VehicleId != appointment.VehicleId &&
             await _context.ServiceJobs.AnyAsync(j => j.AppointmentId == id))
@@ -73,15 +76,13 @@ public class AppointmentsController : ControllerBase
         }
         catch (DbUpdateConcurrencyException)
         {
-            if (!await _context.Appointments.AnyAsync(a => a.Id == id))
-                return NotFound();
-
-            throw;
+            return Conflict(new {message=Integrity.Conflict});
         }
 
-        return NoContent();
+        return Ok(appointmentInDb);
     }
 
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteAppointment(int id)
     {
@@ -91,7 +92,7 @@ public class AppointmentsController : ControllerBase
         var job = await _context.ServiceJobs.SingleOrDefaultAsync(j => j.AppointmentId == id);
         if (job != null) job.AppointmentId = null;
         _context.Appointments.Remove(appointment);
-        await _context.SaveChangesAsync();
+        try { await _context.SaveChangesAsync(); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); } catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return Conflict(new {message="A kapcsolódó üzleti adatok védik ezt a rekordot."}); }
         return NoContent();
     }
 }
