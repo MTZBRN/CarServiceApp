@@ -2,14 +2,14 @@ import { test, expect } from '@playwright/test';
 
 test('stage 1 booking worksheet history and permissions', async ({ page, request }) => {
  const base = 'http://localhost:5232/api';
- const login = await request.post(`${base}/Auth/login`, {data:{email:'admin@test.com',password:'admin123'}});
+ const login = await request.post(`${base}/Auth/login`, {data:{email:'admin@test.com',password:'Admin-test-only-123'}});
  expect(login.ok()).toBeTruthy();
  const admin = (await login.json()).token;
  const headers = {Authorization:`Bearer ${admin}`};
  for (const route of ['Customers','Vehicle','Appointments','ServiceJobs','Parts','Users','Settings']) expect((await request.get(`${base}/${route}`)).status()).toBe(401);
  const suffix=Date.now();
- expect((await request.post(`${base}/Users`,{headers,data:{name:'Mechanic',email:`mechanic${suffix}`,password:'test123',role:'mechanic'}})).ok()).toBeTruthy();
- const ml=await request.post(`${base}/Auth/login`,{data:{email:`mechanic${suffix}`,password:'test123'}});
+ expect((await request.post(`${base}/Users`,{headers,data:{name:'Mechanic',email:`mechanic${suffix}`,password:'test123-test-only',role:'mechanic'}})).ok()).toBeTruthy();
+ const ml=await request.post(`${base}/Auth/login`,{data:{email:`mechanic${suffix}`,password:'test123-test-only'}});
  const mh={Authorization:`Bearer ${(await ml.json()).token}`};
  expect((await request.get(`${base}/Users`,{headers:mh})).status()).toBe(403);
  expect((await request.post(`${base}/Settings`,{headers:mh,data:{}})).status()).toBe(403);
@@ -23,7 +23,7 @@ test('stage 1 booking worksheet history and permissions', async ({ page, request
  expect(job.id).toBeTruthy();
  expect((await (await request.get(`${base}/ServiceJobs/ByAppointment/${appointment.id}`,{headers:mh})).json()).id).toBe(job.id);
  await page.goto('http://127.0.0.1:5173');
- await page.getByPlaceholder('Felhasználónév (Email)').fill('admin@test.com');await page.getByPlaceholder('Jelszó').fill('admin123');await page.getByRole('button',{name:/belépés/i}).click();
+ await page.getByPlaceholder('Felhasználónév (Email)').fill('admin@test.com');await page.getByPlaceholder('Jelszó').fill('Admin-test-only-123');await page.getByRole('button',{name:/belépés/i}).click();
  await expect(page.getByRole('button',{name:'Kilépés'})).toBeVisible();
  await page.reload();await expect(page.getByRole('button',{name:'Kilépés'})).toBeVisible();
  await page.getByRole('link',{name:'Járművek',exact:true}).click();
@@ -41,11 +41,11 @@ test('stage 1 booking worksheet history and permissions', async ({ page, request
 });
 
 test('calendar creates and reopens a worksheet; inspection reminders have no booking actions', async ({page,request}) => {
- const base='http://localhost:5232/api';const login=await request.post(`${base}/Auth/login`,{data:{email:'admin@test.com',password:'admin123'}});const headers={Authorization:`Bearer ${(await login.json()).token}`};
+ const base='http://localhost:5232/api';const login=await request.post(`${base}/Auth/login`,{data:{email:'admin@test.com',password:'Admin-test-only-123'}});const headers={Authorization:`Bearer ${(await login.json()).token}`};
  const tag=Date.now();const c=await (await request.post(`${base}/Customers`,{headers,data:{name:`Calendar ${tag}`,phoneNumber:'123'}})).json();
  const v=await (await request.post(`${base}/Vehicle`,{headers,data:{customerId:c.id,licensePlate:`CAL-${tag}`,make:'Ford',model:'Focus',year:2020,motExpiry:new Date().toISOString()}})).json();
  const a=await (await request.post(`${base}/Appointments`,{headers,data:{vehicleId:v.id,startTime:new Date().toISOString(),endTime:new Date(Date.now()+3600000).toISOString(),note:'Calendar note'}})).json();
- await page.goto('http://127.0.0.1:5173');await page.getByPlaceholder('Felhasználónév (Email)').fill('admin@test.com');await page.getByPlaceholder('Jelszó').fill('admin123');await page.getByRole('button',{name:/belépés/i}).click();
+ await page.goto('http://127.0.0.1:5173');await page.getByPlaceholder('Felhasználónév (Email)').fill('admin@test.com');await page.getByPlaceholder('Jelszó').fill('Admin-test-only-123');await page.getByRole('button',{name:/belépés/i}).click();
  await page.getByRole('link',{name:'Naptár',exact:true}).click();
  await page.locator('.rbc-event').filter({hasText:'Műszaki emlékeztető'}).filter({hasText:v.licensePlate}).click();
  let modal=page.locator('.modal-content').last();await expect(modal.getByRole('button',{name:/Munkalap (létrehozása|megnyitása)/})).toHaveCount(0);await expect(modal.locator('button[title="Törlés"]')).toHaveCount(0);await modal.locator('button').first().click();

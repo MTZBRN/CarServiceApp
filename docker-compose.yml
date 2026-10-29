@@ -4,14 +4,19 @@ services:
       # A kép alapján a Dockerfile a Backend/CarServiceShop mappában van
       context: ./Backend/CarServiceShop
       dockerfile: Dockerfile
-    ports:
-      - "5232:8080"
+    expose:
+      - "8080"
     volumes:
       - ./backend-data:/app/data
       - ./user-uploads:/app/uploads
+    networks:
+      workshop:
+        ipv4_address: 172.30.90.2
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - Jwt__Key=GTA_Szerviz_Biztonsagos_JWT_Kulcs_2026_@_Secure_Auth_123!
+      - Jwt__Key=${JWT_KEY:?Supply an external random base64 signing key}
+      - Uploads__Path=/app/uploads
+      - ReverseProxy__KnownProxies__0=172.30.90.3
       - ConnectionStrings__DefaultConnection=Data Source=/app/data/app.db
 
   frontend:
@@ -20,6 +25,16 @@ services:
       context: ./Frontend
       dockerfile: Dockerfile
     ports:
-      - "5173:80"
+      - "127.0.0.1:5173:80"
     depends_on:
       - backend
+
+    networks:
+      workshop:
+        ipv4_address: 172.30.90.3
+
+networks:
+  workshop:
+    ipam:
+      config:
+        - subnet: 172.30.90.0/24

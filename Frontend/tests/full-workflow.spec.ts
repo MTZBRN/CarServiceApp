@@ -15,7 +15,7 @@ test('teljes admin workflow ügyféltől a munkalapig', async ({ page }) => {
 
   await page.goto('http://localhost:5173');
   await page.getByPlaceholder('Felhasználónév (Email)').fill('admin@test.com');
-  await page.getByPlaceholder('Jelszó').fill('admin123');
+  await page.getByPlaceholder('Jelszó').fill('Admin-test-only-123');
   await Promise.all([
     page.waitForResponse(
       (response) =>

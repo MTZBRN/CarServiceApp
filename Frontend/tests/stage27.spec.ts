@@ -1,8 +1,8 @@
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
 import { createHmac } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+
 const ui='http://localhost:5173', api='http://localhost:5232/api';
-async function login(page:Page,email='admin@test.com',password='admin123',path='/dashboard') {
+async function login(page:Page,email='admin@test.com',password='Admin-test-only-123',path='/dashboard') {
   await page.goto(ui+path);
   await page.getByLabel('Felhasználónév (Email)',{exact:true}).fill(email);
   await page.getByLabel('Jelszó',{exact:true}).fill(password);
@@ -10,13 +10,13 @@ async function login(page:Page,email='admin@test.com',password='admin123',path='
   await expect(page.getByRole('button',{name:'Kilépés',exact:true})).toBeVisible();
 }
 async function admin(request:APIRequestContext) {
-  const response=await request.post(api+'/Auth/login',{data:{email:'admin@test.com',password:'admin123'}});
+  const response=await request.post(api+'/Auth/login',{data:{email:'admin@test.com',password:'Admin-test-only-123'}});
   expect(response.ok()).toBeTruthy();
   return {Authorization:'Bearer '+(await response.json()).token};
 }
 async function newUser(request:APIRequestContext,role='mechanic') {
   const headers=await admin(request), email='stage27-'+Date.now()+'-'+Math.random().toString(36).slice(2)+'@test.com';
-  expect((await request.post(api+'/Users',{headers,data:{name:'Stage 27 account',email,password:'account123',role}})).ok()).toBeTruthy();
+  expect((await request.post(api+'/Users',{headers,data:{name:'Stage 27 account',email,password:'account123-test-only',role}})).ok()).toBeTruthy();
   const users=await (await request.get(api+'/Users',{headers})).json();
   return {email,id:users.find((u:{email:string})=>u.email===email).id,headers};
 }
@@ -68,7 +68,7 @@ test('company settings validate, retain failed values, prevent duplicates, save 
   const headers=await admin(request);
   const previous=await (await request.get(api+'/Settings',{headers})).json();
   try {
-    await login(page,'admin@test.com','admin123','/settings');
+    await login(page,'admin@test.com','Admin-test-only-123','/settings');
     await page.getByLabel('Cégnév',{exact:true}).fill('');
     await page.getByLabel('ÁFA (%)',{exact:true}).fill('101');
     await page.getByRole('button',{name:'Rendszeradatok mentése'}).click();
@@ -107,7 +107,7 @@ test('company settings validate, retain failed values, prevent duplicates, save 
 
 test('settings company load error retries while personal controls remain available',async({page})=>{
   await page.route('**/api/Settings',r=>r.fulfill({status:500,body:'Cégadat hiba'}));
-  await login(page,'admin@test.com','admin123','/settings');
+  await login(page,'admin@test.com','Admin-test-only-123','/settings');
   await expect(page.getByRole('heading',{name:'Személyes fiók'})).toBeVisible();
   await expect(page.getByRole('alert')).toContainText('Cégadat hiba');
   await page.unroute('**/api/Settings');
@@ -118,22 +118,22 @@ test('settings company load error retries while personal controls remain availab
 test('personal password and profile image workflows accept responses and persist after refresh',async({page,request})=>{
   const account=await newUser(request,'admin');
   try {
-    await login(page,account.email,'account123','/settings');
+    await login(page,account.email,'account123-test-only','/settings');
     await page.getByLabel('Jelenlegi jelszó',{exact:true}).fill('wrong');
-    await page.getByLabel('Új jelszó',{exact:true}).fill('changed123');
+    await page.getByLabel('Új jelszó',{exact:true}).fill('changed123-test-only');
     await page.getByLabel('Új jelszó megerősítése',{exact:true}).fill('different');
     await page.getByRole('button',{name:'Jelszó frissítése'}).click();
     await expect(page.getByText('A két új jelszó nem egyezik.')).toBeVisible();
-    await page.getByLabel('Új jelszó megerősítése',{exact:true}).fill('changed123');
+    await page.getByLabel('Új jelszó megerősítése',{exact:true}).fill('changed123-test-only');
     await page.getByRole('button',{name:'Jelszó frissítése'}).click();
     await expect(page.getByRole('alert')).toContainText('A jelenlegi jelszó nem megfelelő');
-    await expect(page.getByLabel('Új jelszó',{exact:true})).toHaveValue('changed123');
-    await page.getByLabel('Jelenlegi jelszó',{exact:true}).fill('account123');
+    await expect(page.getByLabel('Új jelszó',{exact:true})).toHaveValue('changed123-test-only');
+    await page.getByLabel('Jelenlegi jelszó',{exact:true}).fill('account123-test-only');
     await page.getByRole('button',{name:'Jelszó frissítése'}).click();
     await expect(page.getByText('A jelszó módosítva.',{exact:true})).toBeVisible();
     await expect(page.getByLabel('Új jelszó',{exact:true})).toHaveValue('');
-    expect((await request.post(api+'/Auth/login',{data:{email:account.email,password:'changed123'}})).ok()).toBeTruthy();
-    await page.getByLabel('Új profilkép',{exact:true}).setInputFiles({name:'profile.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64')});
+    expect((await request.post(api+'/Auth/login',{data:{email:account.email,password:'changed123-test-only'}})).ok()).toBeTruthy();
+    await page.getByLabel('Új profilkép',{exact:true}).setInputFiles({name:'profile.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYPj/HwADAgH/5ncLrgAAAABJRU5ErkJggg==','base64')});
     await page.getByRole('button',{name:'Kép mentése'}).click();
     await expect(page.getByText('A profilkép mentve.',{exact:true})).toBeVisible();
     await expect(page.locator('.shell-avatar img')).toHaveAttribute('src',/uploads\/profile_/);
@@ -144,7 +144,7 @@ test('personal password and profile image workflows accept responses and persist
 
 test('user creation validates and retains failures; delete confirms, handles errors and refreshes',async({page,request})=>{
   const headers=await admin(request), email='ui-user-'+Date.now()+'@test.com';
-  await login(page,'admin@test.com','admin123','/users');
+  await login(page,'admin@test.com','Admin-test-only-123','/users');
   const trigger=page.getByRole('button',{name:'Új hozzáadása'});
   await trigger.click();const dialog=page.getByRole('dialog',{name:'Új felhasználó',exact:true});
   await expect(dialog.getByLabel('Teljes név')).toBeFocused();
@@ -152,7 +152,7 @@ test('user creation validates and retains failures; delete confirms, handles err
   await expect(dialog.getByText('Add meg a teljes nevet.')).toBeVisible();
   await dialog.getByLabel('Teljes név').fill('Új kolléga');
   await dialog.getByLabel('Felhasználónév (Email)',{exact:true}).fill(email);
-  await dialog.getByLabel('Jelszó',{exact:true}).fill('user123');
+  await dialog.getByLabel('Jelszó',{exact:true}).fill('user123-test-only');
   await expect(dialog.getByLabel('Szerepkör')).toHaveValue('mechanic');
   await page.route('**/api/Users',r=>r.request().method()==='POST'?r.fulfill({status:400,body:'Teszt mentési hiba'}):r.continue());
   await dialog.getByRole('button',{name:'Létrehozás'}).click();
@@ -165,7 +165,7 @@ test('user creation validates and retains failures; delete confirms, handles err
   await expect(dialog).toHaveCount(0);expect(writes).toBe(1);
   const row=page.getByRole('row').filter({hasText:email});
   await expect(row).toContainText('Szerelő');
-  const invalid=await request.post(api+'/Users',{headers,data:{name:'Invalid',email:'bad-'+email,password:'user123',role:'superuser'}});
+  const invalid=await request.post(api+'/Users',{headers,data:{name:'Invalid',email:'bad-'+email,password:'user123-test-only',role:'superuser'}});
   expect(invalid.status()).toBe(400);
   await row.getByRole('button',{name:'Új kolléga törlése'}).click();
   const confirm=page.getByRole('dialog',{name:'Törlés megerősítése'});
@@ -190,13 +190,13 @@ test('user creation validates and retains failures; delete confirms, handles err
 test('mechanic cannot load admin pages, user/company mutations or development tools',async({page,request})=>{
   const account=await newUser(request);
   try {
-    const response=await request.post(api+'/Auth/login',{data:{email:account.email,password:'account123'}});
+    const response=await request.post(api+'/Auth/login',{data:{email:account.email,password:'account123-test-only'}});
     const headers={Authorization:'Bearer '+(await response.json()).token};
     for(const url of ['/Users','/Settings','/Seed']){
       const response=await request.post(api+url,{headers,data:{}});
       expect(response.status()).toBe(403);
     }
-    await login(page,account.email,'account123');
+    await login(page,account.email,'account123-test-only');
     await expect(page.getByRole('button',{name:'Fejlesztői eszközök',exact:true})).toHaveCount(0);
     for(const path of ['/settings','/users']){
       await page.goto(ui+path);
@@ -217,7 +217,7 @@ test('login supports keyboard, autocomplete, pending requests and useful failed 
   await page.route('**/api/Auth/login',async r=>{writes++;await new Promise(resolve=>setTimeout(resolve,400));await r.continue();});
   await page.keyboard.press('Enter');
   await expect(page.getByRole('button',{name:'Belépés…'})).toBeDisabled();
-  await expect(page.getByRole('alert')).toContainText('Hibás jelszó');
+  await expect(page.getByRole('alert')).toContainText('Hibás bejelentkezési adatok');
   expect(writes).toBe(1);
   await expect(username).toHaveValue('admin@test.com');
 });
@@ -229,8 +229,9 @@ test('expired session is rejected by the backend and restores its destination af
   const claims=JSON.parse(Buffer.from(original[1],'base64url').toString());
   claims.exp=Math.floor(Date.now()/1000)-120; claims.nbf=claims.exp-120; claims.iat=claims.nbf;
   const encoded=Buffer.from(JSON.stringify(claims)).toString('base64url');
-  // The isolated validation server uses the existing development configuration.
-  const key=process.env.Jwt__Key || JSON.parse(readFileSync('../Backend/CarServiceShop/CarServiceShop/appsettings.json','utf8')).Jwt.Key;
+  // The isolated validation server uses a fresh per-run external signing key.
+  const key=Buffer.from(process.env.CAR_TEST_JWT_KEY!, "base64");
+  expect(createHmac('sha256',key).update(original[0]+'.'+original[1]).digest('base64url')).toBe(original[2]);
   const signed=original[0]+'.'+encoded;
   const expired=signed+'.'+createHmac('sha256',key).update(signed).digest('base64url');
   expect((await request.get(api+'/Auth/me',{headers:{Authorization:'Bearer '+expired}})).status()).toBe(401);
@@ -240,14 +241,14 @@ test('expired session is rejected by the backend and restores its destination af
   await expect(page).toHaveURL(ui+'/login?returnTo=%2Fworksheets%3Fstatus%3Dopen');
   expect(await page.evaluate(()=>localStorage.getItem('user_data'))).toBeNull();
   await page.getByLabel('Felhasználónév (Email)',{exact:true}).fill('admin@test.com');
-  await page.getByLabel('Jelszó',{exact:true}).fill('admin123');
+  await page.getByLabel('Jelszó',{exact:true}).fill('Admin-test-only-123');
   await page.getByRole('button',{name:/belépés/i}).click();
   await expect(page).toHaveURL(ui+'/worksheets?status=open');
 });
 
 test('user list load failure offers retry without implying an empty user list',async({page})=>{
   await page.route('**/api/Users',r=>r.fulfill({status:500,body:'Felhasználólista hiba'}));
-  await login(page,'admin@test.com','admin123','/users');
+  await login(page,'admin@test.com','Admin-test-only-123','/users');
   await expect(page.getByRole('alert')).toContainText('Felhasználólista hiba');
   await expect(page.getByText('Nincs felhasználó',{exact:true})).toHaveCount(0);
   await page.unroute('**/api/Users');

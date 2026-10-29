@@ -2,7 +2,7 @@ import { test, expect, type Page, type APIRequestContext } from '@playwright/tes
 
 const api = 'http://localhost:5232/api', ui = 'http://127.0.0.1:5173';
 async function fixture(request: APIRequestContext) {
-  const token = (await (await request.post(api+'/Auth/login',{data:{email:'admin@test.com',password:'admin123'}})).json()).token;
+  const token = (await (await request.post(api+'/Auth/login',{data:{email:'admin@test.com',password:'Admin-test-only-123'}})).json()).token;
   const headers = {Authorization:'Bearer '+token}, tag = Math.random().toString(36).slice(2,9);
   const customer = await (await request.post(api+'/Customers',{headers,data:{name:'Worksheet customer '+tag,phoneNumber:'123456'}})).json();
   const vehicle = await (await request.post(api+'/Vehicle',{headers,data:{customerId:customer.id,licensePlate:'WS-'+tag,make:'Ford',model:'Focus',year:2020}})).json();
@@ -12,7 +12,7 @@ async function fixture(request: APIRequestContext) {
   return {headers,tag,customer,vehicle,part,open,completed};
 }
 async function login(page:Page,path:string) {
-  await page.goto(ui+path); await page.getByPlaceholder('Felhasználónév (Email)').fill('admin@test.com'); await page.getByPlaceholder('Jelszó').fill('admin123'); await page.getByRole('button',{name:/belépés/i}).click();
+  await page.goto(ui+path); await page.getByPlaceholder('Felhasználónév (Email)').fill('admin@test.com'); await page.getByPlaceholder('Jelszó').fill('Admin-test-only-123'); await page.getByRole('button',{name:/belépés/i}).click();
 }
 const editor = (page:Page) => page.getByRole('region',{name:'Munkalap szerkesztő'});
 

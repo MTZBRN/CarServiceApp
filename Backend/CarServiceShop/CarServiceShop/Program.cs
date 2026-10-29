@@ -1,3 +1,7 @@
+using CarServiceShop.Security;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 using CarServiceShop.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer; 
@@ -7,9 +11,6 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // --- 1. JWT KONFIGURÁCIÓ ---
-var jwtKey = builder.Configuration["Jwt:Key"]; 
-if (string.IsNullOrEmpty(jwtKey)) throw new Exception("JWT kulcs hiányzik!");
-var key = Encoding.ASCII.GetBytes(jwtKey);
 
 builder.Services.AddAuthentication(options =>
 {
@@ -27,13 +28,16 @@ builder.Services.AddAuthentication(options =>
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(key),
+
         ValidateIssuer = false,
         ValidateAudience = false,
         ClockSkew = TimeSpan.Zero
     };
 });
 
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme).Configure<IConfiguration>((options, config) => {
+    options.TokenValidationParameters.IssuerSigningKey = new SymmetricSecurityKey(SecurityRules.SigningKey(config["Jwt:Key"]));
+});
 // --- 2. ADATBÁZIS ÉS KÖZÖS SZOLGÁLTATÁSOK ---
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -55,29 +59,39 @@ builder.Services.AddCors(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(); 
 
+builder.Services.AddSingleton<ProfileImages>();
+builder.Services.Configure<ForwardedHeadersOptions>(options => {
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 1;
+    // Never clear trust lists or trust arbitrary forwarding headers.
+    foreach (var address in builder.Configuration.GetSection("ReverseProxy:KnownProxies").Get<string[]>() ?? [])
+        options.KnownProxies.Add(System.Net.IPAddress.Parse(address));
+});
+builder.Services.AddRateLimiter(options => {
+    options.RejectionStatusCode = 429;
+    options.AddPolicy("login", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions {
+            PermitLimit = Math.Clamp(builder.Configuration.GetValue("Login:SourcePermitLimit", 30), 1, 1000), Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true
+        }));
+});
+builder.Services.AddSingleton<LoginThrottle>();
 var app = builder.Build();
+_ = SecurityRules.SigningKey(app.Configuration["Jwt:Key"]);
 
-// --- ADATBÁZIS SEEDELÉS ---
 using (var scope = app.Services.CreateScope())
 {
-    var services = scope.ServiceProvider;
-    try
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    context.Database.Migrate();
+    if (args.Contains("--provision-admin"))
     {
-        var context = services.GetRequiredService<ApplicationDbContext>();
-
-        // Opcionális: Ha még nem jöttek volna létre a táblák, ez automatikusan megcsinálja
-        context.Database.Migrate();
-
-        // Meghívjuk a mi Seeder osztályunkat
-        DbSeeder.SeedUsers(context);
-    }
-    catch (Exception ex)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Hiba történt az adatbázis kezdőadatainak feltöltésekor.");
+        InitialAdmin.Provision(context, builder.Configuration);
+        return;
     }
 }
 
+app.UseForwardedHeaders();
+app.UseRouting();
+app.UseRateLimiter();
 // --- 4. MIDDLEWARE SORREND (Kritikus!) ---
 if (app.Environment.IsDevelopment())
 {
@@ -93,15 +107,20 @@ app.UseDefaultFiles(); // Megkeresi az index.html-t a wwwroot-ban
 app.UseStaticFiles();  // Kiszolgálja a React fájlokat (js, css, képek)
 
 // Egyedi mappa a feltöltéseknek (profilképek)
-var uploadPath = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
-if (!Directory.Exists(uploadPath)) Directory.CreateDirectory(uploadPath);
-
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadPath),
-    RequestPath = "/uploads"
+var images = app.Services.GetRequiredService<ProfileImages>();
+Directory.CreateDirectory(images.DirectoryPath);
+// Only canonical server-generated PNGs and legacy raster names are public. Old active files stay unreachable.
+app.Use(async (ctx, next) => {
+    if (ctx.Request.Path.StartsWithSegments("/uploads", out var name)) {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(name.Value ?? "", @"^/profile_\d+_[a-zA-Z0-9]+\.(png|jpg|jpeg)$")) { ctx.Response.StatusCode = 404; return; }
+        ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        ctx.Response.Headers["Content-Security-Policy"] = "default-src 'none'; sandbox";
+    }
+    await next();
 });
-
+app.UseStaticFiles(new StaticFileOptions {
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(images.DirectoryPath), RequestPath = "/uploads"
+});
 app.UseAuthentication(); 
 app.UseAuthorization();  
 
@@ -112,3 +131,4 @@ app.MapControllers();
 app.MapFallbackToFile("index.html").AllowAnonymous();
 
 app.Run();
+public partial class Program { }

@@ -1,3 +1,5 @@
+using CarServiceShop.Security;
+using Microsoft.AspNetCore.RateLimiting;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -23,28 +25,23 @@ public class AuthController : ControllerBase
     }
 
     [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [RequestSizeLimit(4096)]
     [HttpPost("login")]
-    public IActionResult Login([FromBody] LoginDto loginDto)
+    public IActionResult Login([FromBody] LoginDto loginDto, [FromServices] LoginThrottle throttle)
     {
-        // 1. Felhasználó keresése az adatbázisban email alapján
-        var user = _context.Users.FirstOrDefault(u => u.Email == loginDto.Email);
-    
-        if (user == null) return Unauthorized(new { message = "Hibás felhasználónév!" });
-
-        // 2. Jelszó ellenőrzése a BCrypt segítségével
-        bool isPasswordValid = BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash);
-    
-        if (!isPasswordValid) return Unauthorized(new { message = "Hibás jelszó!" });
-
-        // 3. JWT TOKEN GENERÁLÁSA (Ide kerül az új rész)
+        if (loginDto.Email.Length > 254 || System.Text.Encoding.UTF8.GetByteCount(loginDto.Password) > 72)
+            return Unauthorized(new { message = "Hibás bejelentkezési adatok!" });
+        if (!throttle.Enter(loginDto.Email)) return StatusCode(429);
+        User? user;
+        bool valid = false;
+        try {
+            user = _context.Users.FirstOrDefault(u => u.Email == loginDto.Email);
+            valid = BCrypt.Net.BCrypt.Verify(loginDto.Password, user?.PasswordHash ?? SecurityRules.DummyHash);
+        } finally { throttle.Exit(loginDto.Email, valid); }
+        if (user == null || !valid) return Unauthorized(new { message = "Hibás bejelentkezési adatok!" });
         var tokenHandler = new JwtSecurityTokenHandler();
-    
-        // Kiolvassuk a kulcsot az appsettings.json-ból (amit az előbb beszéltünk meg)
-        var keyString = _configuration["Jwt:Key"];
-        if (string.IsNullOrEmpty(keyString)) return StatusCode(500, "Szerver hiba: JWT kulcs hiányzik!");
-    
-        var key = Encoding.ASCII.GetBytes(keyString);
-
+        var key = SecurityRules.SigningKey(_configuration["Jwt:Key"]);
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(new[] 
@@ -84,6 +81,7 @@ public class AuthController : ControllerBase
     [HttpPost("change-password")]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
     {
+        if (!SecurityRules.ValidPassword(dto.NewPassword) || Encoding.UTF8.GetByteCount(dto.OldPassword) > 72) return BadRequest(new { message = SecurityRules.PasswordMessage });
         // 1. Kikeressük a júzert a Tokenben lévő ID alapján
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
         if (userIdClaim == null) return Unauthorized();
@@ -106,32 +104,34 @@ public class AuthController : ControllerBase
     
     [Authorize]
     [HttpPost("upload-profile-picture")]
-    public async Task<IActionResult> UploadProfilePicture(IFormFile file)
+    [RequestSizeLimit(ProfileImages.MaxBytes + 65536)]
+    [RequestFormLimits(MultipartBodyLengthLimit = ProfileImages.MaxBytes + 65536)]
+    public async Task<IActionResult> UploadProfilePicture(IFormFile file, [FromServices] ProfileImages images)
     {
-        if (file == null || file.Length == 0) return BadRequest("Nincs fájl kiválasztva.");
-
-        var userId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value!);
+        if (file == null || file.Length == 0 || file.Length > ProfileImages.MaxBytes) return BadRequest("PNG/JPEG kép szükséges, legfeljebb 2 MiB.");
+        // MIME/filename never decide the output type. Only a successful raster decode is accepted.
+        if (file.ContentType is not ("image/png" or "image/jpeg")) return BadRequest("Érvénytelen képtípus.");
+        using var ownedLock = await images.LockAsync();
+        using var input = new MemoryStream();
+        await file.CopyToAsync(input);
+        var normalized = ProfileImages.Normalize(input.ToArray());
+        if (normalized == null) return BadRequest("Érvénytelen PNG/JPEG kép (maximum 2048 × 2048).");
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var user = await _context.Users.FindAsync(userId);
-        if (user == null) return NotFound();
-
-        // Fájlnév generálás (pl. user_1_12345.jpg), hogy ne legyenek ütközések
-        var extension = Path.GetExtension(file.FileName);
-        var fileName = $"profile_{userId}_{DateTime.Now.Ticks}{extension}";
-        var filePath = Path.Combine(Directory.GetCurrentDirectory(), "uploads", fileName);
-
-        using (var stream = new FileStream(filePath, FileMode.Create))
-        {
-            await file.CopyToAsync(stream);
-        }
-
-        // Elmentjük az adatbázisba az elérési utat
-        user.ProfilePicturePath = fileName;
-        await _context.SaveChangesAsync();
-
-        return Ok(new { filePath = $"/uploads/{fileName}" });
+        if (user == null) return Unauthorized();
+        var previous = user.ProfilePicturePath;
+        var name = $"profile_{userId}_{Guid.NewGuid():N}.png";
+        Directory.CreateDirectory(images.DirectoryPath);
+        var target = Path.Combine(images.DirectoryPath, name);
+        try {
+            await using (var stream = new FileStream(target, FileMode.CreateNew)) await stream.WriteAsync(normalized);
+            user.ProfilePicturePath = name;
+            await _context.SaveChangesAsync();
+        } catch { System.IO.File.Delete(target); throw; }
+        images.DeleteOwned(userId, previous);
+        return Ok(new { filePath = $"/uploads/{name}" });
     }
 }
-
 public class LoginDto
 {
     public string Email { get; set; } = string.Empty;

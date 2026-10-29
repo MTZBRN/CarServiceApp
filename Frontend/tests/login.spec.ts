@@ -6,7 +6,7 @@ test('sikeres bejelentkezés folyamata', async ({ page }) => {
 
   // 2. Kitöltjük a beviteli mezőket
   await page.getByPlaceholder('Felhasználónév (Email)').fill('admin@test.com');
-  await page.getByPlaceholder('Jelszó').fill('admin123');
+  await page.getByPlaceholder('Jelszó').fill('Admin-test-only-123');
 
   // 3. Rákattintunk a belépés gombra
   await page.getByRole('button', { name: /belépés/i }).click();
@@ -23,7 +23,7 @@ test('sikeres bejelentkezés után kijelentkezik és visszatér a login képerny
   await page
     .getByPlaceholder('Felhasználónév (Email)')
     .fill('admin@test.com');
-  await page.getByPlaceholder('Jelszó').fill('admin123');
+  await page.getByPlaceholder('Jelszó').fill('Admin-test-only-123');
 
   await Promise.all([
     page.waitForResponse(
@@ -54,7 +54,7 @@ test('hibás jelszó megadásakor hibaüzenetet jelenít meg', async ({ page }) 
   await page.getByRole('button', { name: /belépés/i }).click();
 
   await expect(
-    page.getByText(/Hibás (jelszó|felhasználónév vagy jelszó)!/),
+    page.getByText(/Hibás bejelentkezési adatok!/),
   ).toBeVisible();
 });
 
@@ -82,7 +82,7 @@ test('admin teljes napi folyamata: új munka rögzítése a naptárban', async (
 
   await page.goto('http://localhost:5173');
   await page.getByPlaceholder('Felhasználónév (Email)').fill('admin@test.com');
-  await page.getByPlaceholder('Jelszó').fill('admin123');
+  await page.getByPlaceholder('Jelszó').fill('Admin-test-only-123');
 
   const initialData = Promise.all([
     page.waitForResponse(r => r.url().endsWith('/api/Vehicle') && r.request().method() === 'GET'),
@@ -96,10 +96,10 @@ test('admin teljes napi folyamata: új munka rögzítése a naptárban', async (
     ),
     page.getByRole('button', { name: /belépés/i }).click(),
   ]);
-  await expect(page.getByRole('link', { name: 'Naptár' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Naptár', exact: true })).toBeVisible();
 
   await initialData;
-  await page.getByRole('link', { name: 'Naptár' }).click();
+  await page.getByRole('link', { name: 'Naptár', exact: true }).click();
   await expect(page.getByRole('heading', { name: /Szerviz Naptár/i })).toBeVisible();
 
   await page.getByRole('button', { name: 'Új időpont', exact: true }).click();

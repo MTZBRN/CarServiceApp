@@ -1,5 +1,7 @@
+import { randomBytes } from 'node:crypto';
 import { defineConfig, devices } from '@playwright/test';
 import path from 'node:path';
+process.env.CAR_TEST_JWT_KEY ??= randomBytes(48).toString('base64');
 export default defineConfig({
   testDir: './tests',
   fullyParallel: false,

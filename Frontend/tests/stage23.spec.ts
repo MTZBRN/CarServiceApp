@@ -4,7 +4,7 @@ const api = 'http://localhost:5232/api';
 let mechanic: string;
 let vehicleId: number;
 let jobId: number;
-async function login(page: Page, email = 'admin@test.com', password = 'admin123') {
+async function login(page: Page, email = 'admin@test.com', password = 'Admin-test-only-123') {
   await page.goto(ui + '/login');
   await page.getByPlaceholder('Felhasználónév (Email)').fill(email);
   await page.getByPlaceholder('Jelszó').fill(password);
@@ -12,10 +12,10 @@ async function login(page: Page, email = 'admin@test.com', password = 'admin123'
   await expect(page.getByRole('button', { name: 'Kilépés', exact: true })).toBeVisible();
 }
 test.beforeAll(async ({ request }) => {
-  const response = await request.post(api + '/Auth/login', { data: { email: 'admin@test.com', password: 'admin123' } });
+  const response = await request.post(api + '/Auth/login', { data: { email: 'admin@test.com', password: 'Admin-test-only-123' } });
   const headers = { Authorization: 'Bearer ' + (await response.json()).token };
   mechanic = `shell-${Date.now()}@test.com`;
-  expect((await request.post(api + '/Users', { headers, data: { name: 'Shell Mechanic', email: mechanic, password: 'shell123', role: 'mechanic' } })).ok()).toBeTruthy();
+  expect((await request.post(api + '/Users', { headers, data: { name: 'Shell Mechanic', email: mechanic, password: 'shell123-test-only', role: 'mechanic' } })).ok()).toBeTruthy();
   const customer = await (await request.post(api + '/Customers', { headers, data: { name: 'Shell Print Customer', phoneNumber: '123' } })).json();
   const vehicle = await (await request.post(api + '/Vehicle', { headers, data: { licensePlate: `SHELL-${Date.now()}`, make: 'Ford', model: 'Focus', year: 2020, customerId: customer.id } })).json();
   vehicleId = vehicle.id;
@@ -77,7 +77,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 
 }
 
 test('mechanic sees permitted navigation and cannot expose admin pages via stored role', async ({ page }) => {
-  await login(page, mechanic, 'shell123');
+  await login(page, mechanic, 'shell123-test-only');
   await expect(page.getByRole('navigation', { name: 'Adminisztráció' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Alkatrészek' })).toBeVisible();
   await expect(page.locator('.shell-profile')).toContainText('Szerelő');

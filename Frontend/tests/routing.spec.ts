@@ -3,17 +3,17 @@ const ui = 'http://localhost:5173';
 const api = 'http://localhost:5232/api';
 let vehicleId: number;
 let mechanic: string;
-async function signIn(page: Page, email = 'admin@test.com', password = 'admin123') {
+async function signIn(page: Page, email = 'admin@test.com', password = 'Admin-test-only-123') {
   await page.getByPlaceholder('Felhasználónév (Email)').fill(email);
   await page.getByPlaceholder('Jelszó').fill(password);
   await page.getByRole('button', { name: /belépés/i }).click();
 }
 test.beforeAll(async ({ request }) => {
-  const login = await request.post(`${api}/Auth/login`, { data: { email: 'admin@test.com', password: 'admin123' } });
+  const login = await request.post(`${api}/Auth/login`, { data: { email: 'admin@test.com', password: 'Admin-test-only-123' } });
   expect(login.ok()).toBeTruthy();
   const headers = { Authorization: `Bearer ${(await login.json()).token}` };
   mechanic = `routing-${Date.now()}@test.com`;
-  expect((await request.post(`${api}/Users`, { headers, data: { name: 'Routing mechanic', email: mechanic, password: 'route123', role: 'mechanic' } })).ok()).toBeTruthy();
+  expect((await request.post(`${api}/Users`, { headers, data: { name: 'Routing mechanic', email: mechanic, password: 'route123-test-only', role: 'mechanic' } })).ok()).toBeTruthy();
   const customer = await (await request.post(`${api}/Customers`, { headers, data: { name: 'Routing customer', phoneNumber: '123' } })).json();
   const vehicle = await request.post(`${api}/Vehicle`, { headers, data: { customerId: customer.id, licensePlate: `ROUTE-${Date.now()}`, make: 'Ford', model: 'Focus', year: 2020 } });
   expect(vehicle.ok()).toBeTruthy(); vehicleId = (await vehicle.json()).id;
@@ -44,7 +44,7 @@ test('sidebar navigation uses history and direct page refresh restores the scree
 });
 
 test('mechanic cannot mount admin screens or grant access by editing stored role', async ({ page }) => {
-  await page.goto(ui + '/users'); await signIn(page, mechanic, 'route123');
+  await page.goto(ui + '/users'); await signIn(page, mechanic, 'route123-test-only');
   await expect(page.getByRole('alert')).toHaveText('Nincs jogosultságod az oldal megtekintéséhez.');
   expect(await page.evaluate(() => localStorage.getItem('authToken'))).toBeTruthy();
   await page.evaluate(() => localStorage.setItem('userRole', 'admin'));

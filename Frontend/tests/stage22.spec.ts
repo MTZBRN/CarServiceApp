@@ -4,7 +4,7 @@ const api = 'http://localhost:5232/api';
 async function login(page: Page) {
   await page.goto(ui + '/login');
   await page.getByPlaceholder('Felhasználónév (Email)').fill('admin@test.com');
-  await page.getByPlaceholder('Jelszó').fill('admin123');
+  await page.getByPlaceholder('Jelszó').fill('Admin-test-only-123');
   await page.getByRole('button', { name: /belépés/i }).click();
   await expect(page.getByRole('button', { name: 'Kilépés' })).toBeVisible();
 }
@@ -92,7 +92,7 @@ test(`logout cancels a delayed ${status} response before a second session`, asyn
   await expect(page.getByPlaceholder('Jelszó')).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem('authToken'))).toBeNull();
   await page.getByPlaceholder('Felhasználónév (Email)').fill('admin@test.com');
-  await page.getByPlaceholder('Jelszó').fill('admin123'); await page.getByRole('button', { name: /belépés/i }).click();
+  await page.getByPlaceholder('Jelszó').fill('Admin-test-only-123'); await page.getByRole('button', { name: /belépés/i }).click();
   await page.getByRole('link', { name: 'Járművek', exact: true }).click();
   await expect(page.getByText('CURRENT-USER', { exact: true })).toBeVisible();
   release();

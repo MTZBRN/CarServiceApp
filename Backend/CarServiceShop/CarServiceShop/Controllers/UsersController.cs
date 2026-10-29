@@ -31,6 +31,7 @@ public class UsersController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> AddUser([FromBody] CreateUserDto dto)
     {
+        if (!CarServiceShop.Security.SecurityRules.ValidPassword(dto.Password)) return BadRequest(new { message = CarServiceShop.Security.SecurityRules.PasswordMessage });
         if (dto.Role != "admin" && dto.Role != "mechanic")
             return BadRequest(new { message = "Érvénytelen szerepkör." });
 
