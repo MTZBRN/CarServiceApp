@@ -21,9 +21,12 @@ public class CustomersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Customer>>> GetCustomers()
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("collections")]
+    public async Task<IActionResult> GetCustomers([FromQuery] CollectionQuery? input=null, CancellationToken cancellationToken=default)
     {
-        return await _context.Customers.ToListAsync();
+        var query=input??new(); var q=CollectionReads.Fold(query.Q?.Trim());
+        var source=_context.Customers.AsNoTracking().Where(c=>q=="" || CollectionReads.Fold(c.Name+" "+c.PhoneNumber+" "+(c.Email??"")).Contains(q));
+        return Ok(await CollectionReads.PageAsync(source.OrderBy(c=>c.Id).Select(c=>new {c.Id,c.Name,c.PhoneNumber,c.Email,c.Address,VehicleCount=c.Vehicles.Count}),query,ControllerContext.HttpContext,cancellationToken));
     }
 
     [HttpGet("{id}")]

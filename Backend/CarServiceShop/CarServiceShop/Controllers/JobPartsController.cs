@@ -19,11 +19,13 @@ public class JobPartsController : ControllerBase
 
     // Csak hozzáadás kell, mert a listázást a ServiceJob-nál intézzük
     [HttpPost]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("worksheet-writes")]
     public async Task<ActionResult<JobPart>> PostJobPart(JobPartRequest input)
     {
         var job=await _context.ServiceJobs.FindAsync(input.ServiceJobId);
         if (job==null) return BadRequest("Invalid worksheet.");
         if (job.IsCompleted && !User.IsInRole("admin")) return Forbid();
+        if (await _context.JobParts.CountAsync(p=>p.ServiceJobId==job.Id) >= 500) return BadRequest("A worksheet may contain at most 500 line items.");
         if (string.IsNullOrEmpty(input.Version) || input.Version!=job.Version) return Conflict(new {message=Integrity.Conflict});
         _context.Entry(job).Property(j=>j.Version).OriginalValue=input.Version;
         _context.Entry(job).Property(j=>j.Version).IsModified=true;

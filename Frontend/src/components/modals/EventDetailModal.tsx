@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import type { CalendarEvent, ServiceJob } from '../../types';
 import Modal from '../ui/Modal';import Button from '../ui/Button';import Badge from '../ui/Badge';
 import { format } from 'date-fns';import { hu } from 'date-fns/locale';
-interface Props { event:CalendarEvent; worksheet?:ServiceJob; ready:boolean; onClose:()=>void; onEdit:()=>void; onDelete:()=>void; onOpenWorksheet:()=>void; }
+interface Props { event:CalendarEvent; worksheet?:Pick<ServiceJob,'id'|'isCompleted'>; ready:boolean; onClose:()=>void; onEdit:()=>void; onDelete:()=>void; onOpenWorksheet:()=>void; }
 export default function EventDetailModal({event,worksheet,ready,onClose,onEdit,onDelete,onOpenWorksheet}:Props){
  const {user}=useAuth();
  const vehicle=event.type==='mot'?event.originalData:event.originalData.vehicle;const app=event.type==='service'?event.originalData:null;

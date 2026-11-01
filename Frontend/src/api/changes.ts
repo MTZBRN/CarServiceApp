@@ -1,4 +1,4 @@
-export type Resource = 'customers' | 'vehicles' | 'appointments' | 'worksheets' | 'inventory' | 'settings';
+export type Resource = 'customers' | 'vehicles' | 'appointments' | 'worksheets' | 'inventory' | 'settings' | 'dashboard';
 type Listener = (resources: readonly Resource[]) => Promise<void>;
 const listeners = new Set<Listener>();
 export function subscribeChanges(listener: Listener) { listeners.add(listener); return () => { listeners.delete(listener); }; }

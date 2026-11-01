@@ -1,4 +1,5 @@
 export interface Customer {
+  vehicleCount?: number;
   id: number;
   name: string;
   phoneNumber: string;
@@ -26,7 +27,7 @@ export interface Appointment {
   endTime: string;
   note?: string;
   vehicle?: Vehicle;
-  serviceJob?: ServiceJob;
+  serviceJob?: Pick<ServiceJob,'id'|'isCompleted'> | null;
 }
 
 export interface JobPart {
@@ -39,6 +40,8 @@ export interface JobPart {
 
 // --- ITT A LÉNYEG! ---
 export interface ServiceJob {
+  partsTotal?: number;
+  lineItemCount?: number;
   version?: string;
   id: number;
   appointmentId?: number | null;

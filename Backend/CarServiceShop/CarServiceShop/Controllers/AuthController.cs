@@ -128,6 +128,7 @@ public class AuthController : ControllerBase
 
     [Authorize]
     [HttpPost("upload-profile-picture")]
+    [EnableRateLimiting("uploads")]
     [RequestSizeLimit(ProfileImages.MaxBytes + 65536)]
     [RequestFormLimits(MultipartBodyLengthLimit = ProfileImages.MaxBytes + 65536)]
     public async Task<IActionResult> UploadProfilePicture(IFormFile file, [FromServices] ProfileImages images)
@@ -135,7 +136,8 @@ public class AuthController : ControllerBase
         if (file == null || file.Length == 0 || file.Length > ProfileImages.MaxBytes) return BadRequest("PNG/JPEG kép szükséges, legfeljebb 2 MiB.");
         // MIME/filename never decide the output type. Only a successful raster decode is accepted.
         if (file.ContentType is not ("image/png" or "image/jpeg")) return BadRequest("Érvénytelen képtípus.");
-        using var ownedLock = await images.LockAsync();
+        using var ownedLock = await images.LockAsync(HttpContext.RequestAborted);
+        if(ownedLock==null) return StatusCode(429,new {message="An image upload is already in progress. Try again shortly."});
         using var input = new MemoryStream();
         await file.CopyToAsync(input);
         var normalized = ProfileImages.Normalize(input.ToArray());
@@ -144,6 +146,7 @@ public class AuthController : ControllerBase
         var user = await _context.Users.FindAsync(userId);
         if (user == null) return Unauthorized();
         var previous = user.ProfilePicturePath;
+        if(!images.HasRoom(userId,previous,normalized.Length)) return StatusCode(507,new {message="Managed profile storage is full. Contact an administrator."});
         var name = $"profile_{userId}_{Guid.NewGuid():N}.png";
         Directory.CreateDirectory(images.DirectoryPath);
         var target = Path.Combine(images.DirectoryPath, name);
@@ -152,7 +155,7 @@ public class AuthController : ControllerBase
             user.ProfilePicturePath = name;
             await _context.SaveChangesAsync();
         } catch { System.IO.File.Delete(target); throw; }
-        images.DeleteOwned(userId, previous);
+        images.TryDeleteOwned(userId, previous);
         return Ok(new { filePath = $"/uploads/{name}" });
     }
 }

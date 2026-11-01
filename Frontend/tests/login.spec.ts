@@ -76,9 +76,13 @@ test('üres mezőkkel nem küldi el a bejelentkezési űrlapot', async ({ page }
 });
 
 test('admin teljes napi folyamata: új munka rögzítése a naptárban', async ({
-  page,
+  page,request,
 }) => {
   const testDescription = `E2E napi munka ${Date.now()}`;
+  const setupLogin=await request.post('http://localhost:5232/api/Auth/login',{data:{email:'admin@test.com',password:'Admin-test-only-123'}});expect(setupLogin.ok()).toBeTruthy();
+  const setupHeaders={Authorization:'Bearer '+(await setupLogin.json()).token};
+  const owner=await(await request.post('http://localhost:5232/api/Customers',{headers:setupHeaders,data:{name:'Daily workflow '+Date.now(),phoneNumber:'123'}})).json();
+  expect((await request.post('http://localhost:5232/api/Vehicle',{headers:setupHeaders,data:{customerId:owner.id,licensePlate:'DAILY-'+Date.now(),make:'Ford',model:'Focus',year:2020}})).ok()).toBeTruthy();
 
   await page.goto('http://localhost:5173');
   await page.getByPlaceholder('Felhasználónév (Email)').fill('admin@test.com');
@@ -86,7 +90,7 @@ test('admin teljes napi folyamata: új munka rögzítése a naptárban', async (
 
   const initialData = Promise.all([
     page.waitForResponse(r => r.url().endsWith('/api/Vehicle') && r.request().method() === 'GET'),
-    page.waitForResponse(r => r.url().endsWith('/api/Appointments') && r.request().method() === 'GET'),
+    page.waitForResponse(r => new URL(r.url()).pathname==='/api/Dashboard' && r.request().method() === 'GET'),
   ]);
   await Promise.all([
     page.waitForResponse(
@@ -99,7 +103,9 @@ test('admin teljes napi folyamata: új munka rögzítése a naptárban', async (
   await expect(page.getByRole('link', { name: 'Naptár', exact: true })).toBeVisible();
 
   await initialData;
+  const calendarData=page.waitForResponse(r=>new URL(r.url()).pathname==='/api/Appointments'&&new URL(r.url()).searchParams.has('start'));
   await page.getByRole('link', { name: 'Naptár', exact: true }).click();
+  const loadedRange=new URL((await calendarData).url());expect(loadedRange.searchParams.has('end')).toBe(true);
   await expect(page.getByRole('heading', { name: /Szerviz Naptár/i })).toBeVisible();
 
   await page.getByRole('button', { name: 'Új időpont', exact: true }).click();

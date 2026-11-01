@@ -41,6 +41,10 @@ test('dashboard metrics use defined dates, status and stock boundaries with work
     {id:32,vehicleId:2,date:'2026-10-26T12:00:00Z',description:'Kész munka',isCompleted:true,laborCost:200,jobParts:[]},
   ]}));
   await page.route('**/api/parts',route=>route.fulfill({json:[0,4,5,-1,1.5].map((stockQuantity,i)=>({id:i+1,stockQuantity,name:'Alkatrész '+i,partNumber:'P'+i,netPrice:100,grossPrice:127}))}));
+  const rowVehicle={...vehicles[0],customer:{id:1,name:'Teszt ügyfél',phoneNumber:'123'}};
+  const fixtureJobs=[{id:31,vehicleId:1,vehicle:rowVehicle,date:'2026-10-25T12:00:00Z',description:'Nyitott munka',isCompleted:false,laborCost:100,jobParts:[]},{id:32,vehicleId:2,date:'2026-10-26T12:00:00Z',description:'Kész munka',isCompleted:true,laborCost:200,jobParts:[]}];
+  await page.route(url=>url.pathname==='/api/ServiceJobs',route=>{const status=new URL(route.request().url()).searchParams.get('status');return route.fulfill({json:fixtureJobs.filter(j=>!status||(status==='completed')===j.isCompleted)});});
+  await page.route('**/api/Dashboard?*',route=>route.fulfill({json:{todayCount:1,activeCount:1,completedCount:1,inspectionCount:3,upcomingCount:2,lowCount:2,bookings:[{id:11,vehicleId:1,vehicle:rowVehicle,startTime:'2026-10-28T00:00:00Z',endTime:'2026-10-28T23:59:59Z',note:'Mai szerviz'}],active:[fixtureJobs[0]],recent:[fixtureJobs[1],fixtureJobs[0]],inspections:vehicles.slice(0,3),low:[0,4].map((stockQuantity,i)=>({id:i+1,stockQuantity,name:'Alkatrész '+i,partNumber:'P'+i,netPrice:100,grossPrice:127}))}}));
   await login(page);
   for(const label of ['Mai időpontok: 1','Aktív munkalapok: 1','Befejezett munkák: 1','Közelgő műszaki vizsgák: 2','Alacsony készlet: 2'])await expect(page.getByRole('link',{name:label,exact:true})).toBeVisible();
   await expect(page.locator('#inspections')).toContainText('Lejárt');
@@ -54,12 +58,12 @@ test('dashboard metrics use defined dates, status and stock boundaries with work
 
 test('dashboard handles empty resources and retries failed loads without displaying false zero metrics',async({page})=>{
   for(const name of ['Vehicle','Customers','Appointments','ServiceJobs','parts'])await page.route('**/api/'+name,r=>r.fulfill({json:[]}));
-  await page.route('**/api/parts',r=>r.fulfill({status:500,body:'Készlet nem érhető el'}));
+  await page.route('**/api/Dashboard?*',r=>r.fulfill({status:500,body:'Készlet nem érhető el'}));
   await login(page);
   await expect(page.getByRole('alert')).toContainText('Készlet nem érhető el');
   await expect(page.locator('.overview-metrics')).toHaveCount(0);
-  await page.unroute('**/api/parts');
-  await page.route('**/api/parts',r=>r.fulfill({json:[]}));
+  await page.unroute('**/api/Dashboard?*');
+  await page.route('**/api/Dashboard?*',r=>r.fulfill({json:{todayCount:0,activeCount:0,completedCount:0,inspectionCount:0,upcomingCount:0,lowCount:0,bookings:[],active:[],recent:[],inspections:[],low:[]}}));
   await page.getByRole('button',{name:'Újrapróbálás'}).click();
   await expect(page.getByRole('link',{name:'Aktív munkalapok: 0',exact:true})).toBeVisible();
   await expect(page.getByText('Nincs mára beírt munka.')).toBeVisible();

@@ -21,11 +21,12 @@ public class UsersController : ControllerBase
 
     // Összes felhasználó lekérése (jelszó nélkül!)
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<object>>> GetUsers()
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("collections")]
+    public async Task<IActionResult> GetUsers([FromQuery] CollectionQuery? input=null, CancellationToken cancellationToken=default)
     {
-        return await _context.Users
-            .Select(u => new { u.Id, u.Name, u.Email, u.Role })
-            .ToListAsync();
+        var query=input??new(); var q=CollectionReads.Fold(query.Q?.Trim());
+        if(ControllerContext.HttpContext!=null) Response.Headers["X-Admin-Count"]=(await _context.Users.CountAsync(u=>u.Role=="admin",cancellationToken)).ToString();
+        return Ok(await CollectionReads.PageAsync(_context.Users.AsNoTracking().Where(u=>q=="" || CollectionReads.Fold(u.Name+" "+u.Email).Contains(q)).OrderBy(u=>u.Id).Select(u=>new {u.Id,u.Name,u.Email,u.Role}),query,ControllerContext.HttpContext,cancellationToken));
     }
 
     // Új felhasználó hozzáadása
@@ -57,7 +58,7 @@ public class UsersController : ControllerBase
 
     // Felhasználó törlése
     [HttpDelete("{id}")]
-    public async Task<IActionResult> DeleteUser(int id)
+    public async Task<IActionResult> DeleteUser(int id, [FromServices] CarServiceShop.Security.ProfileImages? images=null)
     {
         var user = await _context.Users.FindAsync(id);
         if (user == null) return NotFound();
@@ -69,6 +70,8 @@ public class UsersController : ControllerBase
         if (user.Role == "admin" && await _context.Users.CountAsync(u => u.Role == "admin") <= 1) return BadRequest("Az utolsó adminisztrátor nem törölhető.");
         _context.Users.Remove(user);
         try { await _context.SaveChangesAsync(); } catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return BadRequest(new {message="Az utolsó adminisztrátor nem törölhető."}); }
+        // Only this deleted account's known generated basename; historical orphans require operator review.
+        images?.TryDeleteOwned(user.Id,user.ProfilePicturePath);
         return Ok(new { message = "Felhasználó törölve." });
     }
 }

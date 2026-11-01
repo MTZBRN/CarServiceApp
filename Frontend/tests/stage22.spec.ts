@@ -25,15 +25,15 @@ test('shared consumers reuse lists and mutations refresh only affected resources
   });
   await login(page);
   await expect.poll(() => counts.Vehicle).toBe(1);
-  await expect.poll(() => counts.Customers).toBe(1);
-  await expect.poll(() => counts.Appointments).toBe(1);
+  await expect.poll(()=>counts.Dashboard).toBe(1);
+  expect(counts.Customers||0).toBe(0);expect(counts.Appointments||0).toBe(0);
   await page.getByRole('link', { name: 'Járművek', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Járművek', exact: true })).toBeVisible();
   await page.getByRole('link', { name: 'Ügyfelek', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Új ügyfél' })).toBeVisible();
-  expect(counts.Vehicle).toBe(1); expect(counts.Customers).toBe(1); expect(counts.Appointments).toBe(1);
-  // Stage 2.7 dashboard consumes inventory and worksheets; each is still fetched exactly once.
-  expect(counts.parts).toBe(1); expect(counts.Users || 0).toBe(0); expect(counts.ServiceJobs).toBe(1);
+  await expect.poll(()=>counts.Customers).toBe(1);expect(counts.Vehicle).toBe(1);expect(counts.Appointments||0).toBe(0);
+  // Bounded dashboard summary replaces full-table inventory/worksheet/appointment preload.
+  expect(counts.parts||0).toBe(0);expect(counts.Users||0).toBe(0);expect(counts.ServiceJobs||0).toBe(0);expect(counts.Dashboard).toBe(1);
   const before = { ...counts };
   const name = 'Shared ' + Date.now();
   const id = await page.evaluate(async name => {
@@ -41,13 +41,13 @@ test('shared consumers reuse lists and mutations refresh only affected resources
     return (await customersApi.create({ name, phoneNumber: '123' })).data.id;
   }, name);
   await expect(page.getByText(name, { exact: true })).toBeVisible();
-  expect(counts.Customers).toBe(before.Customers + 1); expect(counts.Vehicle).toBe(before.Vehicle); expect(counts.Appointments).toBe(before.Appointments);
+  expect(counts.Customers).toBe(before.Customers + 1); expect(counts.Vehicle).toBe(before.Vehicle); expect(counts.Appointments||0).toBe(before.Appointments||0);
   await page.evaluate(async ({ id, name }) => {
     const { customersApi } = await import('/src/api/customers.ts');
     await customersApi.update(id, { name: name + ' edited', phoneNumber: '456' });
   }, { id, name });
   await expect(page.getByText(name + ' edited', { exact: true })).toBeVisible();
-  expect(counts.Customers).toBe(before.Customers + 2); expect(counts.Vehicle).toBe(before.Vehicle + 1); expect(counts.Appointments).toBe(before.Appointments + 1);
+  expect(counts.Customers).toBe(before.Customers + 2); expect(counts.Vehicle).toBe(before.Vehicle + 1); expect(counts.Appointments||0).toBe(before.Appointments||0);
   await page.getByRole('link', { name: 'Alkatrészek', exact: true }).click();
   await expect.poll(() => counts.parts).toBe(1);
   const inventoryBefore = { ...counts };
@@ -56,7 +56,7 @@ test('shared consumers reuse lists and mutations refresh only affected resources
     await inventoryApi.create({ name: 'Shared part ' + suffix, partNumber: suffix, netPrice: 100, grossPrice: 127, stockQuantity: 1 });
   }, String(Date.now()));
   expect(counts.parts).toBe(inventoryBefore.parts + 1);
-  expect(counts.Customers).toBe(inventoryBefore.Customers); expect(counts.Vehicle).toBe(inventoryBefore.Vehicle); expect(counts.Appointments).toBe(inventoryBefore.Appointments);
+  expect(counts.Customers).toBe(inventoryBefore.Customers); expect(counts.Vehicle).toBe(inventoryBefore.Vehicle); expect(counts.Appointments||0).toBe(inventoryBefore.Appointments||0);
 });
 
 test('failed mutation leaves shared records and request counts unchanged', async ({ page }) => {

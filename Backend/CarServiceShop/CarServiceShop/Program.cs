@@ -87,7 +87,8 @@ builder.Services.AddControllers().ConfigureApplicationPartManager(parts => {
 builder.Services.AddCors(options => options.AddPolicy("Browser", policy => {
     // Same-origin Production needs no CORS grants. Only explicit local Development frontends may call cross-origin.
     if (builder.Environment.IsDevelopment()) policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
-        .WithMethods("GET", "HEAD", "POST", "PUT", "DELETE").WithHeaders("Authorization", "Content-Type");
+        .WithMethods("GET", "HEAD", "POST", "PUT", "DELETE").WithHeaders("Authorization", "Content-Type")
+        .WithExposedHeaders("X-Total-Count", "X-Page", "X-Page-Size", "X-Admin-Count");
 }));
 builder.Services.AddHsts(options => { options.MaxAge=TimeSpan.FromDays(180); options.IncludeSubDomains=false; options.Preload=false; });
 // The framework exception handler otherwise logs exception messages before invoking the safe handler.
@@ -105,6 +106,19 @@ builder.Services.Configure<ForwardedHeadersOptions>(options => {
 });
 builder.Services.AddRateLimiter(options => {
     options.RejectionStatusCode = 429;
+    options.GlobalLimiter=PartitionedRateLimiter.Create<HttpContext,string>(ctx=>
+        ctx.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName switch {
+            "collections"=>RateLimitPartition.GetConcurrencyLimiter("collection-work",_=>new ConcurrencyLimiterOptions {PermitLimit=8,QueueLimit=0}),
+            "uploads"=>RateLimitPartition.GetConcurrencyLimiter("image-work",_=>new ConcurrencyLimiterOptions {PermitLimit=1,QueueLimit=0}),
+            "worksheet-writes"=>RateLimitPartition.GetConcurrencyLimiter("worksheet-work",_=>new ConcurrencyLimiterOptions {PermitLimit=4,QueueLimit=0}),
+            _=>RateLimitPartition.GetNoLimiter("other")
+        });
+    options.AddPolicy("collections",ctx=>RateLimitPartition.GetFixedWindowLimiter(ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value??ctx.Connection.RemoteIpAddress?.ToString()??"unknown",
+        _=>new FixedWindowRateLimiterOptions {PermitLimit=Math.Clamp(builder.Configuration.GetValue("Reads:PermitLimit",240),30,600),Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
+    options.AddPolicy("uploads",ctx=>RateLimitPartition.GetFixedWindowLimiter(ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value??"anonymous",
+        _=>new FixedWindowRateLimiterOptions {PermitLimit=10,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
+    options.AddPolicy("worksheet-writes",ctx=>RateLimitPartition.GetFixedWindowLimiter(ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value??"anonymous",
+        _=>new FixedWindowRateLimiterOptions {PermitLimit=120,Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
     options.AddPolicy("login", ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions {
             PermitLimit = Math.Clamp(builder.Configuration.GetValue("Login:SourcePermitLimit", 30), 1, 1000), Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true
@@ -134,6 +148,7 @@ app.Use(async (context,next) => {
 });
 // Same sanitized client responses in Development too: accidental environment changes do not expose stack/headers.
 app.UseExceptionHandler(handler => handler.Run(ProductionHardening.UnexpectedError));
+app.Use(RequestBounds.Apply);
 if (!app.Environment.IsDevelopment()) app.UseHsts();
 app.Use(async (context,next) => {
     if (!app.Environment.IsDevelopment() && context.Request.Path.StartsWithSegments("/api/Seed")) { context.Response.StatusCode=404; return; }
@@ -141,7 +156,6 @@ app.Use(async (context,next) => {
 });
 app.UseRouting();
 app.UseCors("Browser");
-app.UseRateLimiter();
 // --- 4. MIDDLEWARE SORREND (Kritikus!) ---
 if (app.Environment.IsDevelopment())
 {
@@ -172,6 +186,7 @@ app.UseStaticFiles(new StaticFileOptions {
     FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(images.DirectoryPath), RequestPath = "/uploads"
 });
 app.UseAuthentication(); 
+app.UseRateLimiter();
 app.UseAuthorization();  
 
 app.MapControllers();

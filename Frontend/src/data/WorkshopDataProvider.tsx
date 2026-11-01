@@ -3,6 +3,8 @@ import { useAuth } from '../auth/AuthProvider';
 import type { Resource } from '../api/changes';
 import { subscribeChanges } from '../api/changes';
 import { createWorkshopStore, type ResourceState } from './workshopStore';
+import {queryKey} from './workshopStore';
+import type {Query} from '../types/queries';
 
 type Store = ReturnType<typeof createWorkshopStore>;
 const Context = createContext<Store | null>(null);
@@ -22,12 +24,14 @@ export function useWorkshopData() {
   if (!store) throw new Error('WorkshopDataProvider missing');
   return store;
 }
-export function useWorkshopResource<K extends Resource>(name: K) {
-  const { resources } = useWorkshopData();
+export function useWorkshopResource<K extends Resource>(name: K, query?:Query, enabled=true) {
+  const store = useWorkshopData();
   type Data = ReturnType<Store['resources'][K]['snapshot']>['data'];
-  const record = resources[name];
+  const key=query?queryKey(query):'';
+  // Canonical keys share pending requests even when callers construct a fresh parameter object.
+  const record = useMemo(()=>query?store.query(name,query):store.resources[name],[store,name,key]);
   // The key determines both the fetcher and snapshot's data type.
   const state = useSyncExternalStore(record.subscribe, record.snapshot as () => ResourceState<Data>);
-  useEffect(() => { void record.load(); }, [record]);
+  useEffect(() => { if(enabled)void record.load(); }, [record,enabled]);
   return useMemo(() => ({ ...state, refresh: record.refresh }), [state, record]);
 }

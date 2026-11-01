@@ -18,10 +18,15 @@ namespace CarServiceShop.Controllers;
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Part>>> GetParts()
-        {
-            return await _context.Parts.ToListAsync();
-        }
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("collections")]
+    public async Task<IActionResult> GetParts([FromQuery] CollectionQuery? input=null, CancellationToken cancellationToken=default)
+    {
+        var query=input??new(); var q=CollectionReads.Fold(query.Q?.Trim());
+        var source=_context.Parts.AsNoTracking().Where(p=>q=="" || CollectionReads.Fold(p.Name+" "+p.PartNumber).Contains(q));
+        if(query.PartNumber!=null) {var code=CollectionReads.Fold(query.PartNumber);source=source.Where(p=>CollectionReads.Fold(p.PartNumber)==code);}
+        source=query.Stock switch {"out"=>source.Where(p=>p.StockQuantity==0),"low"=>source.Where(p=>p.StockQuantity>0 && p.StockQuantity<5),"available"=>source.Where(p=>p.StockQuantity>=5),"invalid"=>source.Where(p=>p.StockQuantity<0),_=>source};
+        return Ok(await CollectionReads.PageAsync(source.OrderBy(p=>p.Id),query,ControllerContext.HttpContext,cancellationToken));
+    }
 
         [HttpPost]
         public async Task<ActionResult<Part>> CreatePart(PartRequest input)

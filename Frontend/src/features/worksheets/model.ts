@@ -2,7 +2,7 @@ import type { JobPart, ServiceJob } from '../../types';
 export interface DraftPart { partName:string; partNumber:string; quantity:string; unitPrice:string; }
 export interface WorksheetDraft { vehicleId:string; date:string; description:string; laborCost:string; parts:DraftPart[]; }
 export const partsSubtotal = (parts:Pick<JobPart,'quantity'|'unitPrice'>[]) => parts.reduce((sum,p)=>sum+p.quantity*p.unitPrice,0);
-export const worksheetTotal = (job:Pick<ServiceJob,'laborCost'|'jobParts'>) => partsSubtotal(job.jobParts)+job.laborCost;
+export const worksheetTotal = (job:Pick<ServiceJob,'laborCost'|'jobParts'> & {partsTotal?:number}) => (job.partsTotal??partsSubtotal(job.jobParts))+job.laborCost;
 export const toParts = (parts:DraftPart[]):JobPart[] => parts.map(p=>({...p,quantity:Number(p.quantity),unitPrice:Number(p.unitPrice)}));
 export function draftFrom(job:ServiceJob):WorksheetDraft { return { vehicleId:String(job.vehicleId),date:job.date.slice(0,10),description:job.description,laborCost:String(job.laborCost),parts:job.jobParts.map(p=>({partName:p.partName,partNumber:p.partNumber||'',quantity:String(p.quantity),unitPrice:String(p.unitPrice)})) }; }
 export function validateDraft(draft:WorksheetDraft) {

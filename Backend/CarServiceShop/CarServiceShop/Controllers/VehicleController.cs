@@ -21,13 +21,11 @@ public class VehicleController : ControllerBase
     // 1. Összes autó lekérdezése
     // GET: api/vehicles
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Vehicle>>> GetVehicles()
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("collections")]
+    public async Task<IActionResult> GetVehicles([FromQuery] CollectionQuery? input=null, CancellationToken cancellationToken=default)
     {
-        // A trükk: .Include(v => v.Customer)
-        // Ez mondja meg az adatbázisnak, hogy "hozd a gazdáját is!"
-        return await _context.Vehicles
-            .Include(v => v.Customer) 
-            .ToListAsync();
+        var query=input??new();
+        return Ok(await CollectionReads.PageAsync(CollectionReads.Vehicles(_context.Vehicles.AsNoTracking(),query).Include(v=>v.Customer).OrderBy(v=>v.Id),query,ControllerContext.HttpContext,cancellationToken));
     }
 
     // 2. Egy konkrét autó lekérése ID alapján
@@ -37,7 +35,6 @@ public class VehicleController : ControllerBase
     {
         var vehicle = await _context.Vehicles
             .Include(v => v.Customer)
-            .Include(v => v.ServiceJobs) // A szerviztörténetet is látni akarjuk
             .FirstOrDefaultAsync(v => v.Id == id);
 
         if (vehicle == null)

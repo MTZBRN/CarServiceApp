@@ -5,7 +5,10 @@ namespace CarServiceShop.Data;
 
 public class ApplicationDbContext : DbContext
 {
-    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) { }
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) {
+        if (Database.IsSqlite()) ((Microsoft.Data.Sqlite.SqliteConnection)Database.GetDbConnection())
+            .CreateFunction<string?, string>("workshop_fold", Requests.CollectionReads.Fold, isDeterministic: true);
+    }
 
     public DbSet<Vehicle> Vehicles { get; set; }
     public DbSet<Customer> Customers { get; set; }
@@ -27,6 +30,7 @@ public class ApplicationDbContext : DbContext
     }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasDbFunction(typeof(Requests.CollectionReads).GetMethod(nameof(Requests.CollectionReads.Fold))!).HasName("workshop_fold");
         modelBuilder.Entity<User>().Property(u=>u.NormalizedLogin).HasComputedColumnSql("upper(trim(Email))", stored: false);
         modelBuilder.Entity<User>().HasIndex(u=>u.NormalizedLogin).IsUnique();
         modelBuilder.Entity<ServiceJob>().Property(j=>j.Version).IsConcurrencyToken();

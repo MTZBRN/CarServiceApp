@@ -19,12 +19,15 @@ public class AppointmentsController : ControllerBase
 
     // Itt fontos: a StartTime szerint rendezve kérjük le, hogy sorban legyenek!
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<Appointment>>> GetAppointments()
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("collections")]
+    public async Task<IActionResult> GetAppointments([FromQuery] CollectionQuery? input=null, CancellationToken cancellationToken=default)
     {
-        return await _context.Appointments
-            .Include(a => a.Vehicle) // Lássuk, melyik autó jön
-            .OrderBy(a => a.StartTime)
-            .ToListAsync();
+        var query=input??new();
+        var source=CollectionReads.Bookings(_context.Appointments.AsNoTracking(),query).OrderBy(a=>a.StartTime).ThenBy(a=>a.Id)
+            .Select(a=>new { a.Id,a.Version,a.VehicleId,a.StartTime,a.EndTime,a.Note,
+                Vehicle=new Vehicle {Id=a.Vehicle!.Id,LicensePlate=a.Vehicle.LicensePlate,Make=a.Vehicle.Make,Model=a.Vehicle.Model,Year=a.Vehicle.Year,CustomerId=a.Vehicle.CustomerId,Customer=a.Vehicle.Customer},
+                ServiceJob=a.ServiceJob==null?null:new {a.ServiceJob.Id,a.ServiceJob.IsCompleted} });
+        return Ok(await CollectionReads.PageAsync(source,query,ControllerContext.HttpContext,cancellationToken));
     }
 
     [HttpGet("{id}")]

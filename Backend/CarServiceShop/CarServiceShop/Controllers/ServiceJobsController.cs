@@ -20,13 +20,11 @@ public class ServiceJobsController : ControllerBase
     // GET: api/ServiceJobs
     // VISSZAADJA AZ ÖSSZES MUNKÁT (Ez kell a Dashboard listához és naptárhoz!)
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ServiceJob>>> GetServiceJobs()
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("collections")]
+    public async Task<IActionResult> GetServiceJobs([FromQuery] CollectionQuery? input=null, CancellationToken cancellationToken=default)
     {
-        return await _context.ServiceJobs
-            .Include(j => j.JobParts)
-            // .Include(j => j.Vehicle) // Ha majd kell a rendszám is a listában
-            .OrderByDescending(j => j.Date) // Legfrissebb elől
-            .ToListAsync();
+        var query=input??new();
+        return Ok(await CollectionReads.PageAsync(CollectionReads.JobRows(CollectionReads.Jobs(_context.ServiceJobs.AsNoTracking(),query).OrderByDescending(j=>j.Date).ThenByDescending(j=>j.Id)),query,ControllerContext.HttpContext,cancellationToken));
     }
 
     // GET: api/ServiceJobs/5
@@ -52,20 +50,17 @@ public class ServiceJobsController : ControllerBase
     // GET: api/ServiceJobs/ByVehicle/5
     // Egy járműhöz tartozó szerviztörténet lekérése
     [HttpGet("ByVehicle/{vehicleId}")]
-    public async Task<ActionResult<IEnumerable<ServiceJob>>> GetServiceHistory(
-        int vehicleId
-    )
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("collections")]
+    public async Task<IActionResult> GetServiceHistory(int vehicleId, [FromQuery] CollectionQuery? input=null, CancellationToken cancellationToken=default)
     {
-        return await _context.ServiceJobs
-            .Where(j => j.VehicleId == vehicleId)
-            .Include(j => j.JobParts)
-            .OrderByDescending(j => j.Date)
-            .ToListAsync();
+        var query=input??new(); query.VehicleId=vehicleId;
+        return Ok(await CollectionReads.PageAsync(CollectionReads.JobRows(CollectionReads.Jobs(_context.ServiceJobs.AsNoTracking(),query).OrderByDescending(j=>j.Date).ThenByDescending(j=>j.Id)),query,ControllerContext.HttpContext,cancellationToken));
     }
 
     // POST: api/ServiceJobs
     // ÚJ LÉTREHOZÁSA (Standard Create)
     [HttpPost]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("worksheet-writes")]
     public async Task<ActionResult<ServiceJob>> CreateServiceJob(CreateWorksheetRequest input)
     {
         var serviceJob = new ServiceJob { VehicleId=input.VehicleId, AppointmentId=input.AppointmentId, Date=input.Date ?? DateTime.Now,
@@ -95,6 +90,7 @@ public class ServiceJobsController : ControllerBase
     // PUT: api/ServiceJobs/5
     // FRISSÍTÉS (Javított verzió: Alkatrészeket is frissíti!)
     [HttpPut("{id}")]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("worksheet-writes")]
     public async Task<IActionResult> UpdateServiceJob(int id, UpdateWorksheetRequest serviceJob)
     {
         if (serviceJob.Id.HasValue && id != serviceJob.Id) return BadRequest();

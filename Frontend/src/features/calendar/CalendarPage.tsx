@@ -1,7 +1,8 @@
+import {Pager} from '../../data/paging';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { useLocation, useSearchParams,useNavigate } from 'react-router-dom';
+import { useSearchParams,useNavigate } from 'react-router-dom';
 import { Calendar, dateFnsLocalizer, type ToolbarProps, type View } from 'react-big-calendar';
-import { format, parse, startOfWeek, getDay, parseISO, isValid } from 'date-fns';
+import { format, parse, startOfWeek, getDay, parseISO, isValid, startOfMonth, endOfMonth, endOfWeek, addDays } from 'date-fns';
 import { hu } from 'date-fns/locale';
 import { ChevronLeft,ChevronRight,CalendarDays,Wrench,ClipboardList } from 'lucide-react';
 import { useWorkshopResource } from '../../data/useWorkshopData';
@@ -18,16 +19,23 @@ const identity = {eventIdAccessor:(event:CalendarEvent)=>event.type+'-'+event.id
 function Toolbar(toolbar:ToolbarProps<CalendarEvent>){return <div className="calendar-toolbar"><div className="calendar-controls"><IconButton label="Előző időszak" onClick={()=>toolbar.onNavigate('PREV')}><ChevronLeft size={18} /></IconButton><Button variant="secondary" onClick={()=>toolbar.onNavigate('TODAY')}>Ma</Button><IconButton label="Következő időszak" onClick={()=>toolbar.onNavigate('NEXT')}><ChevronRight size={18} /></IconButton></div><strong className="calendar-period" aria-live="polite">{toolbar.label}</strong><div className="calendar-controls" aria-label="Naptárnézet">{views.map((v,i)=><Button key={v} variant={toolbar.view===v?'primary':'secondary'} aria-pressed={toolbar.view===v} onClick={()=>toolbar.onView(v)}>{['Hónap','Heti beosztás','Lista'][i]}</Button>)}</div></div>;}
 function EventCard({event}:{event:CalendarEvent}){const app=event.type==='service'?event.originalData:null;const vehicle=event.type==='mot'?event.originalData:app?.vehicle;return <div className={'calendar-event-card '+(app?'calendar-booking':'calendar-reminder')}><span className="calendar-event-kind">{app?<Wrench size={12} />:<CalendarDays size={12} />}{app?'Időpont':'Műszaki emlékeztető'}</span><strong>{vehicle?.licensePlate||event.title}</strong><span>{vehicle?.customer?.name||vehicle?.make+' '+vehicle?.model}</span><span>{app?app.note||'Szerviz':format(event.start,'yyyy. MM. dd.')+' · '+(event.start<new Date(new Date().setHours(0,0,0,0))?'Lejárt':'Esedékes')}</span>{app&&<span>{event.desc}</span>}</div>;}
 export default function CalendarPage(){
- const appointments=useWorkshopResource('appointments'), vehicles=useWorkshopResource('vehicles'), customers=useWorkshopResource('customers'), jobs=useWorkshopResource('worksheets');
  const navigate=useNavigate();
- const [params,setParams]=useSearchParams();const location=useLocation();
+ const [params,setParams]=useSearchParams();
  const rawDate=params.get('date');const parsed=rawDate&&/^\d{4}-\d{2}-\d{2}$/.test(rawDate)?parseISO(rawDate):new Date(NaN);const date=isValid(parsed)?parsed:new Date();
  const rawView=params.get('view');const view:View=views.includes(rawView as typeof views[number])?rawView as View:window.matchMedia('(max-width:600px)').matches?'agenda':'week';
  const dateKey=format(date,'yyyy-MM-dd');
+ const first=view==='month'?startOfWeek(startOfMonth(date),{weekStartsOn:1}):view==='week'?startOfWeek(date,{weekStartsOn:1}):date;
+ const last=view==='month'?addDays(endOfWeek(endOfMonth(date),{weekStartsOn:1}),1):addDays(first,view==='agenda'?30:7);
+ const start=addDays(first,-1).toISOString(),end=addDays(last,1).toISOString();
+ const [appPage,setAppPage]=useState(1),[motPage,setMotPage]=useState(1);
+ useEffect(()=>{setAppPage(1);setMotPage(1);},[start,end]);
+ const appointments=useWorkshopResource('appointments',{start,end,page:appPage,pageSize:100});
+ const vehicles=useWorkshopResource('vehicles',{motFrom:start,motTo:end,page:motPage,pageSize:100});
+ const jobs={...appointments,data:appointments.data.flatMap(a=>a.serviceJob?[{...a.serviceJob,appointmentId:a.id}]:[])};
  useEffect(()=>{if(rawDate!==dateKey||rawView!==view){const next=new URLSearchParams(params);next.set('date',dateKey);next.set('view',view);setParams(next,{replace:true});}},[dateKey,rawDate,rawView,view,params,setParams]);
  const change=(nextDate:Date,nextView:View)=>{const next=new URLSearchParams(params);next.set('date',format(nextDate,'yyyy-MM-dd'));next.set('view',nextView);setParams(next);};
  const [selected,setSelected]=useState<{id:number;type:CalendarEvent['type']}|null>(null);const [editor,setEditor]=useState<Appointment|null|undefined>(undefined);const [slot,setSlot]=useState<Date|null>(null);const [deleting,setDeleting]=useState<Appointment|null>(null);const [deleteError,setDeleteError]=useState('');const [busy,setBusy]=useState(false);const deleteLock=useRef(false);
- useEffect(()=>{setSelected(null);setEditor(undefined);setDeleting(null);},[location.key]);
+ useEffect(()=>{setSelected(null);setEditor(undefined);setDeleting(null);},[dateKey,view]);
  const enriched=useMemo(()=>appointments.data.map(a=>({...a,vehicle:vehicles.data.find(v=>v.id===a.vehicleId)||a.vehicle})),[appointments.data,vehicles.data]);
  const events=useMemo<CalendarEvent[]>(()=>[
  ...enriched.map(a=>{const job=jobs.data.find(j=>j.appointmentId===a.id);return {id:a.id,title:a.vehicle?.licensePlate||'Időpont',start:parseISO(a.startTime.slice(0,10)),end:new Date(parseISO(a.endTime.slice(0,10)).setHours(23,59,59)),allDay:true,type:'service' as const,originalData:a,desc:jobs.loading?'Munkalapállapot betöltése…':jobs.error?'Munkalapállapot nem elérhető':job?'Munkalap #'+job.id+' · '+(job.isCompleted?'Befejezett':'Nyitott'):'Munkalap létrehozható'};}),
@@ -35,11 +43,12 @@ export default function CalendarPage(){
  ],[enriched,vehicles.data,jobs.data,jobs.loading,jobs.error]);
  const event=selected?events.find(e=>e.id===selected.id&&e.type===selected.type):null;const linked=event?.type==='service'?jobs.data.find(j=>j.appointmentId===event.id):undefined;
  const add=(d:Date)=>{setSlot(d);setEditor(null);};
- const failures=[appointments,vehicles,customers,jobs].filter(s=>s.error!=null);
+ const failures=[appointments,vehicles].filter(s=>s.error!=null);
  return <section className="calendar-page"><div className="calendar-page-actions"><span className="calendar-legend"><Badge tone="info">Időpont</Badge><Badge tone="warning">Műszaki emlékeztető</Badge></span><Button onClick={()=>add(date)}><ClipboardList size={16} aria-hidden="true" />Új időpont</Button></div><p className="calendar-help">Napi műhelytervezés. Az időpontok tervezési kártyaként jelennek meg; a pontos kezdés és befejezés a részleteknél látható.</p>
  {failures.map((s,i)=><ErrorState key={i} message={apiErrorMessage(s.error,'Egy naptári adatforrás betöltése nem sikerült.')} onRetry={s.refresh} />)}
  {appointments.loading&&!appointments.loaded?<LoadingState />:<div className="workshop-calendar"><Calendar<CalendarEvent> localizer={localizer} culture="hu" date={date} view={view} views={['month','week','agenda']} onNavigate={d=>change(d,view)} onView={v=>change(date,v)} events={events} {...identity} onSelectEvent={e=>setSelected({id:e.id,type:e.type})} onKeyPressEvent={(e,key)=>{const keyboard=key as KeyboardEvent<HTMLElement>;if(keyboard.key==='Enter'||keyboard.key===' '){keyboard.preventDefault();setSelected({id:e.id,type:e.type});}}} selectable onSelectSlot={({start})=>add(start)} showAllEvents allDayMaxRows={Infinity} popup length={30} components={{toolbar:Toolbar,event:EventCard,agenda:{event:EventCard},month:{dateHeader:({date:cellDate,label})=>{const count=events.filter(e=>format(e.start,'yyyy-MM-dd')===format(cellDate,'yyyy-MM-dd')).length;return <button type="button" className="calendar-day-heading" aria-label={format(cellDate,'yyyy. MM. dd.')+' · '+count+' bejegyzés'} onClick={()=>change(cellDate,'agenda')}>{label}{count>0&&<small>{count} bejegyzés</small>}</button>;}}}} messages={{today:'Ma',previous:'Előző',next:'Következő',month:'Hónap',week:'Hét',day:'Nap',agenda:'Lista',date:'Dátum',time:'Idő',event:'Bejegyzés',allDay:'Napi tervezés',noEventsInRange:'Ebben az időszakban nincs bejegyzés.',showMore:n=>'További '+n+' bejegyzés'}} /></div>}
- {editor!==undefined&&<AppointmentModal key={editor?.id||'new'} appointment={editor||undefined} selectedSlot={slot} vehicles={vehicles.data} customers={customers.data} setMessage={()=>{}} onClose={()=>setEditor(undefined)} onSuccess={()=>{setEditor(undefined);setSelected(null);}} />}
+ <Pager {...appointments} page={appPage} setPage={setAppPage} label="Időpontok lapozása" /><Pager {...vehicles} page={motPage} setPage={setMotPage} label="Műszaki emlékeztetők lapozása" />
+ {editor!==undefined&&<AppointmentModal key={editor?.id||'new'} appointment={editor||undefined} selectedSlot={slot} vehicles={vehicles.data} customers={[]} setMessage={()=>{}} onClose={()=>setEditor(undefined)} onSuccess={()=>{setEditor(undefined);setSelected(null);}} />}
  {event&&<EventDetailModal event={event} worksheet={linked} ready={jobs.loaded&&!jobs.error} onClose={()=>setSelected(null)} onEdit={()=>{if(event.type==='service'){setEditor(event.originalData);setSelected(null);}}} onDelete={()=>{if(event.type==='service'){setDeleting(event.originalData);setDeleteError('');setSelected(null);}}} onOpenWorksheet={()=>{if(event.type==='service'){navigate(linked?'/worksheets/'+linked.id:'/worksheets/new?appointmentId='+event.id);setSelected(null);}}} />}
  {deleting&&<ConfirmDialog title="Időpont törlése" confirmLabel={busy?'Törlés…':'Időpont törlése'} onCancel={()=>{if(!deleteLock.current)setDeleting(null);}} onConfirm={async()=>{if(deleteLock.current)return;deleteLock.current=true;setBusy(true);setDeleteError('');try{await appointmentsApi.remove(deleting.id);setDeleting(null);}catch(e){setDeleteError(apiErrorMessage(e,'Az időpont törlése nem sikerült.'));}finally{deleteLock.current=false;setBusy(false);}}}>{deleting.vehicle?.licensePlate} · {format(new Date(deleting.startTime),'yyyy. MM. dd. HH:mm')} — Biztosan törlöd az időpontot? A munkalap és a szerviztörténet megmarad.{deleteError&&<span className="appointment-error" role="alert">{deleteError}</span>}</ConfirmDialog>}
  </section>;
