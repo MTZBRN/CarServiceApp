@@ -23,7 +23,10 @@ someone runs an image directly.
 
 ## Existing bind directories
 
-Compose retains exactly `./backend-data` -> `/app/data` and `./user-uploads` -> `/app/uploads`.
+Compose defaults remain `./backend-data` -> `/app/data` and `./user-uploads` -> `/app/uploads`.
+Stage 4A adds `DATA_PATH` and `UPLOADS_PATH` parameters for deliberately selected absolute Linux
+production paths; see PRODUCTION_ARCHITECTURE.md and .env.production.example. The frontend remains
+loopback-only; FRONTEND_BIND_PORT changes the port, never the public bind address.
 It refuses to automatically create missing host paths. This prevents an unnoticed new root-owned
 empty data directory from replacing the intended database mount.
 

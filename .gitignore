@@ -8,6 +8,8 @@ publish/
 out/
 packages/
 *.tsbuildinfo
+__pycache__/
+*.pyc
 .npm/
 .cache/
 .eslintcache
@@ -36,6 +38,7 @@ user-uploads/
 .env
 .env.*
 !.env.example
+!.env.production.example
 *.local
 appsettings.Development.json
 appsettings.Local.json

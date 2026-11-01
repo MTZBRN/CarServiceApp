@@ -21,7 +21,7 @@ export default defineConfig({
       timeout: 120000,
     },
     {
-      command: 'npm run dev -- --host 0.0.0.0 --port 5173 --strictPort',
+      command: 'npm run dev -- --host 127.0.0.1 --port 5173 --strictPort',
       url: 'http://localhost:5173',
       reuseExistingServer: false,
       timeout: 60000,

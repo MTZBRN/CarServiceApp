@@ -1,5 +1,7 @@
 services:
   backend:
+    image: carserviceapp-backend:${APP_IMAGE_TAG:-local}
+    restart: unless-stopped
     build:
       context: ./Backend/CarServiceShop
       dockerfile: Dockerfile
@@ -7,12 +9,12 @@ services:
       - "8080"
     volumes:
       - type: bind
-        source: ./backend-data
+        source: ${DATA_PATH:-./backend-data}
         target: /app/data
         bind:
           create_host_path: false
       - type: bind
-        source: ./user-uploads
+        source: ${UPLOADS_PATH:-./user-uploads}
         target: /app/uploads
         bind:
           create_host_path: false
@@ -37,11 +39,13 @@ services:
       - ConnectionStrings__DefaultConnection=Data Source=/app/data/app.db
 
   frontend:
+    image: carserviceapp-frontend:${APP_IMAGE_TAG:-local}
+    restart: unless-stopped
     build:
       context: ./Frontend
       dockerfile: Dockerfile
     ports:
-      - "127.0.0.1:5173:8080"
+      - "127.0.0.1:${FRONTEND_BIND_PORT:-5173}:8080"
     depends_on:
       backend:
         condition: service_healthy
