@@ -1,21 +1,67 @@
-MIT License
+CarServiceApp Proprietary Source License
+Version 1.0
 
-Copyright (c) 2026 MTZBRN
+Copyright © 2026 Barnabás Metzger. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Ownership
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+The CarServiceApp software, including its source code, object code, documentation, database design, application logic, user interface, configuration, and other original materials contained in this repository (collectively, the "Software"), is protected by applicable copyright law.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Except for third-party components that are distributed under their own licenses, all copyright and other intellectual property rights in the Software are reserved by the copyright holder.
+
+2. Public Access Does Not Grant a License to Use
+
+The public availability of the source code is provided for viewing, evaluation, portfolio, and educational review purposes only.
+
+Except for the limited technical rights necessary to access, view, or fork the repository as permitted by the hosting platform's applicable terms of service, no license or permission is granted to use the Software.
+
+3. Prohibited Uses
+
+Without prior written permission from the copyright holder, you may not:
+
+- use or run the Software for personal, commercial, organizational, or production purposes;
+- copy or reproduce the Software, except as technically necessary to view the public repository;
+- modify, adapt, translate, or create derivative works based on the Software;
+- distribute, publish, sublicense, sell, rent, lease, host, or otherwise make the Software available to third parties;
+- incorporate the Software or substantial portions of it into another product, service, application, or repository;
+- use the Software to provide services to third parties;
+- remove, alter, or obscure copyright, ownership, or license notices;
+- represent the Software, or a modified version of it, as your own work.
+
+4. Permission Requests
+
+Any use beyond viewing and evaluating the publicly available source code requires prior written permission from the copyright holder.
+
+Permission may be granted under separate written terms or a separate commercial license.
+
+5. Third-Party Software
+
+Third-party libraries, frameworks, packages, assets, and other dependencies are not relicensed by this license. They remain subject to their respective licenses and copyright notices.
+
+6. Contributions
+
+No contribution, pull request, patch, or other submission transfers ownership of the Software or grants additional rights unless expressly agreed in writing.
+
+Contributors retain any rights they legally hold in their own original contributions unless those rights have been assigned separately.
+
+7. No Trademark Rights
+
+This license does not grant any right to use the names, logos, trademarks, or branding associated with CarServiceApp or the copyright holder.
+
+8. Disclaimer of Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS" AND WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE COPYRIGHT HOLDER SHALL NOT BE LIABLE FOR ANY CLAIM, LOSS, DAMAGE, OR OTHER LIABILITY ARISING FROM THE VIEWING, POSSESSION, OR UNAUTHORIZED USE OF THE SOFTWARE.
+
+9. Reservation of Rights
+
+All rights not expressly granted in this license are reserved by the copyright holder.
+
+No waiver or failure to enforce any provision of this license constitutes a waiver of any copyright, contractual, or other legal right.
+
+10. Governing Law
+
+This license is intended to operate alongside applicable copyright law. To the extent a governing-law provision is legally effective and no separate written agreement provides otherwise, it shall be governed by the laws of Hungary.
+
+For permissions or licensing inquiries, contact the copyright holder through the repository owner's official contact channels.
