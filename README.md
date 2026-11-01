@@ -494,6 +494,8 @@ Developed by **Barnabás Metzger**.
 
 ## Disclaimer
 
-This software is provided under the terms of the MIT License.
+This software is proprietary and source-available for viewing and evaluation purposes only. No permission is granted to use, copy, modify, distribute, sublicense, host, or commercially exploit the software without prior written permission from the copyright holder.
 
 Before using it with real customer or business data, the operator is responsible for configuring and validating the deployment environment, access controls, backups, TLS, server security, monitoring, and applicable data-protection requirements.
+
+See the `LICENSE` file for the full terms.
