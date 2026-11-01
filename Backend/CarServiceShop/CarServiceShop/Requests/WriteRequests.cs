@@ -6,6 +6,7 @@ namespace CarServiceShop.Requests;
 public static class InputRules
 {
     public const int MoneyMax = 100_000_000;
+    public const long WorksheetTotalMax = 1_000_000_000_000L;
     public static bool Date(DateTime value) => value.Year is >= 1900 and <= 2100;
     public static bool Email(string? value) => string.IsNullOrEmpty(value) || new EmailAddressAttribute().IsValid(value);
 }
@@ -77,7 +78,7 @@ public class UpdateWorksheetRequest : IValidatableObject
     [Required, MaxLength(500)] public List<LineItemRequest> JobParts { get; set; } = [];
     public virtual IEnumerable<ValidationResult> Validate(ValidationContext context) {
         if (JobParts == null || JobParts.Any(p=>p==null)) { yield return new("Érvénytelen alkatrészlista."); yield break; }
-        if (JobParts.Sum(p=>(decimal)p.Quantity*p.UnitPrice)+LaborCost > 1_000_000_000_000m) yield return new("A végösszeg túl nagy.");
+        if (JobParts.Sum(p=>(decimal)p.Quantity*p.UnitPrice)+LaborCost > InputRules.WorksheetTotalMax) yield return new("A végösszeg túl nagy.");
     }
 }
 public class CreateWorksheetRequest : UpdateWorksheetRequest

@@ -27,6 +27,8 @@ public class JobPartsController : ControllerBase
         if (job.IsCompleted && !User.IsInRole("admin")) return Forbid();
         if (await _context.JobParts.CountAsync(p=>p.ServiceJobId==job.Id) >= 500) return BadRequest("A worksheet may contain at most 500 line items.");
         if (string.IsNullOrEmpty(input.Version) || input.Version!=job.Version) return Conflict(new {message=Integrity.Conflict});
+        var subtotal=await _context.JobParts.Where(p=>p.ServiceJobId==job.Id).SumAsync(p=>(long)p.Quantity*p.UnitPrice);
+        if(subtotal+job.LaborCost+(long)input.Quantity*input.UnitPrice>InputRules.WorksheetTotalMax) return BadRequest("A végösszeg túl nagy.");
         _context.Entry(job).Property(j=>j.Version).OriginalValue=input.Version;
         _context.Entry(job).Property(j=>j.Version).IsModified=true;
         var jobPart=input.ToEntity(); jobPart.ServiceJobId=input.ServiceJobId;
