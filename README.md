@@ -476,9 +476,13 @@ Do not expose the Development configuration directly to the public Internet.
 
 ## License
 
-This project is licensed under the MIT License.
+Copyright © 2026 Barnabás Metzger. All rights reserved.
 
-See the `LICENSE` file for details.
+This project is source-available for viewing and evaluation purposes only.
+Use, copying, modification, distribution, sublicensing, or commercial use
+requires prior written permission from the copyright holder.
+
+See the LICENSE file for the full terms.
 
 ---
 
