@@ -21,6 +21,7 @@ export const router = createBrowserRouter([
     { path: 'worksheets/:worksheetId', element: page(() => import('../features/worksheets/WorksheetRoute')) },
     { path: 'inventory', element: page(() => import('../components/Pages/Inventory')) },
     { element: <RequireAdmin />, children: [
+      { path: 'audit', element: page(() => import('../components/Pages/Audit')) },
       { path: 'users', element: page(() => import('../components/Pages/UserManagement')) },
       { path: 'settings', element: page(() => import('../components/Pages/Settings')) },
     ] },

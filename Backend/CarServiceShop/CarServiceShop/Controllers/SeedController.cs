@@ -29,6 +29,7 @@ public class SeedController : ControllerBase
             return BadRequest("Az adatbázis már tartalmaz adatokat! Töröld ki őket, ha újakat akarsz.");
         }
 
+        await using var transaction=await _context.Database.BeginTransactionAsync(HttpContext.RequestAborted);
         // 1. ÜGYFELEK
         var c1 = new Customer { Name = "Kovács János", PhoneNumber = "+36301234567", Email = "janos@gmail.com", Address = "Budapest, Fő utca 1." };
         var c2 = new Customer { Name = "Nagy Éva", PhoneNumber = "+36709876543", Email = "eva.nagy@freemail.hu", Address = "Debrecen, Kossuth tér 5." };
@@ -99,6 +100,8 @@ public class SeedController : ControllerBase
 
         await _context.SaveChangesAsync();
 
+        await _context.Audit.AppendAsync(_context,_context.Audit.Create("Development.Seeded","Seed",null),HttpContext.RequestAborted);
+        await transaction.CommitAsync(HttpContext.RequestAborted);
         return Ok("Adatbázis sikeresen feltöltve mock adatokkal! 🚀");
     }
 }

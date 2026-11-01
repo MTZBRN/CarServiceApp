@@ -50,7 +50,7 @@ public class UsersController : ControllerBase
         };
 
         _context.Users.Add(user);
-        try { await _context.SaveChangesAsync(); }
+        try { await _context.SaveAuditedAsync(user); }
         catch (DbUpdateException ex) when (Integrity.Constraint(ex)) { return BadRequest(new {message="A felhasználónév már foglalt, vagy az utolsó adminisztrátor nem törölhető."}); }
 
         return Ok(new { message = "Felhasználó sikeresen létrehozva!" });
@@ -69,7 +69,7 @@ public class UsersController : ControllerBase
 
         if (user.Role == "admin" && await _context.Users.CountAsync(u => u.Role == "admin") <= 1) return BadRequest("Az utolsó adminisztrátor nem törölhető.");
         _context.Users.Remove(user);
-        try { await _context.SaveChangesAsync(); } catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return BadRequest(new {message="Az utolsó adminisztrátor nem törölhető."}); }
+        try { await _context.SaveAuditedAsync(user); } catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return BadRequest(new {message="Az utolsó adminisztrátor nem törölhető."}); }
         // Only this deleted account's known generated basename; historical orphans require operator review.
         images?.TryDeleteOwned(user.Id,user.ProfilePicturePath);
         return Ok(new { message = "Felhasználó törölve." });

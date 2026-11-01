@@ -18,11 +18,12 @@ public class UsersControllerTests
         // 1. ARRANGE (Előkészítés)
         // Létrehozunk egy memóriabeli adatbázist a teszthez
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString()) // Egyedi név, hogy ne akadjanak össze a tesztek
+            .UseSqlite("Data Source=:memory:") // Relational transactions are required by audited writes.
             .Options;
 
         // Létrehozzuk az adatbázis kontextust és a kontrollert
         using var context = new ApplicationDbContext(options);
+        context.Database.OpenConnection(); context.Database.EnsureCreated();
         var controller = new UsersController(context);
 
         // Összerakjuk a tesztadatot (a DTO-t, amit a React is küldene)
@@ -52,10 +53,11 @@ public class UsersControllerTests
     public async Task AddUser_ReturnsOk_WhenRoleIsMechanic()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .UseSqlite("Data Source=:memory:")
             .Options;
 
         using var context = new ApplicationDbContext(options);
+        context.Database.OpenConnection(); context.Database.EnsureCreated();
         var controller = new UsersController(context);
         var newUserDto = new CreateUserDto
         {

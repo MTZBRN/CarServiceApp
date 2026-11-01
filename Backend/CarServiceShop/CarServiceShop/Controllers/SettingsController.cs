@@ -48,7 +48,7 @@ public class SettingsController : ControllerBase
             existing.VatRate = settings.VatRate;
         }
 
-        try { await _context.SaveChangesAsync(); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); }
+        try { await _context.SaveAuditedAsync(existing ?? _context.GlobalSettings.Local.Single()); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); }
         catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return Conflict(new {message=Integrity.Conflict}); }
         return Ok(await _context.GlobalSettings.FirstAsync());
     }

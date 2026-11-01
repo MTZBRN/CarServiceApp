@@ -28,7 +28,7 @@ public class AuthController : ControllerBase
     [EnableRateLimiting("login")]
     [RequestSizeLimit(4096)]
     [HttpPost("login")]
-    public IActionResult Login([FromBody] LoginDto loginDto, [FromServices] LoginThrottle throttle)
+    public async Task<IActionResult> Login([FromBody] LoginDto loginDto, [FromServices] LoginThrottle throttle, [FromServices] AuditFailureBudget budget)
     {
         if (loginDto.Email.Length > 254 || System.Text.Encoding.UTF8.GetByteCount(loginDto.Password) > 72)
             return Unauthorized(new { message = "Hibás bejelentkezési adatok!" });
@@ -40,7 +40,17 @@ public class AuthController : ControllerBase
             user = _context.Users.FirstOrDefault(u => u.NormalizedLogin == normalized);
             valid = BCrypt.Net.BCrypt.Verify(loginDto.Password, user?.PasswordHash ?? SecurityRules.DummyHash);
         } finally { throttle.Exit(loginDto.Email, valid); }
-        if (user == null || !valid) return Unauthorized(new { message = "Hibás bejelentkezési adatok!" });
+        if (user == null || !valid) {
+            if(budget.Take()) {
+                try { await _context.Audit.AppendAsync(_context,_context.Audit.Create("Auth.LoginFailed","User",user?.Id,resolvedActor:user,failure:true),HttpContext.RequestAborted); }
+                catch(Exception error) when(error is not OperationCanceledException) {
+                    // Failed-login responses remain generic even if optional sampled auditing is unavailable.
+                    HttpContext.RequestServices.GetRequiredService<ILogger<AuthController>>().LogWarning("Sampled login failure audit unavailable.");
+                }
+            }
+            return Unauthorized(new { message = "Hibás bejelentkezési adatok!" });
+        }
+        await _context.Audit.AppendAsync(_context,_context.Audit.Create("Auth.LoginSucceeded","User",user.Id,resolvedActor:user),HttpContext.RequestAborted);
         var tokenString = IssueToken(user);
 
         // 4. Visszaküldjük a generált tokent és a felhasználó adatait
@@ -82,7 +92,7 @@ public class AuthController : ControllerBase
         // 3. Új jelszó hashelése és mentése
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
         user.SessionVersion = Guid.NewGuid().ToString("N");
-        await _context.SaveChangesAsync();
+        await _context.SaveAuditedAsync(user,SecurityAuditAction.PasswordChanged);
 
         return Ok(new { message = "Jelszó sikeresen megváltoztatva!", token = IssueToken(user) });
     }
@@ -95,7 +105,10 @@ public class AuthController : ControllerBase
         var id=int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         // SQL assignment avoids lost invalidation under simultaneous password/logout requests.
         var version = Guid.NewGuid().ToString("N");
-        await _context.Users.Where(u=>u.Id==id).ExecuteUpdateAsync(s=>s.SetProperty(u=>u.SessionVersion,version));
+        await using var transaction=await _context.Database.BeginTransactionAsync(HttpContext.RequestAborted);
+        if(await _context.Users.Where(u=>u.Id==id).ExecuteUpdateAsync(s=>s.SetProperty(u=>u.SessionVersion,version))!=1) return Unauthorized();
+        await _context.Audit.AppendAsync(_context,_context.Audit.Create("Auth.SessionRevoked","User",id),HttpContext.RequestAborted);
+        await transaction.CommitAsync(HttpContext.RequestAborted);
         return NoContent();
     }
 
@@ -153,7 +166,7 @@ public class AuthController : ControllerBase
         try {
             await using (var stream = new FileStream(target, FileMode.CreateNew)) await stream.WriteAsync(normalized);
             user.ProfilePicturePath = name;
-            await _context.SaveChangesAsync();
+            await _context.SaveAuditedAsync(user,SecurityAuditAction.ProfileImageChanged);
         } catch { System.IO.File.Delete(target); throw; }
         images.TryDeleteOwned(userId, previous);
         return Ok(new { filePath = $"/uploads/{name}" });

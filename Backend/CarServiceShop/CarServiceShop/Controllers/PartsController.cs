@@ -33,7 +33,7 @@ namespace CarServiceShop.Controllers;
         {
             var part=input.ToEntity();
             _context.Parts.Add(part);
-            await _context.SaveChangesAsync();
+            await _context.SaveAuditedAsync(part);
             return CreatedAtAction(nameof(GetParts), new { id = part.Id }, part);
         }
 
@@ -48,7 +48,7 @@ namespace CarServiceShop.Controllers;
         _context.Entry(part).Property(p=>p.Version).IsModified=true;
             part.PartNumber=input.PartNumber.Trim(); part.Name=input.Name.Trim();
             part.NetPrice=input.NetPrice; part.GrossPrice=input.GrossPrice; part.StockQuantity=input.StockQuantity;
-            try { await _context.SaveChangesAsync(); } catch (DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); }
+            try { await _context.SaveAuditedAsync(part); } catch (DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); }
             return Ok(part);
         }
 
@@ -59,7 +59,7 @@ namespace CarServiceShop.Controllers;
             var part = await _context.Parts.FindAsync(id);
             if (part == null) return NotFound();
             _context.Parts.Remove(part);
-            try { await _context.SaveChangesAsync(); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); } catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return Conflict(new {message="A kapcsolódó üzleti adatok védik ezt a rekordot."}); }
+            try { await _context.SaveAuditedAsync(part); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); } catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return Conflict(new {message="A kapcsolódó üzleti adatok védik ezt a rekordot."}); }
             return NoContent();
         }
     }

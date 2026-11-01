@@ -78,6 +78,9 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
 // --- 2. ADATBÁZIS ÉS KÖZÖS SZOLGÁLTATÁSOK ---
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<AuditWriter>();
+builder.Services.AddSingleton<AuditFailureBudget>();
 
 builder.Services.AddAuthorization(o => o.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 builder.Services.AddControllers().ConfigureApplicationPartManager(parts => {

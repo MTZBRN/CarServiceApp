@@ -16,6 +16,7 @@ public static class TestAdminRecovery
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
         user.SessionVersion = Guid.NewGuid().ToString("N");
         db.SaveChanges();
+        db.Audit.Append(db,db.Audit.Create("Auth.LocalAdminRecovered","User",user.Id,"{\"fields\":[\"Role\",\"Password\",\"Sessions\"]}",system:true));
         transaction.Commit();
     }
 

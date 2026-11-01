@@ -8,7 +8,7 @@ import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
 import DialogSurface from '../ui/DialogSurface';
-const titles: Record<string, string> = { dashboard: 'Áttekintés', calendar: 'Szerviz Naptár', customers: 'Ügyfelek', vehicles: 'Járművek', worksheets: 'Munkalapok', inventory: 'Alkatrészek', users: 'Felhasználók', settings: 'Beállítások' };
+const titles: Record<string, string> = { dashboard: 'Áttekintés', calendar: 'Szerviz Naptár', customers: 'Ügyfelek', vehicles: 'Járművek', worksheets: 'Munkalapok', inventory: 'Alkatrészek', users: 'Felhasználók', settings: 'Beállítások', audit: 'Eseménynapló' };
 export default function AppShell({ children, onLogout, onDevTools, title }: { children: ReactNode; onLogout: () => void; onDevTools?: () => void; title?: string }) {
   const { user } = useAuth();
   const location = useLocation();

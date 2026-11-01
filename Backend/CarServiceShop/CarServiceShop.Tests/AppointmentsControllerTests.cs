@@ -142,11 +142,13 @@ public class AppointmentsControllerTests
     private static ApplicationDbContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .UseSqlite("Data Source=:memory:")
             .Options;
 
         var db=new ApplicationDbContext(options);
-        db.Vehicles.AddRange(new Vehicle {Id=1, LicensePlate="ONE"},new Vehicle {Id=2,LicensePlate="TWO"}); db.SaveChanges();
+        db.Database.OpenConnection(); db.Database.EnsureCreated();
+        db.Customers.Add(new Customer {Id=1,Name="Owner",PhoneNumber="123"});
+        db.Vehicles.AddRange(new Vehicle {Id=1, CustomerId=1, LicensePlate="ONE"},new Vehicle {Id=2,CustomerId=1,LicensePlate="TWO"}); db.SaveChanges();
         return db;
     }
 

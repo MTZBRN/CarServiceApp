@@ -48,7 +48,7 @@ public class AppointmentsController : ControllerBase
         if (!await _context.Vehicles.AnyAsync(v=>v.Id==input.VehicleId)) return BadRequest("Invalid vehicle.");
         var appointment = input.ToEntity();
         _context.Appointments.Add(appointment);
-        await _context.SaveChangesAsync();
+        await _context.SaveAuditedAsync(appointment);
         return Ok(appointment);
     }
 
@@ -75,7 +75,7 @@ public class AppointmentsController : ControllerBase
 
         try
         {
-            await _context.SaveChangesAsync();
+            await _context.SaveAuditedAsync(appointmentInDb);
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -95,7 +95,7 @@ public class AppointmentsController : ControllerBase
         var job = await _context.ServiceJobs.SingleOrDefaultAsync(j => j.AppointmentId == id);
         if (job != null) job.AppointmentId = null;
         _context.Appointments.Remove(appointment);
-        try { await _context.SaveChangesAsync(); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); } catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return Conflict(new {message="A kapcsolódó üzleti adatok védik ezt a rekordot."}); }
+        try { await _context.SaveAuditedAsync(appointment); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); } catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return Conflict(new {message="A kapcsolódó üzleti adatok védik ezt a rekordot."}); }
         return NoContent();
     }
 }

@@ -46,7 +46,7 @@ public class CustomersController : ControllerBase
         if (string.IsNullOrWhiteSpace(input.Name) || string.IsNullOrWhiteSpace(input.PhoneNumber)) return BadRequest("Név és telefonszám kötelező.");
         customer.Name = input.Name.Trim(); customer.PhoneNumber = input.PhoneNumber.Trim();
         customer.Email = input.Email; customer.Address = input.Address;
-        await _context.SaveChangesAsync(); return NoContent();
+        await _context.SaveAuditedAsync(customer); return NoContent();
     }
     [Microsoft.AspNetCore.Authorization.Authorize(Roles = "admin")]
     [HttpDelete("{id}")]
@@ -55,14 +55,14 @@ public class CustomersController : ControllerBase
         var customer = await _context.Customers.FindAsync(id);
         if (customer == null) return NotFound();
         if (await _context.Vehicles.AnyAsync(v => v.CustomerId == id)) return Conflict("A járművel rendelkező ügyfél nem törölhető.");
-        _context.Customers.Remove(customer); try { await _context.SaveChangesAsync(); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); } catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return Conflict(new {message="A kapcsolódó üzleti adatok védik ezt a rekordot."}); } return NoContent();
+        _context.Customers.Remove(customer); try { await _context.SaveAuditedAsync(customer); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); } catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return Conflict(new {message="A kapcsolódó üzleti adatok védik ezt a rekordot."}); } return NoContent();
     }
     [HttpPost]
     public async Task<ActionResult<Customer>> PostCustomer(CustomerRequest input)
     {
         var customer = input.ToEntity();
         _context.Customers.Add(customer);
-        await _context.SaveChangesAsync();
+        await _context.SaveAuditedAsync(customer);
         return CreatedAtAction(nameof(GetCustomer), new { id = customer.Id }, customer);
     }
 }

@@ -82,7 +82,7 @@ public class ServiceJobsController : ControllerBase
         serviceJob.Id = 0;
         serviceJob.JobParts = serviceJob.JobParts.Select(p => new JobPart { PartName = p.PartName, PartNumber = p.PartNumber, Quantity = p.Quantity, UnitPrice = p.UnitPrice }).ToList();
         _context.ServiceJobs.Add(serviceJob);
-        await _context.SaveChangesAsync();
+        await _context.SaveAuditedAsync(serviceJob);
 
         return CreatedAtAction("GetServiceJob", new { id = serviceJob.Id }, serviceJob);
     }
@@ -123,7 +123,7 @@ public class ServiceJobsController : ControllerBase
 
         try
         {
-            await _context.SaveChangesAsync();
+            await _context.SaveAuditedAsync(existingJob);
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -143,7 +143,7 @@ public class ServiceJobsController : ControllerBase
         if (serviceJob == null) return NotFound();
 
         _context.ServiceJobs.Remove(serviceJob);
-        try { await _context.SaveChangesAsync(); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); } catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return Conflict(new {message="A kapcsolódó üzleti adatok védik ezt a rekordot."}); }
+        try { await _context.SaveAuditedAsync(serviceJob); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); } catch(DbUpdateException ex) when(Integrity.Constraint(ex)) { return Conflict(new {message="A kapcsolódó üzleti adatok védik ezt a rekordot."}); }
 
         return NoContent();
     }

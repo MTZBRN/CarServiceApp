@@ -1,0 +1,5 @@
+.audit-filters { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; }
+.audit-filters label { display:flex; flex-direction:column; gap:6px; min-width:0; }
+.audit-page code { white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; }
+.audit-page .ui-table th:last-child { width:30%; }
+@media (max-width:600px) { .audit-page .ui-table th:last-child { width:auto; } }

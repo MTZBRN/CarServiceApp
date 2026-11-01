@@ -5,7 +5,8 @@ namespace CarServiceShop.Data;
 
 public class ApplicationDbContext : DbContext
 {
-    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options) {
+    public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options, CarServiceShop.Security.AuditWriter? audit=null) : base(options) {
+        Audit=audit??new CarServiceShop.Security.AuditWriter();
         if (Database.IsSqlite()) ((Microsoft.Data.Sqlite.SqliteConnection)Database.GetDbConnection())
             .CreateFunction<string?, string>("workshop_fold", Requests.CollectionReads.Fold, isDeterministic: true);
     }
@@ -17,10 +18,14 @@ public class ApplicationDbContext : DbContext
     public DbSet<JobPart> JobParts { get; set; }
     public DbSet<Part> Parts { get; set; }
     public DbSet<User> Users { get; set; }
+    public DbSet<AuditEvent> AuditEvents { get; set; }
+    public CarServiceShop.Security.AuditWriter Audit { get; }
+    public Task SaveAuditedAsync(object target,CarServiceShop.Security.SecurityAuditAction? action=null,CancellationToken cancellationToken=default) => Audit.SaveAsync(this,target,action,cancellationToken);
     
     public DbSet<GlobalSettings> GlobalSettings { get; set; }
 
     private void StampVersions() {
+        if(ChangeTracker.Entries<AuditEvent>().Any(e=>e.State is EntityState.Modified or EntityState.Deleted)) throw new InvalidOperationException("Audit events are append-only.");
         foreach(var entry in ChangeTracker.Entries<IVersioned>().Where(e=>e.State==EntityState.Modified))
             entry.Entity.Version=Guid.NewGuid().ToString("N");
     }
@@ -30,6 +35,12 @@ public class ApplicationDbContext : DbContext
     }
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        var audit=modelBuilder.Entity<AuditEvent>();
+        audit.Property(e=>e.TimestampUtc).HasConversion(v=>v,v=>DateTime.SpecifyKind(v,DateTimeKind.Utc));
+        audit.Property(e=>e.ActorName).HasMaxLength(200);audit.Property(e=>e.ActorRole).HasMaxLength(16);
+        audit.Property(e=>e.Action).HasMaxLength(64);audit.Property(e=>e.ResourceType).HasMaxLength(32);
+        audit.Property(e=>e.Outcome).HasMaxLength(16);audit.Property(e=>e.Details).HasMaxLength(2048);audit.Property(e=>e.TraceId).HasMaxLength(64);
+        audit.HasIndex(e=>new {e.TimestampUtc,e.Id});audit.HasIndex(e=>new {e.ActorUserId,e.TimestampUtc});audit.HasIndex(e=>new {e.ResourceType,e.ResourceId,e.TimestampUtc});
         modelBuilder.HasDbFunction(typeof(Requests.CollectionReads).GetMethod(nameof(Requests.CollectionReads.Fold))!).HasName("workshop_fold");
         modelBuilder.Entity<User>().Property(u=>u.NormalizedLogin).HasComputedColumnSql("upper(trim(Email))", stored: false);
         modelBuilder.Entity<User>().HasIndex(u=>u.NormalizedLogin).IsUnique();

@@ -31,7 +31,7 @@ test('desktop shell has semantic routes, admin controls, persistent collapse and
   await expect(nav.getByRole('link')).toHaveCount(6);
   await expect(nav.getByRole('link', { name: 'Áttekintés' })).toHaveAttribute('aria-current', 'page');
   await expect(nav.getByRole('link', { name: 'Munkalapok' })).toHaveAttribute('href', '/worksheets');
-  await expect(page.getByRole('navigation', { name: 'Adminisztráció' }).getByRole('link')).toHaveCount(2);
+  await expect(page.getByRole('navigation', { name: 'Adminisztráció' }).getByRole('link')).toHaveCount(3);
   await page.keyboard.press('Tab');
   await nav.getByRole('link', { name: 'Ügyfelek' }).focus();
   await expect(nav.getByRole('link', { name: 'Ügyfelek' })).toBeFocused();

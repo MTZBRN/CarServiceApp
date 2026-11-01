@@ -15,8 +15,10 @@ public static class InitialAdmin
         var password = config["InitialAdmin:Password"];
         if (string.IsNullOrWhiteSpace(email) || email.Length > 254 || !SecurityRules.ValidPassword(password))
             throw new InvalidOperationException("InitialAdmin requires an email and a password of 12 characters / at most 72 UTF-8 bytes.");
-        db.Users.Add(new User { Name = "Administrator", Email = email.Trim(), Role = "admin", PasswordHash = BCrypt.Net.BCrypt.HashPassword(password) });
+        var user=new User { Name = "Administrator", Email = email.Trim(), Role = "admin", PasswordHash = BCrypt.Net.BCrypt.HashPassword(password) };
+        db.Users.Add(user);
         db.SaveChanges();
+        db.Audit.Append(db,db.Audit.Create("Auth.InitialAdminProvisioned","User",user.Id,"{\"role\":\"admin\"}",system:true));
         transaction.Commit();
     }
 }

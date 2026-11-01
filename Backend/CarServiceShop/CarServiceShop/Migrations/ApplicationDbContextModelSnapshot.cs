@@ -15,12 +15,10 @@ namespace CarServiceShop.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "9.0.12");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.14");
 
             modelBuilder.Entity("CarServiceShop.Models.Appointment", b =>
                 {
-                    b.Property<string>("Version").IsRequired().IsConcurrencyToken().HasColumnType("TEXT");
-
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
@@ -38,11 +36,77 @@ namespace CarServiceShop.Migrations
                     b.Property<int>("VehicleId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.HasIndex("VehicleId");
 
                     b.ToTable("Appointments");
+                });
+
+            modelBuilder.Entity("CarServiceShop.Models.AuditEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ActorName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ActorRole")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ActorUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Details")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ResourceId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ResourceType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("TimestampUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TraceId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorUserId", "TimestampUtc");
+
+                    b.HasIndex("TimestampUtc", "Id");
+
+                    b.HasIndex("ResourceType", "ResourceId", "TimestampUtc");
+
+                    b.ToTable("AuditEvents");
                 });
 
             modelBuilder.Entity("CarServiceShop.Models.Customer", b =>
@@ -72,8 +136,6 @@ namespace CarServiceShop.Migrations
 
             modelBuilder.Entity("CarServiceShop.Models.GlobalSettings", b =>
                 {
-                    b.Property<string>("Version").IsRequired().IsConcurrencyToken().HasColumnType("TEXT");
-
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
@@ -103,6 +165,11 @@ namespace CarServiceShop.Migrations
 
                     b.Property<int>("VatRate")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -141,8 +208,6 @@ namespace CarServiceShop.Migrations
 
             modelBuilder.Entity("CarServiceShop.Models.Part", b =>
                 {
-                    b.Property<string>("Version").IsRequired().IsConcurrencyToken().HasColumnType("TEXT");
-
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
@@ -164,6 +229,11 @@ namespace CarServiceShop.Migrations
                     b.Property<int>("StockQuantity")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.ToTable("Parts");
@@ -171,8 +241,6 @@ namespace CarServiceShop.Migrations
 
             modelBuilder.Entity("CarServiceShop.Models.ServiceJob", b =>
                 {
-                    b.Property<string>("Version").IsRequired().IsConcurrencyToken().HasColumnType("TEXT");
-
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
@@ -196,6 +264,11 @@ namespace CarServiceShop.Migrations
                     b.Property<int>("VehicleId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Version")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AppointmentId")
@@ -208,8 +281,6 @@ namespace CarServiceShop.Migrations
 
             modelBuilder.Entity("CarServiceShop.Models.User", b =>
                 {
-                    b.Property<string>("NormalizedLogin").IsRequired().ValueGeneratedOnAddOrUpdate().HasColumnType("TEXT").HasComputedColumnSql("upper(trim(Email))", false);
-
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
@@ -222,7 +293,11 @@ namespace CarServiceShop.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("SessionVersion").IsRequired().HasColumnType("TEXT");
+                    b.Property<string>("NormalizedLogin")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("TEXT")
+                        .HasComputedColumnSql("upper(trim(Email))", false);
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -235,9 +310,14 @@ namespace CarServiceShop.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.HasIndex("NormalizedLogin").IsUnique();
+                    b.Property<string>("SessionVersion")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("NormalizedLogin")
+                        .IsUnique();
 
                     b.ToTable("Users");
                 });

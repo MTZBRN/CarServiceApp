@@ -31,7 +31,7 @@ public class JobPartsController : ControllerBase
         _context.Entry(job).Property(j=>j.Version).IsModified=true;
         var jobPart=input.ToEntity(); jobPart.ServiceJobId=input.ServiceJobId;
         _context.JobParts.Add(jobPart);
-        try { await _context.SaveChangesAsync(); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); }
+        try { await _context.SaveAuditedAsync(job); } catch(DbUpdateConcurrencyException) { return Conflict(new {message=Integrity.Conflict}); }
         return Ok(jobPart);
     }
 }
