@@ -1,3 +1,4 @@
+import {chooseLookup} from './lookup-helpers';
 import {expectedVersion} from './versioned-request';
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
 import { createHmac } from 'node:crypto';
@@ -309,7 +310,7 @@ test('complete workshop journey through appointment, worksheet, labor, completio
   await modal.getByPlaceholder('ABC-123').fill(plate);
   await modal.getByLabel('Márka *',{exact:true}).fill('Toyota');
   await modal.getByLabel('Típus *',{exact:true}).fill('Corolla');
-  await modal.getByRole('combobox').first().selectOption({label:'Journey '+tag});
+  await chooseLookup(modal,'Ügyfél kiválasztása *','Journey '+tag);
   await modal.getByRole('button',{name:'Mentés',exact:true}).click();
   await expect(modal).toHaveCount(0);
   await page.getByRole('row').filter({hasText:plate}).getByRole('link',{name:'Adatlap',exact:true}).click();

@@ -1,3 +1,4 @@
+import {chooseLookup} from './lookup-helpers';
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
 
 const api = 'http://localhost:5232/api', ui = 'http://127.0.0.1:5173';
@@ -63,7 +64,7 @@ test('list search, status filters, worksheet route and direct refresh',async({pa
 
 test('parts, calculations, failed save, save and print use stored data without stock changes',async({page,request})=>{
   const f=await fixture(request); await login(page,'/worksheets/'+f.open.id); const w=editor(page);
-  await w.getByLabel('Cikktörzsből másolás').selectOption(String(f.part.id)); await w.getByLabel('Mennyiség *',{exact:true}).fill('2'); await w.getByRole('button',{name:'Tétel hozzáadása'}).click();
+  await chooseLookup(w,'Cikktörzsből másolás',f.part.partNumber); await w.getByLabel('Mennyiség *',{exact:true}).fill('2'); await w.getByRole('button',{name:'Tétel hozzáadása'}).click();
   await w.getByLabel('Megnevezés *',{exact:true}).fill('Manual '+f.tag); await w.getByLabel('Mennyiség *',{exact:true}).fill('3'); await w.getByLabel('Egységár (Ft) *',{exact:true}).fill('200'); await w.getByRole('button',{name:'Tétel hozzáadása'}).click();
   await w.getByLabel('Munkadíj (Ft) *').fill('400'); await expect(w.getByTestId('parts-subtotal')).toContainText('2600'); await expect(w.getByTestId('worksheet-total')).toContainText('3000');
   await page.route('**/api/ServiceJobs/'+f.open.id,route=>route.request().method()==='PUT'?route.fulfill({status:400,body:'Teszt mentési hiba'}):route.continue());
@@ -100,7 +101,7 @@ test('browser history switching between worksheets preserves a dirty draft',asyn
 
 test('walk-in validation, explicit catalog creation and duplicate submission protection',async({page,request})=>{
   const f=await fixture(request); await login(page,'/worksheets/new'); const w=editor(page);
-  await w.getByLabel('Jármű *').selectOption(String(f.vehicle.id)); await w.getByLabel('Munka leírása *').fill('Walk in '+f.tag);
+  await chooseLookup(w,'Jármű *',f.vehicle.licensePlate); await w.getByLabel('Munka leírása *').fill('Walk in '+f.tag);
   await w.getByRole('button',{name:'Tétel hozzáadása'}).click(); await expect(w.getByRole('alert')).toContainText('megnevezést');
   await w.getByLabel('Megnevezés *',{exact:true}).fill('Catalog '+f.tag); await w.getByLabel('Mennyiség *',{exact:true}).fill('0'); await w.getByRole('button',{name:'Tétel hozzáadása'}).click(); await expect(w.getByRole('alert')).toContainText('pozitív');
   await w.getByLabel('Mennyiség *',{exact:true}).fill('1'); await w.getByLabel('Egységár (Ft) *',{exact:true}).fill('-1'); await w.getByRole('button',{name:'Tétel hozzáadása'}).click(); await expect(w.getByRole('alert')).toContainText('egységárat');
@@ -130,7 +131,7 @@ test('worksheet visual review artifacts',async({page,request})=>{
  const f=await fixture(request); await page.setViewportSize({width:1440,height:900}); await login(page,'/worksheets'); await page.getByLabel('Keresés').fill(f.tag); await expect(page.getByRole('row').filter({hasText:'Open '+f.tag})).toBeVisible();
  await page.screenshot({path:'review-artifacts/stage26/worksheet-list-desktop.png',fullPage:true});
  await page.goto(ui+'/worksheets/'+f.open.id); const w=editor(page); await expect(w).toContainText(f.vehicle.licensePlate); await page.screenshot({path:'review-artifacts/stage26/worksheet-open-desktop.png',fullPage:true});
- await w.getByLabel('Cikktörzsből másolás').selectOption(String(f.part.id)); await w.getByRole('button',{name:'Tétel hozzáadása'}).click(); await w.getByLabel('Megnevezés *',{exact:true}).fill('Tömítés'); await w.getByLabel('Egységár (Ft) *',{exact:true}).fill('500'); await w.getByRole('button',{name:'Tétel hozzáadása'}).click(); await page.screenshot({path:'review-artifacts/stage26/worksheet-multiple-parts.png',fullPage:true});
+ await chooseLookup(w,'Cikktörzsből másolás',f.part.partNumber); await w.getByRole('button',{name:'Tétel hozzáadása'}).click(); await w.getByLabel('Megnevezés *',{exact:true}).fill('Tömítés'); await w.getByLabel('Egységár (Ft) *',{exact:true}).fill('500'); await w.getByRole('button',{name:'Tétel hozzáadása'}).click(); await page.screenshot({path:'review-artifacts/stage26/worksheet-multiple-parts.png',fullPage:true});
  await w.getByRole('button',{name:'Mentés és nyomtatás'}).click(); const preview=page.getByRole('dialog',{name:'Munkalap nyomtatási előnézet'}); await expect(preview).toBeVisible(); await page.screenshot({path:'review-artifacts/stage26/worksheet-print-preview.png'}); await page.keyboard.press('Escape');
  await page.goto(ui+'/worksheets/'+f.completed.id); await expect(editor(page)).toContainText('Befejezett'); await page.screenshot({path:'review-artifacts/stage26/worksheet-completed-desktop.png',fullPage:true});
  await page.setViewportSize({width:390,height:844}); await page.goto(ui+'/worksheets/'+f.open.id); await expect(editor(page)).toContainText(f.vehicle.licensePlate); await page.screenshot({path:'review-artifacts/stage26/worksheet-mobile.png',fullPage:true});

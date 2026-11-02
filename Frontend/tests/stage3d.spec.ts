@@ -1,3 +1,4 @@
+import {chooseLookup} from './lookup-helpers';
 import {test,expect,type APIRequestContext,type Page} from '@playwright/test';
 const api='http://localhost:5232/api',ui='http://localhost:5173';
 async function admin(request:APIRequestContext){const r=await request.post(api+'/Auth/login',{data:{email:'admin@test.com',password:'Admin-test-only-123'}});expect(r.ok()).toBeTruthy();return {Authorization:'Bearer '+(await r.json()).token};}
@@ -22,11 +23,11 @@ test('selectors can search beyond first page and saved ID routes restore histori
   const p=await request.post(api+'/parts',{headers,data:{name:prefix+' part '+i,partNumber:prefix+'-PART-'+i,stockQuantity:1,netPrice:100,grossPrice:127}});expect(p.ok()).toBeTruthy();part=await p.json();
  }
  await login(page,'/worksheets/new');const editor=page.getByRole('region',{name:'Munkalap szerkesztő'});
- await editor.getByRole('searchbox',{name:'Járművek keresése',exact:true}).fill(vehicle.licensePlate);await editor.getByLabel('Jármű *',{exact:true}).selectOption(String(vehicle.id));
- await expect(editor).toContainText(customer.name);await editor.getByRole('searchbox',{name:'Cikktörzs keresése',exact:true}).fill(part.partNumber);await editor.getByLabel('Cikktörzsből másolás',{exact:true}).selectOption(String(part.id));
+ await chooseLookup(editor,'Jármű *',vehicle.licensePlate);
+ await expect(editor).toContainText(customer.name);await chooseLookup(editor,'Cikktörzsből másolás',part.partNumber);
  await editor.getByLabel('Munka leírása *').fill(prefix+' saved');await editor.getByRole('button',{name:'Tétel hozzáadása',exact:true}).click();await editor.getByTestId('save-worksheet').click();
  await expect(page).toHaveURL(/\/worksheets\/\d+$/);await page.reload();await expect(editor).toContainText(vehicle.licensePlate);await expect(editor.getByLabel('Megnevezés 1 *',{exact:true})).toHaveValue(part.name);
- await page.goto(ui+'/vehicles');await page.getByRole('button',{name:'Új jármű',exact:true}).click();const modal=page.getByRole('dialog');await modal.getByRole('searchbox',{name:'Ügyfelek keresése',exact:true}).fill(customer.name);await modal.getByLabel('Ügyfél kiválasztása *',{exact:true}).selectOption(String(customer.id));await expect(modal.getByLabel('Ügyfél kiválasztása *',{exact:true})).toHaveValue(String(customer.id));
+ await page.goto(ui+'/vehicles');await page.getByRole('button',{name:'Új jármű',exact:true}).click();const modal=page.getByRole('dialog');await chooseLookup(modal,'Ügyfél kiválasztása *',customer.name);await expect(modal.getByRole('combobox',{name:'Ügyfél kiválasztása *',exact:true})).toHaveValue(customer.name);
 });
 
 test('calendar requests only bounded windows and can retrieve historical bookings',async({page,request})=>{

@@ -146,7 +146,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                 gap: 8,
               }}
             >
-              🖨️ Munkalap Előnézet
+              Munkalap Előnézet
             </h3>
             <span style={{ fontSize: "0.85rem", color: "#a1a1aa" }}>
               A sárga mezők szerkeszthetőek. Nyomtatásban fehér lesz.

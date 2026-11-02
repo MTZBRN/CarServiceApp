@@ -1,4 +1,5 @@
-import {useLookup,LookupTools} from '../../data/paging';
+import {useLookup} from '../../data/paging';
+import SearchableLookup from '../ui/SearchableLookup';
 import { useRef, useState } from 'react';
 import { format } from 'date-fns';
 import type { Appointment, Vehicle, Customer } from '../../types';
@@ -7,7 +8,7 @@ import { apiErrorMessage } from '../../api/client';
 import { useWorkshopResource } from '../../data/useWorkshopData';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
-import { FormField, Input, Select, Textarea } from '../ui/Fields';
+import { FormField, Input, Textarea } from '../ui/Fields';
 import { ErrorState } from '../ui/StateViews';
 import AddVehicleModal from './AddVehicleModal';
 import '../../features/calendar/calendar.css';
@@ -16,6 +17,7 @@ export default function AppointmentModal({selectedSlot,onClose,onSuccess,vehicle
  const [expectedVersion]=useState(appointment?.version);
  const [vehicleId,setVehicleId]=useState(String(appointment?.vehicleId||(vehicles.length===1?vehicles[0].id:''))); const [customer,setCustomer]=useState('');
  const [picked,setPicked]=useState<Vehicle>();
+ const [pickedCustomer,setPickedCustomer]=useState<Customer|null>(null);
  const fleet=useLookup('vehicles',{customerId:customer?Number(customer):undefined});const people=useLookup('customers');
  const current=useWorkshopResource('vehicles',{id:Number(vehicleId)},!!vehicleId);
  const jobs=useWorkshopResource('worksheets',{appointmentId:appointment?.id},!!appointment);
@@ -40,14 +42,14 @@ export default function AppointmentModal({selectedSlot,onClose,onSuccess,vehicle
  busy.current=true;setSaving(true);setError('');try{const data={vehicleId:Number(vehicleId),startTime,endTime,note};if(appointment)await appointmentsApi.update(appointment.id,{...data,version:expectedVersion});else await appointmentsApi.create(data);setMessage('Időpont mentve.');onSuccess();}catch(e){setError(apiErrorMessage(e,'Az időpont mentése nem sikerült.'));}finally{busy.current=false;setSaving(false);}
  }}>
  {fleet.error!=null&&<ErrorState message="A járművek betöltése nem sikerült." onRetry={fleet.refresh} />}{people.error!=null&&<ErrorState message="Az ügyfelek betöltése nem sikerült." onRetry={people.refresh} />}
- {!appointment&&<><LookupTools {...people} label="Ügyfelek" /><FormField label="Ügyfél szűrése"><Select value={customer} onChange={e=>{setCustomer(e.target.value);setVehicleId('');fleet.setPage(1);}}><option value="">Minden ügyfél</option>{people.data.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</Select></FormField></>}
- <LookupTools {...fleet} label="Járművek" />
- <FormField label="Jármű *" error={errors.vehicle} hint={locked?'A jármű nem módosítható, mert az időponthoz munkalap tartozik.':undefined}><Select data-autofocus disabled={locked||saving||!!appointment&&!jobs.loaded} value={vehicleId} onChange={e=>{setVehicleId(e.target.value);setPicked(fleet.data.find(v=>v.id===Number(e.target.value)));}}><option value="">-- Válassz --</option>{choices.filter(v=>!customer||v.customerId===Number(customer)).map(v=><option key={v.id} value={v.id}>{v.licensePlate} – {v.make} {v.model} – {v.customer?.name||customers.find(c=>c.id===v.customerId)?.name||'Ismeretlen ügyfél'}</option>)}</Select></FormField>
+ {!appointment&&<SearchableLookup label="Ügyfél szűrése" lookup={people} selectedItem={pickedCustomer} getKey={c=>c.id} getLabel={c=>c.name} placeholder="Név, telefonszám vagy email keresése…" emptyLabel="Minden ügyfél" disabled={saving} onSelect={c=>{setPickedCustomer(c);setCustomer(c?String(c.id):'');setVehicleId('');setPicked(undefined);fleet.setSearch('');fleet.setPage(1);}} />}
+ {locked ? <FormField label="Jármű *" hint="A jármű nem módosítható, mert az időponthoz munkalap tartozik."><Input disabled value={selected?`${selected.licensePlate} · ${selected.make} ${selected.model}`:vehicleId} /></FormField> :
+ <SearchableLookup label="Jármű *" lookup={fleet} selectedItem={selected} getKey={v=>v.id} getLabel={v=>`${v.licensePlate} · ${v.make} ${v.model} · ${v.customer?.name||customers.find(c=>c.id===v.customerId)?.name||'Ismeretlen ügyfél'}`} placeholder="Rendszám, márka, típus vagy ügyfél keresése…" error={errors.vehicle} disabled={saving||!!appointment&&!jobs.loaded} autoFocus onSelect={v=>{setVehicleId(v?String(v.id):'');setPicked(v??undefined);}} />}
  {selected&&<p className="appointment-context">{selected.customer?.phoneNumber||customers.find(c=>c.id===selected.customerId)?.phoneNumber||'Nincs telefonszám'}</p>}
  {appointment?<div className="appointment-times"><FormField label="Kezdés *" error={errors.start}><Input type="datetime-local" value={start} onChange={e=>{setStart(e.target.value);setStartDirty(true);}} /></FormField><FormField label="Befejezés *" error={errors.end}><Input type="datetime-local" value={end} onChange={e=>{setEnd(e.target.value);setEndDirty(true);}} /></FormField></div>:<FormField label="Dátum *" error={errors.start||errors.end} hint="Napi foglalás. A pontos kezdést és befejezést később is szerkesztheted."><Input type="date" value={day} onChange={e=>setDay(e.target.value)} /></FormField>}
  <FormField label="Munka leírása / megjegyzés"><Textarea placeholder="Pl. Kopogó hang a futómű felől..." value={note} onChange={e=>setNote(e.target.value)} /></FormField>
  {appointment&&jobs.error!=null&&<ErrorState message="A munkalapkapcsolat betöltése nem sikerült." onRetry={jobs.refresh} />}
  {error&&<p role="alert" className="appointment-error">{error}</p>}
  <div className="appointment-actions">{!appointment&&<Button variant="secondary" disabled={saving} onClick={()=>setQuick(true)}>Új ügyfél / jármű</Button>}<Button variant="secondary" disabled={saving} onClick={close}>Mégse</Button><Button type="submit" disabled={saving||!!appointment&&(!jobs.loaded||!!jobs.error)}>{saving?'Mentés…':'Mentés'}</Button></div>
- </form>{quick&&<AddVehicleModal customers={customers} onClose={()=>setQuick(false)} onSuccess={added=>{if(added){setPicked(added);setCustomer('');setVehicleId(String(added.id));}setQuick(false);}} />}</Modal>;
+ </form>{quick&&<AddVehicleModal customers={customers} onClose={()=>setQuick(false)} onSuccess={added=>{if(added){setPicked(added);setCustomer('');setPickedCustomer(null);setVehicleId(String(added.id));fleet.setSearch('');fleet.setPage(1);}setQuick(false);}} />}</Modal>;
 }

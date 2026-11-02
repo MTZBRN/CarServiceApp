@@ -114,8 +114,10 @@ test('admin teljes napi folyamata: új munka rögzítése a naptárban', async (
   await expect(modal.getByRole('heading', { name: 'Új időpont' })).toBeVisible();
 
   const vehicleSelector = modal.getByRole('combobox', { name: 'Jármű *' });
-  const vehicleLabel = await vehicleSelector.locator('option').nth(1).innerText();
-  await vehicleSelector.selectOption({ index: 1 });
+  await vehicleSelector.click();
+  const firstVehicle = modal.getByRole('option').first();
+  const vehicleLabel = await firstVehicle.innerText();
+  await firstVehicle.click();
 
   await modal
     .getByPlaceholder('Pl. Kopogó hang a futómű felől...')
@@ -130,6 +132,6 @@ test('admin teljes napi folyamata: új munka rögzítése a naptárban', async (
   await appointmentResponse;
 
   await expect(modal).not.toBeVisible();
-  const vehiclePlate = vehicleLabel.split(" – ")[0];
+  const vehiclePlate = vehicleLabel.split(' · ')[0];
   await expect(page.getByText(vehiclePlate, { exact: false }).last()).toBeVisible();
 });

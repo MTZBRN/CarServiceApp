@@ -1,3 +1,4 @@
+import {chooseLookup} from './lookup-helpers';
 import { test, expect } from '@playwright/test';
 
 test('teljes admin workflow ügyféltől a munkalapig', async ({ page }) => {
@@ -57,7 +58,7 @@ test('teljes admin workflow ügyféltől a munkalapig', async ({ page }) => {
   await page.getByRole('button', { name: 'Új jármű' }).click();
 
   const vehicleModal = page.locator('.modal-content').last();
-  await vehicleModal.getByRole('combobox').selectOption({ label: customerName });
+  await chooseLookup(vehicleModal, 'Ügyfél kiválasztása *', customerName);
 
   await vehicleModal.getByPlaceholder('ABC-123').fill(licensePlate);
   await vehicleModal.getByPlaceholder('Toyota').fill(vehicleMake);
@@ -87,8 +88,8 @@ test('teljes admin workflow ügyféltől a munkalapig', async ({ page }) => {
   await expect(worksheetModal.getByText(licensePlate, { exact: true })).toBeVisible();
   await worksheetModal.getByLabel('Munka leírása *').fill(jobDescription);
 
-  await worksheetModal.getByPlaceholder('Cikkszám').fill(partNumber);
-  await worksheetModal.getByPlaceholder('Megnevezés').fill(partName);
+  await worksheetModal.getByLabel('Cikkszám', { exact: true }).fill(partNumber);
+  await worksheetModal.getByLabel('Megnevezés *', { exact: true }).fill(partName);
   await worksheetModal.getByLabel('Egységár (Ft) *', { exact: true }).fill(partPrice);
   await worksheetModal.getByLabel('Új cikkszám mentése a cikktörzsbe is').check();
   await worksheetModal.getByLabel('Új cikktörzs-tétel nettó ára (Ft) *').fill('10000');
