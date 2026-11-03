@@ -554,6 +554,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
 
             {/* 5. HIBALEÍRÁS */}
             <div
+              className="print-work-description"
               style={{
                 flex: 1,
                 border: "2px solid black",
@@ -597,6 +598,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                   color: "black",
                 }}
               />
+              <div hidden className="print-work-description-text">{formData.workDescription}</div>
             </div>
 
             {/* 6. ALSÓ SZEKCIÓK */}
@@ -707,6 +709,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
 
               {/* ALÁÍRÁS HELY */}
               <div
+                className="print-signatures"
                 style={{
                   border: "2px solid black",
                   borderTop: "none",
@@ -771,8 +774,27 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                 </div>
               </div>
 
-              <table aria-label="Mentett munkalap költségei" style={{width:'100%',borderCollapse:'collapse',border:'2px solid black',marginTop:8,fontSize:12}}><caption style={{textAlign:'left',color:'black'}}>Munkalap #{job.id} · {job.isCompleted?'Befejezett':'Nyitott'}</caption><thead><tr>{['Alkatrész / cikkszám','Mennyiség','Egységár','Sorösszeg'].map(label=><th key={label} style={cellStyle}>{label}</th>)}</tr></thead><tbody>{job.jobParts.map((part,i)=><tr key={i}><td style={cellStyle}>{part.partName} · {part.partNumber||'—'}</td><td style={cellStyle}>{part.quantity}</td><td style={cellStyle}>{money(part.unitPrice)}</td><td style={cellStyle}>{money(part.quantity*part.unitPrice)}</td></tr>)}<tr><td colSpan={3} style={cellStyle}>Alkatrészek összesen</td><td style={cellStyle}>{money(partsSubtotal(job.jobParts))}</td></tr><tr><td colSpan={3} style={cellStyle}>Munkadíj</td><td style={cellStyle}>{money(job.laborCost)}</td></tr><tr><th colSpan={3} style={cellStyle}>Végösszeg</th><td style={cellStyle} data-testid="print-total">{money(worksheetTotal(job))}</td></tr></tbody></table>
+              <table className="print-costs" aria-label="Mentett munkalap költségei" style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid black', marginTop: 8, fontSize: 12 }}>
+                <caption style={{ textAlign: 'left', color: 'black' }}>Munkalap #{job.id} · {job.isCompleted ? 'Befejezett' : 'Nyitott'}</caption>
+                <thead><tr>{['Alkatrész / cikkszám', 'Mennyiség', 'Egységár', 'Sorösszeg'].map(label =>
+                  <th key={label} style={cellStyle}>{label}</th>
+                )}</tr></thead>
+                <tbody>{job.jobParts.map((part, i) =>
+                  <tr key={i}>
+                    <td style={cellStyle}>{part.partName} · {part.partNumber || '—'}</td>
+                    <td style={cellStyle}>{part.quantity}</td>
+                    <td style={cellStyle}>{money(part.unitPrice)}</td>
+                    <td style={cellStyle}>{money(part.quantity * part.unitPrice)}</td>
+                  </tr>
+                )}</tbody>
+                <tbody className="print-totals">
+                  <tr><td colSpan={3} style={cellStyle}>Alkatrészek összesen</td><td style={cellStyle}>{money(partsSubtotal(job.jobParts))}</td></tr>
+                  <tr><td colSpan={3} style={cellStyle}>Munkadíj</td><td style={cellStyle}>{money(job.laborCost)}</td></tr>
+                  <tr><th colSpan={3} style={cellStyle}>Végösszeg</th><td style={cellStyle} data-testid="print-total">{money(worksheetTotal(job))}</td></tr>
+                </tbody>
+              </table>
               <table
+                className="print-signatures"
                 style={{
                   width: "100%",
                   borderCollapse: "collapse",
