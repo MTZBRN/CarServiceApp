@@ -207,11 +207,15 @@ public class SecurityIntegrationTests
     [Fact]
     public async Task TrustedProxySchemeIsApplied_UntrustedHeadersAreIgnored()
     {
-        using var host=new SecurityHost(); using var client=host.Client();
-        var options=host.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>>().Value;
-        foreach(var trusted in new[]{true,false}) {
+        using var host=new SecurityHost();
+        using var configured=host.WithWebHostBuilder(builder=>builder.ConfigureAppConfiguration((_, config)=>
+            config.AddInMemoryCollection(new Dictionary<string,string?> { ["ReverseProxy:KnownProxies:0"]="172.30.90.3" })));
+        using var client=configured.CreateClient();
+        var options=configured.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>>().Value;
+        foreach(var peer in new[]{"172.30.90.3","172.30.90.4","198.51.100.4","::1","127.0.0.1"}) {
+            var trusted=peer=="172.30.90.3";
             var context=new Microsoft.AspNetCore.Http.DefaultHttpContext();
-            context.Connection.RemoteIpAddress=trusted?IPAddress.IPv6Loopback:IPAddress.Parse("198.51.100.4");
+            context.Connection.RemoteIpAddress=IPAddress.Parse(peer);
             context.Request.Scheme="http";
             context.Request.Headers["X-Forwarded-Proto"]="https";
             context.Request.Headers["X-Forwarded-For"]="203.0.113.9";
@@ -220,8 +224,22 @@ public class SecurityIntegrationTests
                 Microsoft.Extensions.Options.Options.Create(options));
             await middleware.Invoke(context);
             Assert.Equal(trusted?"https":"http",context.Request.Scheme);
-            Assert.Equal(trusted?"203.0.113.9":"198.51.100.4",context.Connection.RemoteIpAddress!.ToString());
+            Assert.Equal(trusted?"203.0.113.9":peer,context.Connection.RemoteIpAddress!.ToString());
         }
         Assert.Equal(1,options.ForwardLimit);
+        Assert.True(options.RequireHeaderSymmetry);
+        Assert.Empty(options.KnownIPNetworks);
+        Assert.Equal(IPAddress.Parse("172.30.90.3"),Assert.Single(options.KnownProxies));
+    }
+
+    [Fact]
+    public void MissingProxyConfigurationDisablesForwarding()
+    {
+        using var host = new SecurityHost();
+        using var client = host.Client();
+        var options = host.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<Microsoft.AspNetCore.Builder.ForwardedHeadersOptions>>().Value;
+        Assert.Equal(Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.None, options.ForwardedHeaders);
+        Assert.Empty(options.KnownProxies);
+        Assert.Empty(options.KnownIPNetworks);
     }
 }

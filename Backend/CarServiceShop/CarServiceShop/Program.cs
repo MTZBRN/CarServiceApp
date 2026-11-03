@@ -101,11 +101,16 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddSingleton<ProfileImages>();
 builder.Services.Configure<ForwardedHeadersOptions>(options => {
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
     options.ForwardLimit = 1;
-    // Never clear trust lists or trust arbitrary forwarding headers.
+    options.RequireHeaderSymmetry = true;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
     foreach (var address in builder.Configuration.GetSection("ReverseProxy:KnownProxies").Get<string[]>() ?? [])
         options.KnownProxies.Add(System.Net.IPAddress.Parse(address));
+    // Empty trust lists otherwise accept all peers when forwarding is enabled.
+    options.ForwardedHeaders = options.KnownProxies.Count == 0
+        ? ForwardedHeaders.None
+        : ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
 });
 builder.Services.AddRateLimiter(options => {
     options.RejectionStatusCode = 429;

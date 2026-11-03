@@ -14,6 +14,8 @@ COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY nginx-main.conf /etc/nginx/nginx.conf
 COPY security-headers.conf /etc/nginx/security-headers.conf
+COPY proxy-headers.conf /etc/nginx/proxy-headers.conf
+RUN touch /etc/nginx/trusted-edge.conf
 # No root entrypoint setup: configuration and static content are complete at build time.
 USER 101:101
 EXPOSE 8080

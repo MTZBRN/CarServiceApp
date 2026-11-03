@@ -1,34 +1,40 @@
-# TLS ingress plan — design only
+# Trusted HTTPS ingress
 
-**Recommendation: Option A, host-level Caddy -> loopback frontend container.** One TLS edge/service and its protected certificate storage are sufficient for one VPS. Keep the existing application Compose network/private backend and loopback publication. A TLS container could also work, but adds certificate mounts/network trust changes with no demonstrated need here. Nothing in this document acquires a certificate, configures DNS or makes the current Nginx TLS-ready automatically.
+The production topology uses host Caddy on public TCP 80/443, loopback-published frontend Nginx and a private ASP.NET backend. Caddy serves the workshop hostname and handles certificate automation and HTTP-to-HTTPS redirects. The frontend and API share the public origin.
 
-## Required future traffic behavior
+## Trust boundaries
 
-1. Real DNS points to the chosen VPS only after the isolated gates pass. Public TCP 80 serves only HTTPS redirect/ACME as appropriate; business requests use 443 HTTPS. Keep backend 8080 and frontend host 5173 non-public.
-2. Caddy terminates TLS and proxies to `127.0.0.1:5173`. Use its supported automatic HTTPS/certificate renewal. Start HSTS only after valid HTTPS/renewal/redirects are proved; initially avoid includeSubDomains/preload. Caddy should own one consistent HSTS header for all SPA/API/upload/error responses.
-3. Do not trust client-supplied Forwarded/X-Forwarded-* headers or enable arbitrary trusted proxies. With Caddy directly facing clients, its normal reverse-proxy forwarding behavior derives verified client/scheme and ignores spoofed incoming values. If another upstream proxy/CDN is ever added, redesign/test that trust first.
+- Caddy sets the private edge client and scheme headers from its socket peer and request scheme. The imported credential directive sets the private token on every upstream request. Setting these fields replaces client-supplied values. This topology assumes Caddy directly receives clients.
+- Nginx matches the actual immediate peer address and the edge credential against an exact entry in a protected map. It requires an HTTPS scheme and a single valid IP. The private credential prevents other loopback clients that share the Docker gateway peer from claiming edge identity. Requests outside that trust boundary use the socket IP and inner scheme.
+- Nginx replaces the standard forwarding pair on every API and upload route and removes the private edge fields before proxying. ASP.NET trusts only the configured frontend socket address, currently `172.30.90.3`, and consumes one symmetric pair before HSTS, authentication and rate limiting.
+- The SPA and backend retain their existing HSTS policy and duration. Nginx uses the verified HTTPS scheme for SPA responses and ASP.NET applies its policy to API/upload responses. Caddy adds no duplicate HSTS header.
 
-## Critical two-hop forwarding work still required
+## Deployment inputs
 
-Current application Nginx uses `$scheme` and `$remote_addr`. Behind a host TLS edge forwarding HTTP, those describe the **inner** hop. Simply adding Caddy without adapting/verifying trusted forwarding would lose HTTPS/client identity and can collapse login throttling into a single proxy address. Do not deploy that incomplete topology.
+1. Prove the actual immediate peer Nginx sees when Caddy connects to the published loopback port. Observe it during the isolated Linux rehearsal using Nginx's socket-peer access log. The bridge gateway is a candidate that must be measured. Use the exact address as logged. For IPv6, use the canonical address text without brackets or a port.
+2. Generate one independent 32-byte random token as 64 hexadecimal characters on the target host. Keep the token out of shell tracing, Git, tickets and printed config. Both files below use the same token. These are syntax examples with unusable placeholders.
 
-Later, in a disposable Linux test first:
+   ```nginx
+   # /etc/carserviceapp/trusted-edge.conf
+   "OBSERVED_PEER:EDGE_TOKEN_HEX" 1;
+   ```
 
-- Observe the actual immediate host-edge peer address seen by the Nginx container (often the Docker bridge gateway, not 127.0.0.1). Do not guess it or trust the whole private subnet.
-- Configure Nginx real-IP handling for **only that verified immediate ingress address**, using the edge-sanitized X-Forwarded-For. Preserve the original peer (`$realip_remote_addr`) for trust decisions after real-IP rewriting.
-- Derive a verified original scheme only when the original peer is the approved edge and the edge's sanitized proto value is exactly the expected HTTPS value. Unknown peers/values must not be upgraded to trusted HTTPS.
-- Continue forwarding a single verified client address from Nginx to the API, not blindly appending an incoming arbitrary chain. Forward the verified scheme to the API. Backend trusts only frontend `172.30.90.3`, ForwardLimit=1; it should not separately trust the public internet/host CIDR.
-- Keep direct host-loopback access as a trusted operator-only boundary: no untrusted local accounts/workloads should be able to inject forwarding headers. Backend network access remains private. A host compromise is outside header-based isolation.
+   ```caddyfile
+   # /etc/caddy/carservice-edge-header.conf
+   header_up X-CarService-Edge-Token EDGE_TOKEN_HEX
+   ```
 
-No deployable Nginx/Caddy trust configuration is fabricated here because the actual host network/peer does not exist yet. This future adaptation is an explicit remaining go-live blocker, not an env toggle silently enabled in Stage 4A.
+3. Place the map under the root-only `/etc/carserviceapp` directory. For the documented rootful Compose setup, use `root:101` and mode `0440` for the map so Nginx can read the read-only bind. Use `root:caddy` and mode `0640` for the Caddy snippet, with traversal limited to the service and administrators as appropriate. Verify the effective container identity and host permissions.
+4. Apply `docker-compose.ingress.yml` after the base Compose file. It mounts only the Nginx map. The base image has an empty map for loopback staging. Keep both Compose files in the production command context for startup, upgrades and rollback.
+5. Use `ingress/Caddyfile.example` as the dedicated host Caddy configuration. Replace the reserved hostname and match the loopback bind port. Its global options disable the admin API and config autosave to protect the imported credential. Validate protected configs without printing their effective contents. Coordinate Caddy restarts and frontend recreation during credential rotation.
+6. Keep backend host ports unpublished. Configure only Nginx's private IP in `ReverseProxy__KnownProxies__0` and keep framework-wide forwarded-header auto-enabling off. Restrict privileged host access and access to the application bridge.
 
-## Acceptance tests before enabling traffic
+## Acceptance before public traffic
 
-- Public HTTP redirects without sending credentials; HTTPS certificate/hostname/chain and renewal work. IPv4/IPv6 firewall/DNS agree.
-- Backend observes Request.IsHttps on verified edge HTTPS; redirects do not loop, and HSTS appears once, only after the HTTPS policy is approved. SPA/API/401/403/413/500/uploads/print headers remain correct.
-- Two controlled client addresses reach distinct source-based login limit partitions; spoofed X-Forwarded-For/proto from each client cannot choose an identity/scheme.
-- A request directly to the private frontend/backend with an untrusted peer/header cannot become a trusted external client. Host 5173/8080 and SQLite data are unreachable publicly.
-- Test login/session restoration, logout/revocation, normalized images, actual saved worksheet printing and audit under the final ingress CSP/origin.
-- Healthchecks continue to work on intentional internal HTTP; do not break their loopback targets with blanket redirects.
+- Validate Linux Compose, the mounted file permissions, effective Caddy configuration and `nginx -t` in isolated staging. Verify the recorded immediate peer against the running topology.
+- Verify real certificate issuance, hostname and renewal, HTTP redirect, firewall and IPv4/IPv6 reachability. Check that only the approved public listeners respond externally.
+- Compare HTTPS SPA/API/upload responses and expected CSP, HSTS and other security headers. Confirm a single HSTS header on each intended HTTPS response and ordinary internal HTTP health checks.
+- Use two controlled external client IPs and synthetic accounts to prove distinct login source limits. Try forged standard and private headers at the public edge and directly from an untrusted peer. Check that backend access stays private.
+- Exercise same-origin login/session/logout, image upload and worksheet print through the final ingress.
 
-Authoritative references: [Caddy reverse-proxy header behavior](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy#defaults), [automatic HTTPS](https://caddyserver.com/docs/automatic-https), [Nginx real-IP module](https://nginx.org/en/docs/http/ngx_http_realip_module.html). Review the installed versions' behavior during actual validation. No real domain/certificate or public listener was configured in this stage.
+References. [Caddy reverse proxy headers](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy#headers) · [Caddy global options](https://caddyserver.com/docs/caddyfile/options) · [Nginx maps](https://nginx.org/en/docs/http/ngx_http_map_module.html) · [Nginx address parsing](https://nginx.org/en/docs/http/ngx_http_geo_module.html)

@@ -28,11 +28,12 @@ set +x
 umask 077
 RELEASE=/opt/carserviceapp/releases/REPLACE_WITH_FULL_REVIEWED_COMMIT
 PRODUCTION_ENV=/etc/carserviceapp/.env.production
+INGRESS_FILES=()
 dc() {
   env -u JWT_KEY -u JWT_ISSUER -u JWT_AUDIENCE -u DATA_PATH -u UPLOADS_PATH \
       -u FRONTEND_BIND_PORT -u APP_IMAGE_TAG -u COMPOSE_FILE -u COMPOSE_PROJECT_NAME -u COMPOSE_PROFILES \
       docker compose --project-directory "$RELEASE" --env-file "$PRODUCTION_ENV" \
-      -p carserviceapp -f "$RELEASE/docker-compose.yml" "$@"
+      -p carserviceapp -f "$RELEASE/docker-compose.yml" "${INGRESS_FILES[@]}" "$@"
 }
 dc config --quiet
 ```
@@ -90,7 +91,7 @@ Explicit image tags matter: an old source checkout pointing to a newly overwritt
 
 ## 6. Ingress, smoke tests and go-live
 
-After isolated gates pass, implement the reviewed host TLS/DNS/firewall and **two-hop client-IP/proto trust** design from TLS_INGRESS_PLAN.md in a later authorized stage. Current Nginx forwarding is intentionally not changed to trust arbitrary outer headers. Do not merely add a TLS edge and assume backend HTTPS/rate-limit identity works.
+After isolated gates pass, follow TLS_INGRESS_PLAN.md to measure the Caddy socket peer and prepare the protected credential pair. Enable the production map in this shell with `INGRESS_FILES=(-f "$RELEASE/docker-compose.ingress.yml")`, validate with `dc config --quiet` and recreate the frontend with the overlay before opening the edge. Use the overlay consistently for subsequent production operations. Configure the dedicated host Caddy service from `ingress/Caddyfile.example` and verify the protected import, real hostname and loopback port. The example uses a service restart for Caddy config changes because its admin API is disabled.
 
 Validate actual certificate/renewal, redirect/HSTS, spoofed-header rejection, distinct source rate limits, private backend and actual Linux permissions. Then test login/session/logout, admin/mechanic restrictions, customers/vehicles/appointments, worksheet save/concurrency/completion/reopen/print, normalized upload, zero pricing/VAT settings and admin audit. Use synthetic trial records first.
 

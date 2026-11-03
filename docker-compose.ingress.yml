@@ -1,0 +1,9 @@
+services:
+  frontend:
+    volumes:
+      - type: bind
+        source: /etc/carserviceapp/trusted-edge.conf
+        target: /etc/nginx/trusted-edge.conf
+        read_only: true
+        bind:
+          create_host_path: false

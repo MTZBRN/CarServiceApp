@@ -1,0 +1,12 @@
+{
+    admin off
+    persist_config off
+}
+
+workshop.example.invalid {
+    reverse_proxy 127.0.0.1:5173 {
+        header_up X-CarService-Edge-Client {http.request.remote.host}
+        header_up X-CarService-Edge-Scheme {http.request.scheme}
+        import /etc/caddy/carservice-edge-header.conf
+    }
+}

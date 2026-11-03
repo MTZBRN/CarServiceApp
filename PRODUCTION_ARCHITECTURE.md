@@ -39,7 +39,7 @@ Read-only container rootfs, ALL capabilities dropped, no-new-privileges and exis
 
 The host data/uploads paths are **ordinary real directories**, not symlinks, network shares or release-tree subdirectories. They survive image/release replacement. Do not recursively change ownership of existing business data without a backup/review. New empty paths may be created with `install -d -o 1654 -g 1654 -m 0700 ...`; source/config stays root-owned and non-writable to the backend. Rootless Docker/user-namespace remapping needs a separate ownership validation; do not fix mismatches with chmod 777.
 
-One Compose file is retained. `DATA_PATH`/`UPLOADS_PATH` select host binds; defaults preserve the prior local relative paths. `FRONTEND_BIND_PORT` changes only the loopback port. `APP_IMAGE_TAG` gives both locally built images release-specific names for rollback instead of overwriting a single deployment tag. `bind.create_host_path=false` still rejects missing directories. No public-production override file was added. Use explicit `--project-directory`, `--env-file`, `-p` and `-f` in operations, never rely on the current directory or an accidental shell `.env`.
+The base Compose file defines the private topology. `DATA_PATH` and `UPLOADS_PATH` select host binds, and `FRONTEND_BIND_PORT` selects the loopback port. `APP_IMAGE_TAG` identifies both images by release. `bind.create_host_path=false` rejects missing bind paths. The production ingress overlay mounts the protected Nginx peer map read-only. Use the explicit project, environment file and Compose file order in the deployment runbook.
 
 ## Production environment contract
 
@@ -58,13 +58,14 @@ Every production app variable below is either fixed in Compose/image or delibera
 | `ASPNETCORE_ENVIRONMENT` | **Fixed `Production` in Compose**. Not an env-file toggle. Development must not be enabled. | No. Recreate on reviewed change; not a supported production customization. |
 | `ConnectionStrings__DefaultConnection` | Fixed `Data Source=/app/data/app.db`; no password for SQLite. Image default agrees. Never use repository-relative production data. | Path contains sensitive DB; not a credential. Stop/backup/review/recreate for any change. |
 | `Uploads__Path` | Fixed `/app/uploads`, agrees with bind/image. | No. Coordinated storage change only. |
-| `ReverseProxy__KnownProxies__0` | Fixed `172.30.90.3`, the frontend's private address; ForwardLimit=1. Do not add all networks/arbitrary forwarders. | No. Recreate backend after a reviewed network change. Host ingress trust is a separate Nginx design step, not this value. |
+| `ReverseProxy__KnownProxies__0` | Fixed `172.30.90.3`, the frontend's private address. The backend consumes one symmetric forwarding pair from this immediate peer. | No. Recreate backend after a reviewed network change. |
+| Protected ingress files | Exact observed Caddy peer and matched 64-hex-character credential, as documented in TLS_INGRESS_PLAN.md. | Credential is secret. Recreate frontend and restart Caddy together on rotation. |
 | `ASPNETCORE_HTTP_PORTS` | Image fixed 8080; no public backend binding. | No. Not changed for deployment convenience. |
 | `HOME` | Image `/tmp`; writable, bounded tmpfs. | No. Keep default. |
 | `InitialAdmin__Email` | Temporary CLI-only existing username format: nonblank ≤254 chars, preferably a unique ASCII administrative login. | Identity, not password. Supplied only to one-off provisioning process; not web service config. |
 | `InitialAdmin__Password` | Temporary CLI-only ≥12 Unicode scalars and ≤72 UTF-8 bytes; recommend 32 random ASCII chars. | **Yes**. Generate/protect later; environment passed by name, unset immediately, one-off container `--rm`. |
 
-The backend additionally supports optional `Reads__PermitLimit` (default 240, clamped 30–600) and `Login__SourcePermitLimit` (default 30, clamped 1–1000). These are **not mapped by this Compose file's env template**. Leave defaults; adding names to `.env.production` alone will not forward them. Any reviewed future override must preserve security and be recreated/tested. Internal upload/write quotas and concurrency defaults remain code-defined. No database-password, refresh-token, cloud key, secret file mount or hidden `VITE_*` production credential is required. Build-time frontend variables are public, so secrets never belong there.
+The backend supports optional `Reads__PermitLimit` (default 240, clamped 30–600) and `Login__SourcePermitLimit` (default 30, clamped 1–1000). Compose uses the defaults and does not map those values from its env template. Internal upload/write quotas and concurrency defaults are code-defined. Build-time frontend variables are public. Keep the edge credential in the protected runtime files described in the ingress plan.
 
 ## Failure and backup boundaries
 

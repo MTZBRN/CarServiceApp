@@ -12,6 +12,18 @@ assert.deepEqual(Object.keys(config.services).sort(),['backend','frontend']);
 const {backend,frontend}=config.services;
 assert.equal(backend.ports,undefined);
 assert.deepEqual(frontend.ports,['127.0.0.1:${FRONTEND_BIND_PORT:-5173}:8080']);
+assert(backend.environment.includes('ReverseProxy__KnownProxies__0='+frontend.networks.workshop.ipv4_address));
+const ingress=yaml.load(fs.readFileSync(path.join(root,'docker-compose.ingress.yml'),'utf8'));
+assert.deepEqual(ingress,{services:{frontend:{volumes:[{
+ type:'bind',source:'/etc/carserviceapp/trusted-edge.conf',target:'/etc/nginx/trusted-edge.conf',
+ read_only:true,bind:{create_host_path:false},
+}]}}});
+const nginx=fs.readFileSync(path.join(root,'Frontend/nginx.conf'),'utf8');
+assert(nginx.includes('map "$remote_addr:$http_x_carservice_edge_token" $verified_edge'));
+assert.equal(nginx.match(/include \/etc\/nginx\/proxy-headers\.conf;/g)?.length,3);
+assert(!nginx.includes('$proxy_add_x_forwarded_for'));
+const proxy=fs.readFileSync(path.join(root,'Frontend/proxy-headers.conf'),'utf8');
+for(const name of ['Token','Scheme','Client']) assert(proxy.includes('proxy_set_header X-CarService-Edge-'+name+' "";'));
 for(const service of [backend,frontend]){
  assert.equal(service.restart,'unless-stopped');
  assert.equal(service.read_only,true);
