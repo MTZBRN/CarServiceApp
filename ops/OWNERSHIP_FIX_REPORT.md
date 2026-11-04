@@ -6,7 +6,7 @@ The initial working tree was clean. No branding/application files or data owners
 ## Result
 
 The developer checkout no longer needs to be root-owned. The root service uses an explicitly
-promoted release under `/opt/carserviceapp/backup-runtime/staging/r1`, with private root-owned
+promoted release under `/var/lib/carserviceapp-backup/staging/r1`, with private root-owned
 files/directories and a read-only runtime mount in the service. The original deploy-owned
 checkout/env and UID 1654 DB/uploads stay unchanged. Secret-bearing snapshots remain private.
 
