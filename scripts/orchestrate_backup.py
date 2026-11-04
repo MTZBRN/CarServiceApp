@@ -103,7 +103,7 @@ class Orchestrator:
             info = paths[key].stat()
             if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
                 raise Failure("Private root-owned file required")
-        for key in ["compose_dir", "release", "env_file", "lock", "output"]:
+        for key in ["compose_dir", "release", "env_file", "lock"]:
             for path in [paths[key], *paths[key].parents]:
                 if path.stat().st_uid != 0 or path.stat().st_mode & 0o022:
                     raise Failure("Untrusted administrative path")
@@ -125,7 +125,9 @@ class Orchestrator:
         db, uploads, output = (paths[k] for k in ["db", "uploads", "output"])
         if db.name != "app.db":
             raise Failure("Compose requires app.db")
-        if not db.is_file() or not uploads.is_dir() or not output.is_dir() or output.stat().st_mode & 0o077:
+        # Backup artifacts retain their existing deployment location; unlike executable
+        # runtime inputs, its ancestors need not be root-owned. Check the output itself.
+        if not db.is_file() or not uploads.is_dir() or not output.is_dir() or output.stat().st_uid != 0 or output.stat().st_mode & 0o077:
             raise Failure("Invalid data/output paths or permissions")
         if overlaps(db.parent, uploads) or overlaps(output, db.parent) or overlaps(output, uploads):
             raise Failure("Overlapping data paths")
@@ -286,6 +288,8 @@ def main():
         config = json.loads(config_path.read_text())
         # Existing provisioned file only: dry-run creates/modifies no files.
         lock = safe_path(config["lock"])
+        if any(p.stat().st_uid != 0 or p.stat().st_mode & 0o022 for p in [lock, *lock.parents]):
+            raise Failure("Untrusted maintenance lock path")
         if lock.stat().st_uid != 0 or lock.stat().st_mode & 0o077 or not lock.is_file():
             raise Failure("Invalid maintenance lock")
         with lock.open("rb") as stream:

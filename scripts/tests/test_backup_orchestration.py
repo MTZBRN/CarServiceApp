@@ -102,8 +102,9 @@ class WorkflowTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             c = dict(self.config)
+            (root / "deploy-owned").mkdir()
             for key in ["compose_dir", "release", "uploads", "output"]:
-                c[key] = str(root / key)
+                c[key] = str(root / "deploy-owned" / key) if key == "output" else str(root / key)
                 Path(c[key]).mkdir()
             (root / "data").mkdir()
             for key, relative in [("db", "data/app.db"), ("env_file", "env"), ("lock", "lock")]:
@@ -120,7 +121,7 @@ class WorkflowTests(unittest.TestCase):
             untrusted_helper = False
             def secure_stat(path, *args, **kwargs):
                 s = original_stat(path, *args, **kwargs)
-                return SimpleNamespace(st_uid=1000 if untrusted_helper and path.name == "ops_storage.py" else 0,
+                return SimpleNamespace(st_uid=1000 if path.name == "deploy-owned" or (untrusted_helper and path.name == "ops_storage.py") else 0,
                                        st_mode=s.st_mode & ~0o077, st_size=s.st_size)
             bad_mount = False
             commands = []

@@ -6,10 +6,16 @@ No VPS changes, secret copying, installation or timer activation were performed 
 
 ## Layout and trust boundary
 
-Use /opt/carserviceapp/backup-runtime/staging/r1 outside Git: root:root directories 0700,
+Use /var/lib/carserviceapp-backup/staging/r1 outside Git: root:root directories 0700,
 files 0600, no links. Never edit an active release. The unit mounts the runtime read-only.
 Root can explicitly install a new reviewed release; this does not defend against root or
 Docker-group users, who effectively have root privileges.
+
+`/opt/carserviceapp` is deploy-owned and is not a runtime trust root. The existing
+`/opt/carserviceapp/verified-backups` remains root-owned 0700 at its current location;
+it is artifact storage, not executable configuration. Its deploy-owned parent can rename
+or replace that directory, so it is not protected against the deploy account. No ownership
+or path change to that backup directory is part of this fix.
 
 inputs/ archives the reviewed Compose pair, explicit env snapshot, resolved config and
 container inspection. These contain secrets: never commit, print or publish them.
@@ -31,7 +37,7 @@ System Python/stdlib, Bash, Docker/Compose and root Docker config remain trusted
 Non-data bind inputs must be root-owned and not group/world writable. Existing edge credential
 permissions must also allow its container to read it; no bind ownership is changed here.
 
-Exactly one deployment/backup lock remains /opt/carserviceapp/maintenance.lock, root 0600.
+Exactly one deployment/backup lock remains /var/lib/carserviceapp-backup/maintenance.lock, root 0600.
 Never replace its inode. Deploy cannot open it directly: an approved root maintenance session
 must hold it while invoking the normal deployment procedure as deploy. Do not add blanket
 sudo rights. All operators/writers must cooperate; flock cannot stop uncooperative root/Docker
@@ -48,18 +54,28 @@ set -euo pipefail
 umask 077
 : "${REVIEWED:?Absolute reviewed checkout path required}"
 test "${REVIEWED:0:1}" = /
-R=/opt/carserviceapp/backup-runtime/staging/r1
+R=/var/lib/carserviceapp-backup/staging/r1
 test ! -e "$R"
-namei -l /opt/carserviceapp
-if [ ! -e /opt/carserviceapp/maintenance.lock ]; then
-  (set -o noclobber; : > /opt/carserviceapp/maintenance.lock)
+python3 -I -S -B - <<'PY'
+from pathlib import Path
+import stat
+p = Path('/var/lib/carserviceapp-backup')
+for entry in ([p] if p.exists() or p.is_symlink() else []) + list(p.parents):
+    s = entry.lstat()
+    assert not stat.S_ISLNK(s.st_mode) and s.st_uid == 0 and not s.st_mode & 0o022, 'Unsafe runtime ancestor'
+PY
+install -d -o root -g root -m 0700 /var/lib/carserviceapp-backup
+if [ ! -e /var/lib/carserviceapp-backup/maintenance.lock ]; then
+  (set -o noclobber; : > /var/lib/carserviceapp-backup/maintenance.lock)
 fi
-test ! -L /opt/carserviceapp/maintenance.lock
-test "$(stat -c '%u:%a' /opt/carserviceapp/maintenance.lock)" = 0:600
-exec 9</opt/carserviceapp/maintenance.lock
+test ! -L /var/lib/carserviceapp-backup/maintenance.lock
+test "$(stat -c '%u:%a' /var/lib/carserviceapp-backup/maintenance.lock)" = 0:600
+exec 9</var/lib/carserviceapp-backup/maintenance.lock
 flock -n -x 9
-install -d -o root -g root -m 0700 /opt/carserviceapp/backup-runtime /opt/carserviceapp/backup-runtime/staging "$R" "$R/scripts" "$R/inputs" "$R/units"
-install -d -o root -g root -m 0700 /opt/carserviceapp/verified-backups
+install -d -o root -g root -m 0700 /var/lib/carserviceapp-backup /var/lib/carserviceapp-backup/staging "$R" "$R/scripts" "$R/inputs" "$R/units"
+test -d /opt/carserviceapp/verified-backups
+test ! -L /opt/carserviceapp/verified-backups
+test "$(stat -c '%u:%a' /opt/carserviceapp/verified-backups)" = 0:700
 for file in orchestrate_backup.py ops_storage.py backup.sh restore-test.sh freeze_backup_runtime.py; do
   install -o root -g root -m 0600 "$REVIEWED/scripts/$file" "$R/scripts/$file"
 done
@@ -99,7 +115,7 @@ service is inactive; disable the timer if it was independently enabled. Do not i
 running backup to install files. Keep any prior protected release for rollback.
 
 ```bash
-ROLLBACK=/opt/carserviceapp/backup-runtime/staging/unit-rollback-r1
+ROLLBACK=/var/lib/carserviceapp-backup/staging/unit-rollback-r1
 install -d -o root -g root -m 0700 "$ROLLBACK"
 for unit in carserviceapp-backup.service carserviceapp-backup.timer; do
   if [ -f "/etc/systemd/system/$unit" ]; then
@@ -142,7 +158,7 @@ Every deployment uses this same root-session lock; hold fd 9 while running the s
 reviewed deployment commands as deploy, then install a NEW reviewed snapshot before unlocking:
 
 ```bash
-exec 9</opt/carserviceapp/maintenance.lock
+exec 9</var/lib/carserviceapp-backup/maintenance.lock
 flock -n -x 9
 # Approved deployment as deploy, then repeat packaging for a fresh r2.
 # In r2's copied unit change BOTH WorkingDirectory and ExecStart paths from r1 to r2.
@@ -160,7 +176,7 @@ still match. Wait for any backup to finish recovery, keep timer disabled, and in
 ```bash
 : "${PRIOR_UNIT:?Absolute archived unit pointing to a matching protected release}"
 : "${PRIOR_RELEASE:?Absolute retained protected release}"
-exec 9</opt/carserviceapp/maintenance.lock
+exec 9</var/lib/carserviceapp-backup/maintenance.lock
 flock -n -x 9
 install -o root -g root -m 0644 "$PRIOR_UNIT" /etc/systemd/system/carserviceapp-backup.service
 systemd-analyze verify /etc/systemd/system/carserviceapp-backup.service

@@ -6,6 +6,18 @@ import argparse
 import json
 from pathlib import Path
 import os
+import stat
+
+
+def trusted_path(path):
+    """Validate the complete existing trust chain before reading/writing a release."""
+    if not path.is_absolute() or ".." in path.parts:
+        raise ValueError("Absolute protected path required")
+    for entry in [path, *path.parents]:
+        info = entry.lstat()
+        if stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            raise ValueError("Untrusted runtime ancestor")
+    return path
 
 
 def freeze(config, containers):
@@ -63,6 +75,9 @@ def main():
     os.umask(0o077)
     root = Path(args.release)
     try:
+        trusted_path(root)
+        for name in ["inputs/resolved.json", "inputs/containers.json", "backup-staging.json"]:
+            trusted_path(root / name)
         config, identity = freeze(json.loads((root / "inputs/resolved.json").read_text()),
                                   json.loads((root / "inputs/containers.json").read_text()))
         destination = root / "compose"

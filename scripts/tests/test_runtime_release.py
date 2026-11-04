@@ -4,9 +4,11 @@ from pathlib import Path
 import sys
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
+import stat
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from freeze_backup_runtime import freeze
+from freeze_backup_runtime import freeze, trusted_path
 from orchestrate_backup import Orchestrator, Failure
 
 
@@ -56,3 +58,18 @@ class RuntimeTests(unittest.TestCase):
         self.assertIn("--project-name", job.compose)
         self.assertNotIn("/opt/carserviceapp/compose", job.compose)
         self.assertTrue(job.compose[-1].endswith("/compose/runtime.json"))
+        self.assertEqual(c["release"], "/var/lib/carserviceapp-backup/staging/r1")
+        self.assertEqual(c["lock"], "/var/lib/carserviceapp-backup/maintenance.lock")
+        self.assertEqual(c["output"], "/opt/carserviceapp/verified-backups")
+
+    def test_packaging_checks_every_ancestor(self):
+        path = Path.cwd() / "protected" / "staging" / "r1"
+        with patch.object(Path, "lstat", return_value=SimpleNamespace(st_uid=0, st_mode=stat.S_IFDIR | 0o755)):
+            self.assertEqual(trusted_path(path), path)
+        for ancestor in [path, *path.parents]:
+            for uid, mode in [(1000, stat.S_IFDIR | 0o750), (0, stat.S_IFDIR | 0o775), (0, stat.S_IFLNK | 0o777)]:
+                def info(entry):
+                    return SimpleNamespace(st_uid=uid if entry == ancestor else 0,
+                                           st_mode=mode if entry == ancestor else stat.S_IFDIR | 0o755)
+                with self.subTest(ancestor=ancestor, uid=uid, mode=mode), patch.object(Path, "lstat", info), self.assertRaises(ValueError):
+                    trusted_path(path)

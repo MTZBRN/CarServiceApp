@@ -21,7 +21,7 @@ class UnitTests(unittest.TestCase):
         self.assertIn(c["release"] + "/scripts/orchestrate_backup.py", service["ExecStart"])
         self.assertIn("-I -S -B", service["ExecStart"])
         self.assertEqual(service["WorkingDirectory"], c["release"])
-        self.assertEqual(service["ReadOnlyPaths"], "/opt/carserviceapp/backup-runtime")
+        self.assertEqual(service["ReadOnlyPaths"], "/var/lib/carserviceapp-backup")
         recovery = 3*c["start_timeout"] + 2*(c["health_timeout"]+31) + 40
         self.assertGreaterEqual(int(service["TimeoutStopSec"].removesuffix("min"))*60, recovery)
         self.assertGreater(int(service["TimeoutStartSec"].removesuffix("min"))*60,
