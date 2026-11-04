@@ -99,6 +99,12 @@ class WorkflowTests(unittest.TestCase):
                 self.job.https()
 
     def test_readonly_preflight_and_mount_mismatch(self):
+        self._preflight_checks()
+
+    def test_own_backend_is_not_extra_writer_but_distinct_writer_is_rejected(self):
+        self._preflight_checks(check_writers=True)
+
+    def _preflight_checks(self, check_writers=False):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             c = dict(self.config)
@@ -124,19 +130,23 @@ class WorkflowTests(unittest.TestCase):
                 return SimpleNamespace(st_uid=1000 if path.name == "deploy-owned" or (untrusted_helper and path.name == "ops_storage.py") else 0,
                                        st_mode=s.st_mode & ~0o077, st_size=s.st_size)
             bad_mount = False
+            extra_writer = False
+            container_ids = {"backend": "a" * 64, "frontend": "b" * 64}
+            writer_id = "a" * 12 + "c" * 52  # Shared prefix must not bypass the guard.
             commands = []
             def command(args, seconds=30):
                 commands.append(args)
-                if args == ops.DOCKER + ["ps", "--quiet"]:
-                    return ""
+                if args in [ops.DOCKER + ["ps", "--quiet"], ops.DOCKER + ["ps", "--no-trunc", "--quiet"]]:
+                    ids = list(container_ids.values()) + ([writer_id] if extra_writer else [])
+                    return "\n".join(ids if "--no-trunc" in args else [value[:12] for value in ids])
                 if "--quiet" in args and "ps" in args:
-                    return args[-1] + "-id"
+                    return container_ids[args[-1]]
                 if "{{json .State}}" in args:
                     return json.dumps({"Status": "running", "Running": True, "Health": {"Status": "healthy"}})
                 if "{{json .Config.Env}}" in args:
                     return json.dumps(["ConnectionStrings__DefaultConnection=Data Source=/app/data/app.db", "Uploads__Path=/app/uploads"])
                 if "{{json .Mounts}}" in args:
-                    return json.dumps([{"Type": "bind", "Destination": target, "Source": source} for target, source in [("/app/data", "WRONG" if bad_mount else str(root / "data")), ("/app/uploads", c["uploads"])]])
+                    return json.dumps([{"Type": "bind", "RW": True, "Destination": target, "Source": source} for target, source in [("/app/data", "WRONG" if bad_mount else str(root / "data")), ("/app/uploads", c["uploads"])]])
                 if "json" in args:
                     return json.dumps({"name": c["project_name"], "services": {"frontend": {"image": "frontend-image"}, "backend": {"image": "backend-image", "environment": {"ConnectionStrings__DefaultConnection": "Data Source=/app/data/app.db", "Uploads__Path": "/app/uploads"}, "volumes": [{"type": "bind", "target": "/app/data", "source": str(root / "data")}, {"type": "bind", "target": "/app/uploads", "source": c["uploads"]}]}}})
                 if args[:2] == ["systemctl", "show"]:
@@ -147,6 +157,12 @@ class WorkflowTests(unittest.TestCase):
             before = sorted(str(p.relative_to(root)) for p in root.rglob("*"))
             with patch.object(ops.sys, "platform", "linux"), patch.object(ops.os, "geteuid", return_value=0, create=True), patch.object(Path, "stat", secure_stat), patch.object(ops.shutil, "which", return_value="tool"), patch.object(ops.shutil, "disk_usage", return_value=SimpleNamespace(free=10**12)), patch.object(ops, "run", side_effect=command), patch.object(ops.Orchestrator, "verify_identity"):
                 job.preflight()
+                self.assertIn(ops.DOCKER + ["ps", "--no-trunc", "--quiet"], commands)
+                if check_writers:
+                    extra_writer = True
+                    with self.assertRaisesRegex(ops.Failure, "Additional container can write backup sources"):
+                        job.preflight()
+                    extra_writer = False
                 untrusted_helper = True
                 with self.assertRaisesRegex(ops.Failure, "Untrusted backup implementation"):
                     job.preflight()

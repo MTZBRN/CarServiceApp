@@ -201,7 +201,7 @@ class Orchestrator:
         if any(live_env.get(k) != v for k, v in required_env.items()):
             raise Failure("Running storage configuration mismatch")
         # Reject visible extra Docker writers; host writers still must honor the lock.
-        for container in run(DOCKER + ["ps", "--quiet"]).splitlines():
+        for container in run(DOCKER + ["ps", "--no-trunc", "--quiet"]).splitlines():
             if container in self.ids.values():
                 continue
             mounts = json.loads(run(DOCKER + ["inspect", "--format", "{{json .Mounts}}", container]))
