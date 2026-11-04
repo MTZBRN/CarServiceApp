@@ -1,0 +1,14 @@
+{
+  "compose_dir": "/opt/carserviceapp/compose",
+  "env_file": "/opt/carserviceapp/.env.staging",
+  "db": "/opt/carserviceapp/staging-data/app.db",
+  "uploads": "/opt/carserviceapp/staging-uploads",
+  "output": "/opt/carserviceapp/verified-backups",
+  "lock": "/opt/carserviceapp/maintenance.lock",
+  "release": "/opt/carserviceapp/backup-tools",
+  "hostname": "gtaszervizapp.hu",
+  "stop_timeout": 45,
+  "backup_timeout": 900,
+  "start_timeout": 90,
+  "health_timeout": 180
+}

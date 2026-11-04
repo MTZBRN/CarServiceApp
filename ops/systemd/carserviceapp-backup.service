@@ -1,0 +1,17 @@
+[Unit]
+Description=GTA Szerviz staging paired backup
+After=docker.service
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 /opt/carserviceapp/backup-tools/scripts/orchestrate_backup.py --config /etc/carserviceapp/backup-staging.json
+# Longer than backup + stop + complete recovery budgets; SIGTERM runs cleanup.
+TimeoutStartSec=35min
+TimeoutStopSec=15min
+KillMode=mixed
+StandardOutput=journal
+StandardError=journal
+LimitCORE=0

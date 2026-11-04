@@ -34,6 +34,11 @@ Source/output/target paths must be explicit absolute paths without links/parent 
 
 ## Daily automation and retention (design, not installed)
 
+The separately reviewable staging wrapper, disabled timer definitions, manual deployment,
+rollback and offsite prerequisites are now documented in
+[ops/BACKUP_ORCHESTRATION.md](ops/BACKUP_ORCHESTRATION.md). They reuse the storage helpers
+below; no VPS installation, real backup or offsite restore is implied by local tests.
+
 Initial policy: daily quiet-window paired backup; encrypted off-VPS copy after each successful set; 14 daily, 8 weekly and 12 monthly offsite snapshots, subject to capacity/owner review. Keep local completed sets for about seven days once offsite copies and a restore have been verified. Local tools intentionally do **not** prune anything. Never delete the only validated recovery set or count `.partial-*` as one.
 
 Later install a root-owned timer/wrapper which obtains one maintenance lock, stops both services using the exact production Compose/env/release context, invokes backup, restarts both in a failure-safe trap, checks health, transfers the completed set and reports each result. Do not run a generic cron `cp app.db`. A failure to transfer is a backup incident even if the local pair succeeds. Test restart-on-failure before enabling a schedule. No timer/service was installed here.
