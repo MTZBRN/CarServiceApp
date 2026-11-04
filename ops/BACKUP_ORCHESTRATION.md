@@ -1,235 +1,195 @@
-# Staging cold-backup orchestration — manual rollout only
+# Protected staging backup runtime — manual rollout only
 
-This implementation is prepared for review. Nothing is installed or enabled on the VPS.
-The existing `scripts/backup.sh`, `restore-test.sh` and `ops_storage.py` remain unchanged.
-Read `BACKUP_AND_RESTORE_PLAN.md` for artifact format, integrity checks and restore boundaries.
+This replaces the former root-owned-checkout procedure. Keep the Git checkout deploy-owned,
+Compose files 0664, original .env.staging deploy-owned 0600, and DB/uploads owned by UID 1654.
+No VPS changes, secret copying, installation or timer activation were performed by the agent.
 
-## Architecture and operating contract
+## Layout and trust boundary
 
-`scripts/orchestrate_backup.py --config <absolute-json-path> [--dry-run]` requires Linux,
-root and Python 3.12+. `ops/backup-staging.json` explicitly selects the staging paths;
-there are no implicit production defaults. A future production deployment needs its own
-reviewed config, Compose/env files, hostname, service/timer names and maintenance window.
+Use /opt/carserviceapp/backup-runtime/staging/r1 outside Git: root:root directories 0700,
+files 0600, no links. Never edit an active release. The unit mounts the runtime read-only.
+Root can explicitly install a new reviewed release; this does not defend against root or
+Docker-group users, who effectively have root privileges.
 
-The wrapper acquires a nonblocking exclusive flock on the **existing** root-owned 0600
-`/opt/carserviceapp/maintenance.lock`, holding it through preflight, backup and recovery.
-Every deployment, provisioning, restore and host-side upload/DB writer must cooperate
-with this same lock. The wrapper also refuses visible additional running Docker containers
-with overlapping writable bind mounts. It cannot prove that arbitrary host processes or
-another Docker daemon are not writing. Stop or lock all such writers before rollout.
-Never unlink/replace the maintenance lock while operations may hold it: flock locks its inode.
+inputs/ archives the reviewed Compose pair, explicit env snapshot, resolved config and
+container inspection. These contain secrets: never commit, print or publish them.
+compose/runtime.json is flattened with no builds, external env files or checkout dependencies.
+Relative paths are resolved against the ORIGINAL checkout before packaging. Build contexts
+are removed; images are pinned to live image IDs; existing named networks are external.
+Absolute database/upload/edge binds stay unchanged. Source Compose files are archived only.
+An empty explicit env file prevents implicit dotenv input; literal dollars are escaped.
 
-Preflight checks trusted absolute nonlinked paths, ownership/modes, tools, Python/SQLite,
-DB/upload/output separation, accessible files, conservative available capacity
-(twice source size plus 256 MiB), absence of the storage helper's stale lock,
-Compose validity, exactly one existing backend/frontend, stable startup states and healthy
-running containers. It compares configured **and actual container mounts** with the backup
-paths. Docker is pinned to `unix:///var/run/docker.sock`; inherited Compose/Docker variables
-cannot redirect commands. All external command output stays out of the journal.
+identity.json records the inspected project, container IDs, image IDs and network IDs.
+Explicit --project-name avoids the new directory creating a different project identity.
+Preflight refuses replacements, wrong labels, mounts/environment, unsafe permissions,
+additional Docker writers and unresolved build inputs. No up/build/pull/create is invoked.
+Recreating containers during deployment requires a newly reviewed runtime snapshot.
 
-Dry-run takes the lock and performs these reads, Docker/systemd inspections and token-free
-HTTPS GET probes. It never creates a lock, writes a backup, stops/starts a service or writes
-Python module caches. HTTPS GETs can create ordinary server access logs; read-only refers
-to application/backup/configuration data, not absence of access logging.
+All root-loaded helpers are installed privately. Isolated Python (-I -S -B) avoids checkout,
+user-site and environment imports. The entry point validates its helper path before import.
+System Python/stdlib, Bash, Docker/Compose and root Docker config remain trusted OS inputs.
+Non-data bind inputs must be root-owned and not group/world writable. Existing edge credential
+permissions must also allow its container to read it; no bind ownership is changed here.
 
-Execution stops Caddy, frontend, then backend; confirms stopped states; and invokes the
-existing backup helper with `--quiesced`. Its checksums, SQLite integrity/FK checks and source
-stability checks are retained. There is no pruning, restore, image pull, container recreation,
-database mutation command, offsite transfer or secret logging in the wrapper.
+Exactly one deployment/backup lock remains /opt/carserviceapp/maintenance.lock, root 0600.
+Never replace its inode. Deploy cannot open it directly: an approved root maintenance session
+must hold it while invoking the normal deployment procedure as deploy. Do not add blanket
+sudo rights. All operators/writers must cooperate; flock cannot stop uncooperative root/Docker
+users. The storage helper's .backup.lock remains its artifact guard, not a second deploy lock.
 
-Cleanup runs after successful backup, command errors, deadlines, SIGINT and SIGTERM.
-It starts only originally running services: backend then health, frontend then health,
-Caddy then HTTPS. It attempts later recovery steps even if an earlier one fails. Originally
-inactive services remain inactive. Invalid combinations (active ingress without healthy
-app, frontend without backend) fail before interruption. A failed backup still exits nonzero
-after successful recovery; failed recovery also exits nonzero and identifies the service.
-Repeated INT/TERM signals are ignored during bounded recovery. Child process groups are
-killed/reaped on interruption or timeout before restarting writers. A stop/start daemon job
-may outlive its CLI, so post-operation state/health checks and operator monitoring matter.
+## Exact manual installation (root Bash on staging only)
 
-HTTPS checks require verified TLS, `/` HTTP 200 and `/api/Customers` HTTP 401 without
-credentials, redirects, proxy environment or curlrc configuration. DNS/TLS/availability
-failures fail the operation. No tokens or response bodies are printed. HTTPS probes use
-the public DNS endpoint: operators must ensure it points to this staging host.
-
-Timeouts in the supplied config: stop 45 s (Compose command allowance +10 s), backup 900 s,
-start 90 s, container health 180 s with bounded inspection calls, HTTP request 15 s.
-The service allows 35 minutes overall startup and 15 minutes cleanup on stop; `KillMode=mixed`
-sends the initial termination to the supervisor and leaves its cleanup budget before the
-final cgroup kill. If adjusting config deadlines, adjust and revalidate the unit budgets too.
-The timer proposes 03:00 Europe/Budapest, with no persistent missed-run catchup. It remains
-disabled until a separately approved scheduling decision; DST behavior must be included in
-the maintenance-window review.
-
-## Exact manual staging deployment
-
-Run these later in a protected **root Bash session on the VPS**, after reviewing the release.
-`RELEASE` is the absolute path to the uploaded, reviewed checkout; set it yourself before
-the commands below. No credentials belong in this document or in command-line arguments.
-
-1. Confirm the current Compose directory/env and bind paths match the supplied JSON. Confirm
-   Caddy's downtime is acceptable for **all sites** it serves. Arrange a quiet maintenance
-   window, independent console access, monitoring and the shared-lock contract.
-2. Provision/install files explicitly (this does not start anything):
+Pause checkout edits/deploys and review the exact commit. Set REVIEWED to its absolute path.
+These commands explicitly copy secrets only when the operator runs them. Inspect root-owned,
+nonlinked, non-group/world-writable administrative ancestors before proceeding.
 
 ```bash
 set -euo pipefail
-: "${RELEASE:?Set the absolute reviewed release path first}"
-test "${RELEASE:0:1}" = /
-test -f "$RELEASE/scripts/orchestrate_backup.py"
-install -d -o root -g root -m 0755 /opt/carserviceapp/backup-tools/scripts
-install -d -o root -g root -m 0700 /opt/carserviceapp/verified-backups
-install -d -o root -g root -m 0755 /etc/carserviceapp
-# Create once; preserve an existing lock inode and validate its ownership/mode.
+umask 077
+: "${REVIEWED:?Absolute reviewed checkout path required}"
+test "${REVIEWED:0:1}" = /
+R=/opt/carserviceapp/backup-runtime/staging/r1
+test ! -e "$R"
+namei -l /opt/carserviceapp
 if [ ! -e /opt/carserviceapp/maintenance.lock ]; then
-  (umask 077; set -o noclobber; : > /opt/carserviceapp/maintenance.lock)
+  (set -o noclobber; : > /opt/carserviceapp/maintenance.lock)
 fi
-test -f /opt/carserviceapp/maintenance.lock
 test ! -L /opt/carserviceapp/maintenance.lock
-test "$(stat -c '%u:%a' /opt/carserviceapp/maintenance.lock)" = '0:600'
-# Updating the tools also cooperates with maintenance.
+test "$(stat -c '%u:%a' /opt/carserviceapp/maintenance.lock)" = 0:600
 exec 9</opt/carserviceapp/maintenance.lock
 flock -n -x 9
-install -o root -g root -m 0644 "$RELEASE/scripts/orchestrate_backup.py" /opt/carserviceapp/backup-tools/scripts/
-install -o root -g root -m 0644 "$RELEASE/scripts/ops_storage.py" /opt/carserviceapp/backup-tools/scripts/
-install -o root -g root -m 0644 "$RELEASE/scripts/backup.sh" /opt/carserviceapp/backup-tools/scripts/
-install -o root -g root -m 0644 "$RELEASE/scripts/restore-test.sh" /opt/carserviceapp/backup-tools/scripts/
-install -o root -g root -m 0600 "$RELEASE/ops/backup-staging.json" /etc/carserviceapp/backup-staging.json
-install -o root -g root -m 0644 "$RELEASE/ops/systemd/carserviceapp-backup.service" /etc/systemd/system/
-install -o root -g root -m 0644 "$RELEASE/ops/systemd/carserviceapp-backup.timer" /etc/systemd/system/
-flock -u 9
-exec 9<&-
-bash -n /opt/carserviceapp/backup-tools/scripts/backup.sh
-bash -n /opt/carserviceapp/backup-tools/scripts/restore-test.sh
+install -d -o root -g root -m 0700 /opt/carserviceapp/backup-runtime /opt/carserviceapp/backup-runtime/staging "$R" "$R/scripts" "$R/inputs" "$R/units"
+install -d -o root -g root -m 0700 /opt/carserviceapp/verified-backups
+for file in orchestrate_backup.py ops_storage.py backup.sh restore-test.sh freeze_backup_runtime.py; do
+  install -o root -g root -m 0600 "$REVIEWED/scripts/$file" "$R/scripts/$file"
+done
+install -o root -g root -m 0600 "$REVIEWED/ops/backup-staging.json" "$R/backup-staging.json"
+install -o root -g root -m 0600 "$REVIEWED/ops/systemd/carserviceapp-backup.service" "$R/units/"
+install -o root -g root -m 0600 "$REVIEWED/ops/systemd/carserviceapp-backup.timer" "$R/units/"
+install -o root -g root -m 0600 /opt/carserviceapp/compose/docker-compose.yml "$R/inputs/"
+install -o root -g root -m 0600 /opt/carserviceapp/compose/docker-compose.ingress.yml "$R/inputs/"
+install -o root -g root -m 0600 /opt/carserviceapp/.env.staging "$R/inputs/env.staging"
+docker --host unix:///var/run/docker.sock ps --format '{{.ID}} {{.Names}} {{.Label "com.docker.compose.project"}} {{.Label "com.docker.compose.service"}}'
+```
+
+Review the copied code and inputs before executing them. Set BACKEND_ID and FRONTEND_ID to
+the observed staging containers. Do not guess the project name or select another stack.
+Full inspect/resolved output is redirected into private files, not the terminal.
+
+```bash
+: "${BACKEND_ID:?Select staging backend ID}"
+: "${FRONTEND_ID:?Select staging frontend ID}"
+PROJECT=$(docker --host unix:///var/run/docker.sock inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$BACKEND_ID")
+test -n "$PROJECT"
+test "$PROJECT" = "$(docker --host unix:///var/run/docker.sock inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$FRONTEND_ID")"
+docker --host unix:///var/run/docker.sock inspect "$BACKEND_ID" "$FRONTEND_ID" > "$R/inputs/containers.json"
+env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/root docker --host unix:///var/run/docker.sock compose --project-name "$PROJECT" --project-directory /opt/carserviceapp/compose --env-file "$R/inputs/env.staging" -f "$R/inputs/docker-compose.yml" -f "$R/inputs/docker-compose.ingress.yml" config --format json > "$R/inputs/resolved.json"
+python3 -I -S -B "$R/scripts/freeze_backup_runtime.py" --release "$R"
+test -z "$(find "$R" -type l -print)"
+test -z "$(find "$R" ! -user root -print)"
+test -z "$(find "$R" -type f ! -perm 0600 -print)"
+test -z "$(find "$R" -type d ! -perm 0700 -print)"
+test -z "$(find "$R" ! -type f ! -type d -print)"
+namei -l "$R/scripts/orchestrate_backup.py"
+bash -n "$R/scripts/backup.sh"
+```
+
+Verify namei ancestors manually. If units already exist, archive them first and confirm the
+service is inactive; disable the timer if it was independently enabled. Do not interrupt a
+running backup to install files. Keep any prior protected release for rollback.
+
+```bash
+ROLLBACK=/opt/carserviceapp/backup-runtime/staging/unit-rollback-r1
+install -d -o root -g root -m 0700 "$ROLLBACK"
+for unit in carserviceapp-backup.service carserviceapp-backup.timer; do
+  if [ -f "/etc/systemd/system/$unit" ]; then
+    cp --preserve=mode,ownership "/etc/systemd/system/$unit" "$ROLLBACK/$unit"
+  fi
+done
+install -o root -g root -m 0644 "$R/units/carserviceapp-backup.service" /etc/systemd/system/
+install -o root -g root -m 0644 "$R/units/carserviceapp-backup.timer" /etc/systemd/system/
 systemd-analyze verify /etc/systemd/system/carserviceapp-backup.service /etc/systemd/system/carserviceapp-backup.timer
 systemd-analyze calendar '*-*-* 03:00:00 Europe/Budapest'
 systemctl daemon-reload
-# Check only: do not enable or start the timer.
 test "$(systemctl is-enabled carserviceapp-backup.timer || true)" = disabled
 test "$(systemctl is-active carserviceapp-backup.timer || true)" = inactive
-python3 -B /opt/carserviceapp/backup-tools/scripts/orchestrate_backup.py --config /etc/carserviceapp/backup-staging.json --dry-run
+flock -u 9
+exec 9<&-
+python3 -I -S -B "$R/scripts/orchestrate_backup.py" --config "$R/backup-staging.json" --dry-run
 ```
 
-Stop if any check fails, or if the timer unexpectedly reports enabled/active. Do not change
-DB/upload ownership to root to satisfy a preflight; application data must retain the deployed
-application ownership. Protect administrative parents, Compose files and the env separately.
-The env file must be root-owned 0600, output root-owned 0700, administrative parents/files
-not group/world-writable. Preserve existing env contents and edge credentials.
+Stop on any failure; do not weaken permissions. Never rerun packaging over an existing
+release. Its project placeholder is replaced only from inspected inputs, never a production
+default. Dry-run reads files/service state and HTTPS and takes the existing lock; it creates
+no backups/caches and changes no service/application data. HTTPS may generate access logs.
 
-3. During the approved downtime window, after a successful dry-run:
+Only during a separately approved downtime window, after successful dry-run:
 
 ```bash
 systemctl start carserviceapp-backup.service
 systemctl show carserviceapp-backup.service -p Result -p ExecMainStatus
 journalctl -u carserviceapp-backup.service -n 60 --no-pager
-docker --host unix:///var/run/docker.sock compose --project-directory /opt/carserviceapp/compose --env-file /opt/carserviceapp/.env.staging -f /opt/carserviceapp/compose/docker-compose.yml -f /opt/carserviceapp/compose/docker-compose.ingress.yml ps
-systemctl is-active caddy
+: "${BACKUP_SET:?Select explicit completed backup directory}"
+: "${RESTORE_TARGET:?New /var/tmp/carserviceapp-restore-test-unique directory}"
+bash "$R/scripts/restore-test.sh" --backup "$BACKUP_SET" --target "$RESTORE_TARGET"
 ```
 
-4. Select the exact newly completed backup directory (never `.partial-*`). Set `BACKUP_SET`
-   to that absolute directory and `RESTORE_TARGET` to a new unique path under `/var/tmp`
-   beginning `carserviceapp-restore-test-`. Then:
+The timer stays disabled. Select completed sets, never partials. Never restore over staging.
+
+## Deployment and rollback
+
+Every deployment uses this same root-session lock; hold fd 9 while running the separately
+reviewed deployment commands as deploy, then install a NEW reviewed snapshot before unlocking:
 
 ```bash
-: "${BACKUP_SET:?Select the completed backup directory}"
-: "${RESTORE_TARGET:?Select a new isolated restore-test target}"
-bash /opt/carserviceapp/backup-tools/scripts/restore-test.sh --backup "$BACKUP_SET" --target "$RESTORE_TARGET"
-```
-
-The timer stays disabled after this drill. Record release/image IDs, backup directory,
-duration, recovery health and restore verification without exporting business contents.
-Native Linux signal/process-group/flock/systemd tests and a real staging restore drill are
-required before approving scheduled use. Mocked tests are not that evidence.
-
-## Branding rollout and rollback
-
-Branding changes are in `Frontend/index.html`, the supplied source PNG, generated
-`Frontend/public/brand/*`, and `scripts/build-branding.ps1`. They can be reviewed/committed
-independently from this orchestration. The source was actually supplied at
-`Frontend/public/gta-szerviz-logo.png`; it remains unchanged. The deterministic script removes
-only exact RGB(0,0,0), preserving all other source pixels and distinguishable dark outlines.
-No generated logo is used. Full transparent PNG keeps original 1254x1254 placement; compact
-GTA crops produce 16/32/48 PNG favicons and an opaque 180 Apple icon on a dark tile.
-The general PNG is smaller than the original. The sidebar is unchanged (optional scope).
-
-Use the existing reviewed frontend image-build/publishing process with a unique release tag.
-This repository change alone does not deploy it. Once the frontend image is present on the
-VPS, in the same root Bash session, set `NEW_FRONTEND_IMAGE` to that exact existing image
-reference and record the current image ID. This explicit Compose override avoids changing
-the backend image or shared env file:
-
-```bash
-: "${NEW_FRONTEND_IMAGE:?Set the exact already-built frontend image reference}"
-DC=(docker --host unix:///var/run/docker.sock compose --project-directory /opt/carserviceapp/compose --env-file /opt/carserviceapp/.env.staging -f /opt/carserviceapp/compose/docker-compose.yml -f /opt/carserviceapp/compose/docker-compose.ingress.yml)
 exec 9</opt/carserviceapp/maintenance.lock
 flock -n -x 9
-FRONTEND_ID=$("${DC[@]}" ps --all --quiet frontend)
-OLD_FRONTEND_IMAGE=$(docker --host unix:///var/run/docker.sock inspect --format '{{.Image}}' "$FRONTEND_ID")
-docker --host unix:///var/run/docker.sock image inspect "$NEW_FRONTEND_IMAGE" >/dev/null
-export NEW_FRONTEND_IMAGE
-python3 -c 'import json,os; print(json.dumps({"services":{"frontend":{"image":os.environ["NEW_FRONTEND_IMAGE"]}}}))' > /opt/carserviceapp/compose/branding-release.json
-chmod 600 /opt/carserviceapp/compose/branding-release.json
-"${DC[@]}" -f /opt/carserviceapp/compose/branding-release.json up -d --no-deps --no-build --pull never frontend
+# Approved deployment as deploy, then repeat packaging for a fresh r2.
+# In r2's copied unit change BOTH WorkingDirectory and ExecStart paths from r1 to r2.
 flock -u 9
 exec 9<&-
 ```
 
-Record `OLD_FRONTEND_IMAGE` securely for rollback; ensure future regular deployments use the
-chosen release image, since the branding override is explicit and is not used by backup.
-Check Docker health and the public title/icons before accepting the release. For rollback,
-set `NEW_FRONTEND_IMAGE` to the recorded prior image ID and repeat the same locked rollout
-commands. No backend/data rollback is needed for static branding.
+Repeat installation with R ending in r2 (never overwrite r1), inspect the new container IDs,
+verify/install its unit and dry-run after unlocking. The root review is the trust promotion
+boundary: an unattended copier from a writable checkout is deliberately not installed.
 
-To withdraw orchestration, disable/stop the timer **if an operator later enabled it**;
-do not kill an active backup. Let the service finish recovery and review its status, or send
-SIGTERM to its main process and wait through the cleanup budget. Leave backup artifacts and
-the maintenance lock intact. Units/tools can remain inert. Revert only the reviewed automation
-files in a later release; never restore app data to undo automation or branding.
-
-Emergency recovery after power loss/SIGKILL is manual: inspect backup partials and any
-`.backup.lock`, verify no writer/backup remains, then use the exact Compose array above to
-`start backend`, wait for healthy, `start frontend`, wait for healthy, and `systemctl start caddy`
-only for services recorded as originally running. Validate HTTPS and 401 rejection. Never
-blindly delete `.backup.lock`; keep incomplete sets for diagnosis. `unless-stopped` does not
-guarantee recovery after a host crash during intentionally stopped containers.
-
-## Future encrypted offsite backup — not configured here
-
-Use a separately administered Restic repository outside the VPS failure/account boundary.
-The operator must supply the real endpoint, authentication and recoverable encryption key.
-Use root-only repository/password/credential files; no invented values are included.
-Do not print credentials or enable shell tracing. After reviewing the destination and a
-completed local set, an operator can use this pattern with real protected paths:
+Rollback only to a retained PROTECTED release whose recorded container/network/image IDs
+still match. Wait for any backup to finish recovery, keep timer disabled, and in root Bash:
 
 ```bash
-: "${RESTIC_REPOSITORY_FILE:?Path to operator-provisioned repository file}"
-: "${RESTIC_PASSWORD_FILE:?Path to protected repository password file}"
-: "${BACKUP_SET:?Explicit completed local paired set}"
-export RESTIC_REPOSITORY_FILE RESTIC_PASSWORD_FILE
-restic backup "$BACKUP_SET" --tag carserviceapp-staging
-restic snapshots --tag carserviceapp-staging
-restic check --read-data
-# Select an explicit snapshot ID, and a fresh isolated restore destination.
-: "${SNAPSHOT_ID:?Select the snapshot just verified}"
-: "${OFFSITE_RESTORE_TARGET:?New protected isolated restore directory}"
-restic restore "$SNAPSHOT_ID" --target "$OFFSITE_RESTORE_TARGET"
+: "${PRIOR_UNIT:?Absolute archived unit pointing to a matching protected release}"
+: "${PRIOR_RELEASE:?Absolute retained protected release}"
+exec 9</opt/carserviceapp/maintenance.lock
+flock -n -x 9
+install -o root -g root -m 0644 "$PRIOR_UNIT" /etc/systemd/system/carserviceapp-backup.service
+systemd-analyze verify /etc/systemd/system/carserviceapp-backup.service
+systemctl daemon-reload
+flock -u 9
+exec 9<&-
+python3 -I -S -B "$PRIOR_RELEASE/scripts/orchestrate_backup.py" --config "$PRIOR_RELEASE/backup-staging.json" --dry-run
 ```
 
-Run `restore-test.sh` on the restored paired set, then perform isolated application smoke
-tests with synthetic replacement secrets, no public traffic and the matching release.
-Repository initialization, transfer automation, provider credentials and failure alerting
-remain separate work. Do not count a failed transfer as offsite success. No `forget`, `prune`
-or local deletion is part of this implementation. Capacity/retention policy and any deletion
-require a separate review after verified recovery evidence.
+If the archived unit points at the old checkout-dependent design, DO NOT reactivate it.
+Leave the service uninvoked until a protected snapshot is available. If containers were
+recreated, package fresh identities even after rolling back the application image. Never
+bypass identity checks, delete backup/lock files or alter application data ownership.
 
-Production prerequisites: tested Linux recovery under signals/timeouts and disk failures,
-real paired staging backup/restore, offsite restore from another machine with recovered keys,
-isolated application drill, measured RPO/RTO, backup freshness/failure/capacity alerts, agreed
-maintenance window, verified exclusive writer controls, production-specific config and
-operator sign-off. SIGKILL, host failure or unresponsive kernel/storage cannot be guaranteed
-recoverable by an in-process cleanup handler.
+## Operational limits and remaining approval gates
 
-References: [systemd service timeouts](https://www.freedesktop.org/software/systemd/man/261/systemd.service.html),
-[systemd kill behavior](https://www.freedesktop.org/software/systemd/man/259/systemd.kill.html),
-[systemd timers](https://www.freedesktop.org/software/systemd/man/260/systemd.timer.html),
-[Restic documentation](https://restic.readthedocs.io/en/stable/).
+Stop Caddy/frontend/backend, invoke unchanged integrity logic with --quiesced, then attempt
+original-state recovery backend/frontend/Caddy on success/error/timeout/INT/TERM. Backup
+failure remains failure after successful recovery. Bounds remain 45s stop, 900s backup,
+90s start and 180s health; service budgets 35min/15min, mixed kill mode. HTTPS checks 200 and
+unauthenticated 401 without tokens. No pruning, production defaults or automatic rollout.
+
+Caddy downtime affects every hosted site. Host writers must cooperate. SIGKILL/power loss
+cannot guarantee recovery. Native Ubuntu systemd/flock/signals and a real staging restore
+are still required; this Windows host cannot execute native systemd validation.
+
+Future offsite Restic needs an independently administered encrypted repository and operator-
+provisioned root-only credentials/password files. No endpoint or credentials are invented.
+Back up an explicit completed set, check the repository, restore an explicit snapshot in
+isolation, run restore-test and isolated application smoke tests. No deletion/retention job
+is installed. Verified offsite restore, independent key recovery, monitoring, measured RPO/RTO
+and production-specific config/project/unit/window are production prerequisites.

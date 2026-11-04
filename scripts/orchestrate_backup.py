@@ -11,6 +11,14 @@ import sys
 import time
 
 sys.dont_write_bytecode = True  # Read-only preflight must not create module caches.
+# With python -I -S, admit only the explicitly installed, protected helper directory.
+if __name__ == "__main__" and sys.platform == "linux":
+    helper = Path(__file__).absolute().parent
+    for entry in [helper / "ops_storage.py", helper, *helper.parents]:
+        info = entry.lstat()
+        if stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            raise SystemExit("Untrusted runtime import path")
+    sys.path.insert(0, str(helper))
 from ops_storage import safe_path, overlaps
 
 
@@ -48,9 +56,9 @@ def interrupted(_signum, _frame):
 class Orchestrator:
     def __init__(self, config):
         self.c = config
-        self.compose = DOCKER + ["compose", "--project-directory", config["compose_dir"],
-                        "--env-file", config["env_file"], "-f", config["compose_dir"] + "/docker-compose.yml",
-                        "-f", config["compose_dir"] + "/docker-compose.ingress.yml"]
+        self.compose = DOCKER + ["compose", "--project-name", config["project_name"],
+                        "--project-directory", config["compose_dir"],
+                        "--env-file", config["env_file"], "-f", config["compose_dir"] + "/runtime.json"]
         self.ids = {}
         self.original = {}
 
@@ -99,14 +107,21 @@ class Orchestrator:
             for path in [paths[key], *paths[key].parents]:
                 if path.stat().st_uid != 0 or path.stat().st_mode & 0o022:
                     raise Failure("Untrusted administrative path")
-        for name in ["docker-compose.yml", "docker-compose.ingress.yml"]:
+        for name in ["runtime.json", "identity.json"]:
             path = safe_path(paths["compose_dir"] / name)
             if not path.is_file() or path.stat().st_uid != 0 or path.stat().st_mode & 0o022:
                 raise Failure("Untrusted Compose file")
-        for name in ["backup.sh", "ops_storage.py"]:
+        for name in ["orchestrate_backup.py", "backup.sh", "ops_storage.py"]:
             path = safe_path(paths["release"] / "scripts" / name)
             if not path.is_file() or any(p.stat().st_uid != 0 or p.stat().st_mode & 0o022 for p in [path, path.parent]):
                 raise Failure("Untrusted backup implementation")
+        # Everything in the installed release (including archived inputs) is root-private.
+        for current, dirs, files in os.walk(paths["release"]):
+            for name in dirs + files:
+                entry = safe_path(Path(current) / name)
+                info = entry.stat()
+                if info.st_uid != 0 or info.st_mode & 0o077 or not (entry.is_file() or entry.is_dir()):
+                    raise Failure("Unprotected runtime release entry")
         db, uploads, output = (paths[k] for k in ["db", "uploads", "output"])
         if db.name != "app.db":
             raise Failure("Compose requires app.db")
@@ -137,6 +152,25 @@ class Orchestrator:
         run(self.compose + ["config", "--quiet"])
         # Read resolved config in memory only; never log credentials.
         resolved = json.loads(run(self.compose + ["config", "--format", "json"]))
+        identity = json.loads((paths["compose_dir"] / "identity.json").read_text())
+        if resolved.get("name") != c["project_name"] or identity["project"] != c["project_name"]:
+            raise Failure("Runtime project identity mismatch")
+        if set(resolved["services"]) != {"backend", "frontend"}:
+            raise Failure("Unexpected runtime services")
+        for service in ["backend", "frontend"]:
+            if resolved["services"][service]["image"] != identity["services"][service]["image"]:
+                raise Failure("Runtime image identity mismatch")
+        for definition in resolved["services"].values():
+            if any(key in definition for key in ["build", "env_file", "extends", "configs", "secrets", "develop"]):
+                raise Failure("Runtime must be self-contained without build inputs")
+            for mount in definition.get("volumes", []):
+                if mount["type"] != "bind":
+                    raise Failure("Unsupported runtime mount")
+                source = safe_path(mount["source"])
+                if source not in [paths["db"].parent, paths["uploads"]]:
+                    for entry in [source, *source.parents]:
+                        if entry.stat().st_uid != 0 or entry.stat().st_mode & 0o022:
+                            raise Failure("Untrusted deployment input")
         required_env = {"ConnectionStrings__DefaultConnection": "Data Source=/app/data/app.db",
                         "Uploads__Path": "/app/uploads"}
         if any(resolved["services"]["backend"].get("environment", {}).get(k) != v
@@ -147,6 +181,7 @@ class Orchestrator:
             if len(ids) != 1:
                 raise Failure("Exactly one existing container per service required")
             self.ids[service] = ids[0]
+            self.verify_identity(service, identity["services"][service])
             state = self.state(service)
             if state["Status"] not in ["running", "exited"]:
                 raise Failure("Unstable container state")
@@ -182,6 +217,15 @@ class Orchestrator:
         if self.original["caddy"]:
             self.https()
         print("Preflight passed; no services changed", flush=True)
+
+    def verify_identity(self, service, expected):
+        live = json.loads(run(DOCKER + ["inspect", self.ids[service]]))[0]
+        labels = live["Config"]["Labels"]
+        networks = {name: item["NetworkID"] for name, item in live["NetworkSettings"]["Networks"].items()}
+        if (live["Id"] != expected["id"] or live["Image"] != expected["image"] or
+                labels.get("com.docker.compose.project") != self.c["project_name"] or
+                labels.get("com.docker.compose.service") != service or networks != expected["networks"]):
+            raise Failure("Running container identity changed; install a reviewed runtime release")
 
     def recover(self):
         print("Restoring original service state", flush=True)

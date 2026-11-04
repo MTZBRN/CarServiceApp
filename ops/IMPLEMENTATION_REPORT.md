@@ -1,5 +1,9 @@
 # GTA Szerviz branding and backup — review report, 2026-11-04
 
+Historical report for the original implementation. The ownership/runtime fix and current
+validation results are in [OWNERSHIP_FIX_REPORT.md](OWNERSHIP_FIX_REPORT.md); use the current
+BACKUP_ORCHESTRATION.md installation procedure instead of the original layout.
+
 Baseline: `6308ce0` (`Fix trusted HTTPS forwarding across ingress proxies`).
 The initial working tree contained only the user-supplied untracked logo under
 `Frontend/public/gta-szerviz-logo.png`. No commit, push, VPS deployment, service installation

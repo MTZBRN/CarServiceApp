@@ -19,6 +19,9 @@ class UnitTests(unittest.TestCase):
         self.assertNotIn("Install", unit)
         c = json.loads((ROOT / "ops/backup-staging.json").read_text())
         self.assertIn(c["release"] + "/scripts/orchestrate_backup.py", service["ExecStart"])
+        self.assertIn("-I -S -B", service["ExecStart"])
+        self.assertEqual(service["WorkingDirectory"], c["release"])
+        self.assertEqual(service["ReadOnlyPaths"], "/opt/carserviceapp/backup-runtime")
         recovery = 3*c["start_timeout"] + 2*(c["health_timeout"]+31) + 40
         self.assertGreaterEqual(int(service["TimeoutStopSec"].removesuffix("min"))*60, recovery)
         self.assertGreater(int(service["TimeoutStartSec"].removesuffix("min"))*60,

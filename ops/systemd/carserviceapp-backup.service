@@ -7,7 +7,9 @@ Type=oneshot
 User=root
 UMask=0077
 Environment=PYTHONDONTWRITEBYTECODE=1
-ExecStart=/usr/bin/python3 /opt/carserviceapp/backup-tools/scripts/orchestrate_backup.py --config /etc/carserviceapp/backup-staging.json
+WorkingDirectory=/opt/carserviceapp/backup-runtime/staging/r1
+ExecStart=/usr/bin/python3 -I -S -B /opt/carserviceapp/backup-runtime/staging/r1/scripts/orchestrate_backup.py --config /opt/carserviceapp/backup-runtime/staging/r1/backup-staging.json
+ReadOnlyPaths=/opt/carserviceapp/backup-runtime
 # Longer than backup + stop + complete recovery budgets; SIGTERM runs cleanup.
 TimeoutStartSec=35min
 TimeoutStopSec=15min

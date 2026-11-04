@@ -109,16 +109,19 @@ class WorkflowTests(unittest.TestCase):
             for key, relative in [("db", "data/app.db"), ("env_file", "env"), ("lock", "lock")]:
                 c[key] = str(root / relative)
                 Path(c[key]).touch()
-            for name in ["docker-compose.yml", "docker-compose.ingress.yml"]:
+            for name in ["runtime.json", "identity.json"]:
                 (Path(c["compose_dir"]) / name).touch()
             (Path(c["release"]) / "scripts").mkdir()
-            for name in ["backup.sh", "ops_storage.py"]:
+            for name in ["orchestrate_backup.py", "backup.sh", "ops_storage.py"]:
                 (Path(c["release"]) / "scripts" / name).touch()
+            (Path(c["compose_dir"]) / "identity.json").write_text(json.dumps({"project": c["project_name"], "services": {"backend": {"image": "backend-image"}, "frontend": {"image": "frontend-image"}}}))
             job = ops.Orchestrator(c)
             original_stat = Path.stat
+            untrusted_helper = False
             def secure_stat(path, *args, **kwargs):
                 s = original_stat(path, *args, **kwargs)
-                return SimpleNamespace(st_uid=0, st_mode=s.st_mode & ~0o077, st_size=s.st_size)
+                return SimpleNamespace(st_uid=1000 if untrusted_helper and path.name == "ops_storage.py" else 0,
+                                       st_mode=s.st_mode & ~0o077, st_size=s.st_size)
             bad_mount = False
             commands = []
             def command(args, seconds=30):
@@ -134,15 +137,19 @@ class WorkflowTests(unittest.TestCase):
                 if "{{json .Mounts}}" in args:
                     return json.dumps([{"Type": "bind", "Destination": target, "Source": source} for target, source in [("/app/data", "WRONG" if bad_mount else str(root / "data")), ("/app/uploads", c["uploads"])]])
                 if "json" in args:
-                    return json.dumps({"services": {"backend": {"environment": {"ConnectionStrings__DefaultConnection": "Data Source=/app/data/app.db", "Uploads__Path": "/app/uploads"}, "volumes": [{"type": "bind", "target": "/app/data", "source": str(root / "data")}, {"type": "bind", "target": "/app/uploads", "source": c["uploads"]}]}}})
+                    return json.dumps({"name": c["project_name"], "services": {"frontend": {"image": "frontend-image"}, "backend": {"image": "backend-image", "environment": {"ConnectionStrings__DefaultConnection": "Data Source=/app/data/app.db", "Uploads__Path": "/app/uploads"}, "volumes": [{"type": "bind", "target": "/app/data", "source": str(root / "data")}, {"type": "bind", "target": "/app/uploads", "source": c["uploads"]}]}}})
                 if args[:2] == ["systemctl", "show"]:
                     return "active"
                 if args[0] == "curl":
                     return "401" if args[-1].endswith("Customers") else "200"
                 return ""
             before = sorted(str(p.relative_to(root)) for p in root.rglob("*"))
-            with patch.object(ops.sys, "platform", "linux"), patch.object(ops.os, "geteuid", return_value=0, create=True), patch.object(Path, "stat", secure_stat), patch.object(ops.shutil, "which", return_value="tool"), patch.object(ops.shutil, "disk_usage", return_value=SimpleNamespace(free=10**12)), patch.object(ops, "run", side_effect=command):
+            with patch.object(ops.sys, "platform", "linux"), patch.object(ops.os, "geteuid", return_value=0, create=True), patch.object(Path, "stat", secure_stat), patch.object(ops.shutil, "which", return_value="tool"), patch.object(ops.shutil, "disk_usage", return_value=SimpleNamespace(free=10**12)), patch.object(ops, "run", side_effect=command), patch.object(ops.Orchestrator, "verify_identity"):
                 job.preflight()
+                untrusted_helper = True
+                with self.assertRaisesRegex(ops.Failure, "Untrusted backup implementation"):
+                    job.preflight()
+                untrusted_helper = False
                 bad_mount = True
                 with self.assertRaisesRegex(ops.Failure, "mounts mismatch"):
                     job.preflight()
