@@ -9,6 +9,7 @@ function page(load: () => Promise<{ default: ComponentType }>) {
 }
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginRoute /> },
+  { path: '/adatkezeles', element: page(() => import('../features/privacy/PrivacyNoticePage')) },
   { element: <RequireAuth />, errorElement: <ErrorState message="Az oldal nem tölthető be." onRetry={() => window.location.reload()} />, children: [{ element: <App />, children: [
     { index: true, element: <Navigate to="/dashboard" replace /> },
     { path: 'dashboard', element: page(() => import('../components/Pages/MainDashboard')) },
