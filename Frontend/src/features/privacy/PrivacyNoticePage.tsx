@@ -39,7 +39,7 @@ export default function PrivacyNoticePage() {
             <div><dt>Vállalkozás</dt><dd>GTA Szerviz Kft.</dd></div>
             <div><dt>Ügyfélfogadás címe</dt><dd>2083 Solymár, Mátyás király út 45.</dd></div>
             <div><dt>Székhely</dt><dd>[hivatalos székhely ellenőrizendő]</dd></div>
-            <div><dt>Kapcsolat</dt><dd><a href="mailto:gtaszerviz@gmail.com">gtaszerviz@gmail.com</a> · <a href="tel:+36304512755">+36 30 451 2755</a></dd></div>
+            <div><dt>Kapcsolat</dt><dd><a href="mailto:gtaszerviz@gmail.com">gtaszerviz@gmail.com</a></dd></div>
           </dl>
         </section>
 
