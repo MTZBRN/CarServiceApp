@@ -20,7 +20,7 @@ export default function PrivacyNoticePage() {
 
         <div className="privacy-draft" role="status">
           <strong>Tervezet – még nem használható ügyféltájékoztatásra.</strong>
-          <span>A szögletes zárójelben szereplő adatokat és a jogi részleteket a Kft.-vel véglegesíteni kell.</span>
+          <span>A hivatalos székhelyet, az adatkezelési jogalapokat, a megőrzési időket és a technikai részleteket még véglegesíteni kell.</span>
         </div>
 
         <div className="privacy-heading">
@@ -36,9 +36,10 @@ export default function PrivacyNoticePage() {
           <h2 id="controller">1. Az adatkezelő</h2>
           <p>Az ügyféladatokat a szervizt üzemeltető vállalkozás kezeli. A GTA Szerviz a műhely nyilvántartó alkalmazásának neve.</p>
           <dl>
-            <div><dt>Vállalkozás</dt><dd>[Kft. teljes hivatalos neve]</dd></div>
-            <div><dt>Székhely</dt><dd>[hivatalos székhely]</dd></div>
-            <div><dt>Kapcsolat</dt><dd>[adatvédelmi megkeresésekre használható e-mail / postacím]</dd></div>
+            <div><dt>Vállalkozás</dt><dd>GTA Szerviz Kft.</dd></div>
+            <div><dt>Ügyfélfogadás címe</dt><dd>2083 Solymár, Mátyás király út 45.</dd></div>
+            <div><dt>Székhely</dt><dd>[hivatalos székhely ellenőrizendő]</dd></div>
+            <div><dt>Kapcsolat</dt><dd><a href="mailto:gtaszerviz@gmail.com">gtaszerviz@gmail.com</a> · <a href="tel:+36304512755">+36 30 451 2755</a></dd></div>
           </dl>
         </section>
 
