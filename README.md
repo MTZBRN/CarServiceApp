@@ -496,6 +496,8 @@ Developed by **Barnabás Metzger**.
 
 This software is proprietary and source-available for viewing and evaluation purposes only. No permission is granted to use, copy, modify, distribute, sublicense, host, or commercially exploit the software without prior written permission from the copyright holder.
 
+[![How it works](https://www.gitskins.com/api/badge/diagram?repo=MTZBRN/CarServiceApp)](https://www.gitskins.com/MTZBRN/CarServiceApp)
+
 Before using it with real customer or business data, the operator is responsible for configuring and validating the deployment environment, access controls, backups, TLS, server security, monitoring, and applicable data-protection requirements.
 
 See the `LICENSE` file for the full terms.
