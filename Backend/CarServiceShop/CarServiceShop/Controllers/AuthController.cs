@@ -18,10 +18,14 @@ public class AuthController : ControllerBase
     private readonly ApplicationDbContext _context;
     private readonly IConfiguration _configuration;
 
-    public AuthController(ApplicationDbContext context, IConfiguration configuration)
+    private readonly TimeProvider _clock;
+    private long Now => _clock.GetUtcNow().ToUnixTimeMilliseconds();
+
+    public AuthController(ApplicationDbContext context, IConfiguration configuration, TimeProvider clock)
     {
         _context = context;
         _configuration = configuration;
+        _clock = clock;
     }
 
     [AllowAnonymous]
@@ -50,8 +54,11 @@ public class AuthController : ControllerBase
             }
             return Unauthorized(new { message = "Hibás bejelentkezési adatok!" });
         }
+        var now = Now;
+        await _context.Sessions.Where(s => s.IdleUntil <= now).ExecuteDeleteAsync(HttpContext.RequestAborted);
+        var session = StartSession(user, now);
         await _context.Audit.AppendAsync(_context,_context.Audit.Create("Auth.LoginSucceeded","User",user.Id,resolvedActor:user),HttpContext.RequestAborted);
-        var tokenString = IssueToken(user);
+        var tokenString = IssueToken(user, session);
 
         // 4. Visszaküldjük a generált tokent és a felhasználó adatait
         return Ok(new {
@@ -69,7 +76,30 @@ public class AuthController : ControllerBase
         var id = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var user = await _context.Users.FindAsync(id);
         if (user == null) return Unauthorized();
-        return Ok(new { userName = user.Name, user.Role, user.ProfilePicturePath });
+        var now = Now;
+        var idleUntil = await WorkshopSession.Active(_context, User, now).Select(s => (long?)s.IdleUntil).SingleOrDefaultAsync();
+        if (idleUntil == null) return Unauthorized();
+        return Ok(new { userName = user.Name, user.Role, user.ProfilePicturePath,
+            sessionId = User.FindFirstValue(WorkshopSession.Claim), remainingMs = idleUntil - now });
+    }
+
+    [Authorize, HttpPost("activity"), EnableRateLimiting("activity")]
+    public async Task<IActionResult> Activity()
+    {
+        // SQLite's immediate write transaction serializes writers. Read the clock
+        // after acquiring it so waiting for another writer cannot revive an expired login.
+        await using var transaction = await _context.Database.BeginTransactionAsync(HttpContext.RequestAborted);
+        var now = Now;
+        var active = WorkshopSession.Active(_context, User, now);
+        var deadline = now + WorkshopSession.IdleMilliseconds;
+        // A late or concurrent gesture cannot resurrect a session or move its deadline backwards.
+        var changed = await active.ExecuteUpdateAsync(update => update.SetProperty(s => s.IdleUntil,
+            s => Math.Max(s.IdleUntil, Math.Min(deadline, s.AbsoluteUntil))), HttpContext.RequestAborted);
+        if (changed == 0) return Unauthorized();
+        var until = await active.Select(s => (long?)s.IdleUntil).SingleOrDefaultAsync();
+        if (until == null) return Unauthorized();
+        await transaction.CommitAsync(HttpContext.RequestAborted);
+        return Ok(new { remainingMs = until - Now });
     }
     [Authorize] // Bárki, aki be van jelentkezve, használhatja
     [HttpPost("change-password")]
@@ -92,27 +122,39 @@ public class AuthController : ControllerBase
         // 3. Új jelszó hashelése és mentése
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
         user.SessionVersion = Guid.NewGuid().ToString("N");
+        var session = StartSession(user, Now);
         await _context.SaveAuditedAsync(user,SecurityAuditAction.PasswordChanged);
 
-        return Ok(new { message = "Jelszó sikeresen megváltoztatva!", token = IssueToken(user) });
+        return Ok(new { message = "Jelszó sikeresen megváltoztatva!", token = IssueToken(user, session) });
     }
 
     // Logout revokes all access tokens for this identity, never a supplied user ID.
     [Authorize]
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout()
+    public async Task<IActionResult> Logout([FromQuery] bool currentSessionOnly = false)
     {
         var id=int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         // SQL assignment avoids lost invalidation under simultaneous password/logout requests.
         var version = Guid.NewGuid().ToString("N");
         await using var transaction=await _context.Database.BeginTransactionAsync(HttpContext.RequestAborted);
-        if(await _context.Users.Where(u=>u.Id==id).ExecuteUpdateAsync(s=>s.SetProperty(u=>u.SessionVersion,version))!=1) return Unauthorized();
+        if (currentSessionOnly) {
+            var sessionId = User.FindFirstValue(WorkshopSession.Claim);
+            await _context.Sessions.Where(s => s.UserId == id && s.Id == sessionId).ExecuteDeleteAsync(HttpContext.RequestAborted);
+        } else if(await _context.Users.Where(u=>u.Id==id).ExecuteUpdateAsync(s=>s.SetProperty(u=>u.SessionVersion,version))!=1) return Unauthorized();
         await _context.Audit.AppendAsync(_context,_context.Audit.Create("Auth.SessionRevoked","User",id),HttpContext.RequestAborted);
         await transaction.CommitAsync(HttpContext.RequestAborted);
         return NoContent();
     }
 
-    private string IssueToken(User user)
+    private WorkshopSession StartSession(User user, long now)
+    {
+        var session = new WorkshopSession { UserId = user.Id, IdleUntil = now + WorkshopSession.IdleMilliseconds,
+            AbsoluteUntil = now + (long)TimeSpan.FromHours(8).TotalMilliseconds };
+        _context.Sessions.Add(session);
+        return session;
+    }
+
+    private string IssueToken(User user, WorkshopSession session)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = SecurityRules.SigningKey(_configuration["Jwt:Key"]);
@@ -123,11 +165,12 @@ public class AuthController : ControllerBase
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Name),
                 new Claim(ClaimTypes.Role, user.Role),
-                new Claim("session_version", user.SessionVersion)
+                new Claim("session_version", user.SessionVersion),
+                new Claim(WorkshopSession.Claim, session.Id)
             }),
             Issuer = ProductionHardening.JwtScope(_configuration,"Issuer",HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment()),
             Audience = ProductionHardening.JwtScope(_configuration,"Audience",HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment()),
-            Expires = DateTime.UtcNow.AddDays(7), // 7 napig érvényes
+            Expires = DateTimeOffset.FromUnixTimeMilliseconds(session.AbsoluteUntil).UtcDateTime,
             SigningCredentials = new SigningCredentials(
                 new SymmetricSecurityKey(key),
                 SecurityAlgorithms.HmacSha256Signature)

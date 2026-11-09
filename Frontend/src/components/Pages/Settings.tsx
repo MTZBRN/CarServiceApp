@@ -15,7 +15,7 @@ import '../../features/records/records.css';
 import '../../styles/final-pages.css';
 
 function PersonalAccount() {
-  const { user } = useAuth();
+  const { user, login } = useAuth();
   const { showToast } = useToast();
   const [passwords, setPasswords] = useState({ oldPassword:'', newPassword:'', confirm:'' });
   const [errors, setErrors] = useState<Record<string,string>>({});
@@ -40,7 +40,7 @@ function PersonalAccount() {
     passwordLock.current=true; setSaving(true);
     try {
       const response=await authApi.changePassword({ oldPassword:passwords.oldPassword, newPassword:passwords.newPassword });
-      if(response.data.token) { localStorage.setItem("authToken",response.data.token); }
+      if(response.data.token && user) login(response.data.token, user.userName, user.role);
       setPasswords({oldPassword:'',newPassword:'',confirm:''});
       showToast('A jelszó módosítva.', 'success');
     } catch(e) { setPasswordError(apiErrorMessage(e,'A jelszóváltás nem sikerült.')); }

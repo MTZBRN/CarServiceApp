@@ -45,6 +45,7 @@ export default function WorksheetWorkspace({initial,vehicleId,appointmentId}:{in
   } finally {lock.current=false;setBusy(false);}
  }
  return <section className="worksheet-workspace" aria-label="Munkalap szerkesztő">
+ {dirty && <p>15 perc inaktivitás után a munkamenet lejár, és a nem mentett módosítások elvesznek.</p>}
  {readOnly&&<p role="status">A befejezett munkalap csak olvasható. Módosításhoz adminisztrátor szükséges.</p>}
  <div className="ws-identity"><strong>{saved?'Munkalap #'+saved.id:'Új munkalap'}</strong><Badge tone={saved?.isCompleted?'success':'warning'}>{saved?.isCompleted?'Befejezett':'Nyitott'}</Badge><span role="status">{busy?'Mentés folyamatban…':dirty?'Nem mentett módosítások':'Nincs nem mentett módosítás'}</span><Link to="/worksheets">Munkalapok listája</Link></div>
  <div className="ws-layout"><div className="ws-main"><Card><h2>Jármű és ügyfél</h2>
