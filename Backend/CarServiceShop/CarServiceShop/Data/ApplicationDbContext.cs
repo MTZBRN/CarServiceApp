@@ -18,6 +18,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<JobPart> JobParts { get; set; }
     public DbSet<Part> Parts { get; set; }
     public DbSet<User> Users { get; set; }
+    public DbSet<CarServiceShop.Security.WorkshopSession> Sessions { get; set; }
     public DbSet<AuditEvent> AuditEvents { get; set; }
     public CarServiceShop.Security.AuditWriter Audit { get; }
     public Task SaveAuditedAsync(object target,CarServiceShop.Security.SecurityAuditAction? action=null,CancellationToken cancellationToken=default) => Audit.SaveAsync(this,target,action,cancellationToken);
@@ -36,6 +37,7 @@ public class ApplicationDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         var audit=modelBuilder.Entity<AuditEvent>();
+        modelBuilder.Entity<CarServiceShop.Security.WorkshopSession>().HasIndex(s => s.IdleUntil);
         audit.Property(e=>e.TimestampUtc).HasConversion(v=>v,v=>DateTime.SpecifyKind(v,DateTimeKind.Utc));
         audit.Property(e=>e.ActorName).HasMaxLength(200);audit.Property(e=>e.ActorRole).HasMaxLength(16);
         audit.Property(e=>e.Action).HasMaxLength(64);audit.Property(e=>e.ResourceType).HasMaxLength(32);

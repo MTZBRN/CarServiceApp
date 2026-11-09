@@ -50,10 +50,9 @@ builder.Services.AddAuthentication(options =>
 {
     options.Events = new JwtBearerEvents { OnTokenValidated = async ctx => {
         var db = ctx.HttpContext.RequestServices.GetRequiredService<ApplicationDbContext>();
-        var id = ctx.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        var role = ctx.Principal?.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-        var version = ctx.Principal?.FindFirst("session_version")?.Value;
-        if (string.IsNullOrEmpty(version) || !int.TryParse(id, out var userId) || !await db.Users.AnyAsync(u => u.Id == userId && u.Role == role && u.SessionVersion == version)) ctx.Fail("Invalid session");
+        var now = ctx.HttpContext.RequestServices.GetRequiredService<TimeProvider>().GetUtcNow().ToUnixTimeMilliseconds();
+        if (!await WorkshopSession.Active(db, ctx.Principal!, now).AnyAsync(ctx.HttpContext.RequestAborted))
+            ctx.Fail("Invalid session");
     }};
     options.TokenValidationParameters = new TokenValidationParameters
     {
@@ -79,6 +78,7 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<AuditWriter>();
 builder.Services.AddSingleton<AuditFailureBudget>();
 
@@ -114,13 +114,26 @@ builder.Services.Configure<ForwardedHeadersOptions>(options => {
 });
 builder.Services.AddRateLimiter(options => {
     options.RejectionStatusCode = 429;
-    options.GlobalLimiter=PartitionedRateLimiter.Create<HttpContext,string>(ctx=>
+    options.GlobalLimiter=PartitionedRateLimiter.CreateChained(
+      PartitionedRateLimiter.Create<HttpContext,string>(ctx=>
         ctx.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName switch {
             "collections"=>RateLimitPartition.GetConcurrencyLimiter("collection-work",_=>new ConcurrencyLimiterOptions {PermitLimit=8,QueueLimit=0}),
             "uploads"=>RateLimitPartition.GetConcurrencyLimiter("image-work",_=>new ConcurrencyLimiterOptions {PermitLimit=1,QueueLimit=0}),
             "worksheet-writes"=>RateLimitPartition.GetConcurrencyLimiter("worksheet-work",_=>new ConcurrencyLimiterOptions {PermitLimit=4,QueueLimit=0}),
+            "activity"=>RateLimitPartition.GetConcurrencyLimiter("activity-work",_=>new ConcurrencyLimiterOptions {PermitLimit=2,QueueLimit=0}),
             _=>RateLimitPartition.GetNoLimiter("other")
-        });
+        }),
+      PartitionedRateLimiter.Create<HttpContext,string>(ctx =>
+        ctx.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName == "activity"
+            ? RateLimitPartition.GetConcurrencyLimiter(ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "anonymous",
+                _ => new ConcurrencyLimiterOptions { PermitLimit=1, QueueLimit=0 })
+            : RateLimitPartition.GetNoLimiter("other")));
+    options.AddPolicy("activity", ctx => RateLimitPartition.GetTokenBucketLimiter(
+        ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "anonymous",
+        _ => new TokenBucketRateLimiterOptions {
+            TokenLimit=20, TokensPerPeriod=4, ReplenishmentPeriod=TimeSpan.FromSeconds(1),
+            AutoReplenishment=true, QueueLimit=0
+        }));
     options.AddPolicy("collections",ctx=>RateLimitPartition.GetFixedWindowLimiter(ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value??ctx.Connection.RemoteIpAddress?.ToString()??"unknown",
         _=>new FixedWindowRateLimiterOptions {PermitLimit=Math.Clamp(builder.Configuration.GetValue("Reads:PermitLimit",240),30,600),Window=TimeSpan.FromMinutes(1),QueueLimit=0}));
     options.AddPolicy("uploads",ctx=>RateLimitPartition.GetFixedWindowLimiter(ctx.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value??"anonymous",

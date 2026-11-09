@@ -44,9 +44,9 @@ test('query cache shares pending work, invalidates active pages and separates se
  await page.route(url=>url.pathname==='/api/Customers',async route=>{requests++;await new Promise(r=>setTimeout(r,40));const second=route.request().headers().authorization==='Bearer session-B';await route.fulfill({json:[{id:second?200:100,name:second?'Session B':'Session A',phoneNumber:'1'}],headers:{'Access-Control-Allow-Origin':ui,'Access-Control-Expose-Headers':'X-Total-Count,X-Page,X-Page-Size','X-Total-Count':'120','X-Page':'2','X-Page-Size':'50'}});});
  const result=await page.evaluate(async()=>{
   const {createWorkshopStore}=await import('/src/data/workshopStore.ts');const {resetApiSession}=await import('/src/api/client.ts');
-  localStorage.setItem('authToken','session-A');const store=createWorkshopStore();const first=store.query('customers',{q:'shared',page:2});const same=store.query('customers',{page:2,q:'shared'});const unsubscribe=first.subscribe(()=>{});
+  localStorage.setItem('authToken','session-A');resetApiSession();const store=createWorkshopStore();const first=store.query('customers',{q:'shared',page:2});const same=store.query('customers',{page:2,q:'shared'});const unsubscribe=first.subscribe(()=>{});
   await Promise.all([first.load(),same.load()]);const initial=first.snapshot();await store.refresh(['customers']);const refreshed=first.snapshot();unsubscribe();
-  resetApiSession();localStorage.setItem('authToken','session-B');const other=createWorkshopStore().query('customers',{q:'shared',page:2});const empty=other.snapshot().data.length;await other.load();
+  localStorage.setItem('authToken','session-B');resetApiSession();const other=createWorkshopStore().query('customers',{q:'shared',page:2});const empty=other.snapshot().data.length;await other.load();
   const evicted=store.query('customers',{q:'oldest'});for(let i=0;i<80;i++)store.query('customers',{q:'bounded-'+i});
   return {same:first===same,total:initial.totalCount,page:initial.page,first:initial.data[0].name,refreshed:refreshed.data[0].name,empty,next:other.snapshot().data[0].name,evicted:evicted!==store.query('customers',{q:'oldest'})};
  });

@@ -107,7 +107,11 @@ test(`logout cancels a delayed ${status} response before a second session`, asyn
 test('shared resource failure supports retry and preserves data during a failed refresh', async ({ page }) => {
   await page.goto(ui + '/login');
   await expect(page.getByPlaceholder('Jelszó')).toBeVisible();
-  await page.evaluate(() => localStorage.setItem('authToken', 'test-session'));
+  await page.evaluate(async () => {
+    localStorage.setItem('authToken', 'test-session');
+    const {resetApiSession} = await import('/src/api/client.ts');
+    resetApiSession();
+  });
   let calls = 0;
   await page.route('**/api/Auth/me', route => route.fulfill({ json: { userName: 'Test', role: 'admin' } }));
   await page.route('**/api/Customers', route => {

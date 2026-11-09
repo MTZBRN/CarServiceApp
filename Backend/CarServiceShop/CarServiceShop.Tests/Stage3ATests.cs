@@ -126,12 +126,14 @@ public class Stage3ATests
         Assert.Contains("traceId",body);Assert.True(response.Headers.CacheControl!.NoStore);Assert.True(response.Headers.Contains("Content-Security-Policy"));
         Assert.DoesNotContain(host.Logs.Messages,m=>m.Contains("private-credential-and-SQL-marker"));
     }
-    [Theory] [InlineData("valid")] [InlineData("issuer")] [InlineData("audience")] [InlineData("unsigned")]
+    [Theory] [InlineData("valid")] [InlineData("legacy")] [InlineData("issuer")] [InlineData("audience")] [InlineData("unsigned")]
     [InlineData("algorithm")] [InlineData("expired")] [InlineData("retired-key")] [InlineData("stale-session")] [InlineData("no-expiry")]
     public async Task JwtScopeAndAlgorithmAreEnforced(string variant)
     {
         using var host=new SecurityHost();using var client=await host.SignedIn();var key=variant=="retired-key"?RandomNumberGenerator.GetBytes(48):Convert.FromBase64String(host.Key);
-        var claims=new[]{new Claim(ClaimTypes.NameIdentifier,"1"),new Claim(ClaimTypes.Role,"admin"),new Claim("session_version",variant=="stale-session"?"old":"initial")};
+        var claims=new List<Claim>{new(ClaimTypes.NameIdentifier,"1"),new(ClaimTypes.Role,"admin"),new("session_version",variant=="stale-session"?"old":"initial")};
+        if (variant != "legacy") claims.Add(new JwtSecurityTokenHandler().ReadJwtToken(client.DefaultRequestHeaders.Authorization!.Parameter)
+            .Claims.Single(c => c.Type == CarServiceShop.Security.WorkshopSession.Claim));
         var credentials=variant=="unsigned"?null:new SigningCredentials(new SymmetricSecurityKey(key),variant=="algorithm"?SecurityAlgorithms.HmacSha384:SecurityAlgorithms.HmacSha256);
         var token=new JwtSecurityToken(variant=="issuer"?"urn:other:issuer":SecurityHost.Issuer,variant=="audience"?"urn:other:client":SecurityHost.Audience,claims,
             DateTime.UtcNow.AddHours(-2),variant=="no-expiry"?null:DateTime.UtcNow.AddHours(variant=="expired"?-1:1),credentials);

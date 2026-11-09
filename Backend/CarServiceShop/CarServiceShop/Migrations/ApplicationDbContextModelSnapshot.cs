@@ -362,6 +362,29 @@ namespace CarServiceShop.Migrations
                     b.ToTable("Vehicles");
                 });
 
+            modelBuilder.Entity("CarServiceShop.Security.WorkshopSession", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AbsoluteUntil")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("IdleUntil")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdleUntil");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Sessions");
+                });
+
             modelBuilder.Entity("CarServiceShop.Models.Appointment", b =>
                 {
                     b.HasOne("CarServiceShop.Models.Vehicle", "Vehicle")
@@ -411,6 +434,17 @@ namespace CarServiceShop.Migrations
                         .IsRequired();
 
                     b.Navigation("Customer");
+                });
+
+            modelBuilder.Entity("CarServiceShop.Security.WorkshopSession", b =>
+                {
+                    b.HasOne("CarServiceShop.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("CarServiceShop.Models.Appointment", b =>
