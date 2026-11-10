@@ -4,12 +4,12 @@ import {useAuth} from '../../auth/AuthProvider';
 import { useCallback,useEffect,useRef,useState } from 'react';
 import { Link,useBlocker,useBeforeUnload,useNavigate,useSearchParams } from 'react-router-dom';
 import type { ServiceJob,Vehicle } from '../../types';import { worksheetsApi } from '../../api/worksheets';import { apiErrorMessage } from '../../api/client';import { useWorkshopResource } from '../../data/useWorkshopData';
-import Card from '../../components/ui/Card';import Button from '../../components/ui/Button';import Badge from '../../components/ui/Badge';import ConfirmDialog from '../../components/ui/ConfirmDialog';import { FormField,Input,Textarea } from '../../components/ui/Fields';import { useToast } from '../../components/ui/ToastProvider';import WorksheetPrintModal from '../../components/print/WorkSheetPrintModal';
-import { draftFrom,toParts,validateDraft,partsSubtotal,type WorksheetDraft } from './model';import PartsEditor from './PartsEditor';import { money,date } from '../records/shared';import { useNavigationSafety } from './NavigationSafety';import './worksheets.css';
+import Card from '../../components/ui/Card';import Button from '../../components/ui/Button';import Badge from '../../components/ui/Badge';import ConfirmDialog from '../../components/ui/ConfirmDialog';import { FormField,Input,Select,Textarea } from '../../components/ui/Fields';import { useToast } from '../../components/ui/ToastProvider';import WorksheetPrintModal from '../../components/print/WorkSheetPrintModal';
+import { powertrainLabels,draftFrom,toParts,validateDraft,partsSubtotal,type WorksheetDraft } from './model';import PartsEditor from './PartsEditor';import { money,date } from '../records/shared';import { useNavigationSafety } from './NavigationSafety';import './worksheets.css';
 export default function WorksheetWorkspace({initial,vehicleId,appointmentId}:{initial?:ServiceJob;vehicleId:number;appointmentId:number|null}) {
  const {user}=useAuth();
  const navigate=useNavigate();const [params]=useSearchParams();const {showToast}=useToast();const safety=useNavigationSafety();
- const empty:WorksheetDraft={vehicleId:vehicleId?String(vehicleId):'',date:new Date().toLocaleDateString('sv-SE'),description:'',laborCost:'0',parts:[]};
+ const empty:WorksheetDraft={odometerKm:'',powertrainCode:'',vehicleId:vehicleId?String(vehicleId):'',date:new Date().toLocaleDateString('sv-SE'),description:'',laborCost:'0',parts:[]};
  const [draft,setDraft]=useState<WorksheetDraft>(()=>initial?draftFrom(initial):empty);const [saved,setSaved]=useState(initial);const [baseline,setBaseline]=useState(()=>JSON.stringify(initial?draftFrom(initial):empty));
  const [pickedVehicle,setPickedVehicle]=useState<Vehicle>();
  const [errors,setErrors]=useState<Record<string,string>>({});const [error,setError]=useState('');const [busy,setBusy]=useState(false);const lock=useRef(false);const allow=useRef(false);const [pendingPart,setPendingPart]=useState(false);
@@ -30,7 +30,7 @@ export default function WorksheetWorkspace({initial,vehicleId,appointmentId}:{in
   if(lock.current||readOnly)return false;const validation=validateDraft(draft);if(pendingPart)validation.parts='Az új tételt előbb add a munkalaphoz, vagy ürítsd a bevitelt.';setErrors(validation);if(Object.keys(validation).length)return false;
   lock.current=true;setBusy(true);setError('');setExistingId(null);const submitted={...draft,parts:draft.parts.map(p=>({...p}))};
   try {
-   const fields={description:submitted.description,laborCost:Number(submitted.laborCost),isCompleted:status,jobParts:toParts(submitted.parts)};
+   const fields={odometerKm:submitted.odometerKm === '' ? null : Number(submitted.odometerKm),powertrainCode:submitted.powertrainCode || null,description:submitted.description,laborCost:Number(submitted.laborCost),isCompleted:status,jobParts:toParts(submitted.parts)};
    let result:ServiceJob;
    if(saved){const response=await worksheetsApi.update(saved.id,{...fields,version:saved.version});result=response.data;}
    else result=(await worksheetsApi.create({...fields,vehicleId:Number(submitted.vehicleId),appointmentId,date:submitted.date+'T12:00:00.000Z'})).data;
@@ -52,6 +52,9 @@ export default function WorksheetWorkspace({initial,vehicleId,appointmentId}:{in
  {saved||appointmentId ? <FormField label="Jármű *" hint="A járműkapcsolat ezen a munkalapon nem módosítható."><Input disabled value={vehicle?`${vehicle.licensePlate} · ${vehicle.make} ${vehicle.model}`:draft.vehicleId} /></FormField> :
  <SearchableLookup label="Jármű *" lookup={fleet} selectedItem={vehicle} getKey={v=>v.id} getLabel={v=>`${v.licensePlate} · ${v.make} ${v.model} · ${v.customer?.name??''}`} placeholder="Rendszám, márka, típus vagy ügyfél keresése…" error={errors.vehicle} disabled={busy} autoFocus={!vehicleId} onSelect={v=>{setPickedVehicle(v??undefined);patch({vehicleId:v?String(v.id):''});}} />}
  {contextVehicle&&<div className="ws-context"><Link className="records-plate" to={'/vehicles/'+contextVehicle.id}>{contextVehicle.licensePlate}</Link><span>{contextVehicle.make} {contextVehicle.model}</span><span>{customer?.name||'Nincs ügyféladat'}</span><span>{customer?.phoneNumber||'Nincs telefonszám'}</span></div>}
+ <FormField label="Km óra (km)" error={errors.odometerKm}><Input inputMode="numeric" disabled={busy||readOnly} value={draft.odometerKm} onChange={e=>patch({odometerKm:e.target.value})} /></FormField>
+ <FormField label="Üzemanyag"><Select disabled={busy||readOnly} value={draft.powertrainCode} onChange={e=>patch({powertrainCode:e.target.value as WorksheetDraft['powertrainCode']})}>
+ <option value="">Nincs megadva</option>{Object.entries(powertrainLabels).map(([code,label])=><option key={code} value={code}>{label}</option>)}</Select></FormField>
  <FormField label="Munkalap dátuma *" error={errors.date} hint={saved?'A tárolt munkalap dátuma.':undefined}><Input type="date" value={draft.date} disabled={!!saved||busy} onChange={e=>patch({date:e.target.value})} /></FormField>
  <p className="ws-note">{appointmentId?'Kapcsolódó időpont #'+appointmentId+' · '+(appointment?date(appointment.startTime)+' · '+(appointment.note||'Szerviz'):'Az időpont már nem érhető el.'):'Önálló munkalap, nincs kapcsolódó időpont.'}</p></Card>
  <Card><h2>Elvégzendő / elvégzett munka</h2><FormField label="Munka leírása *" error={errors.description}><Textarea data-autofocus={!!saved||!!vehicleId||undefined} rows={5} disabled={busy||readOnly} value={draft.description} onChange={e=>patch({description:e.target.value})} /></FormField></Card>

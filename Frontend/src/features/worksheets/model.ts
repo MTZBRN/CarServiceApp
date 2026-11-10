@@ -1,12 +1,16 @@
-import type { JobPart, ServiceJob } from '../../types';
+import type { JobPart, ServiceJob, PowertrainCode } from '../../types';
 export interface DraftPart { partName:string; partNumber:string; quantity:string; unitPrice:string; }
-export interface WorksheetDraft { vehicleId:string; date:string; description:string; laborCost:string; parts:DraftPart[]; }
+export const powertrainLabels: Record<PowertrainCode,string> = {
+ petrol:'Benzin', diesel:'Dízel', hybrid:'Hibrid', electric:'Elektromos', lpg:'LPG', cng:'CNG', other:'Egyéb',
+};
+export interface WorksheetDraft { odometerKm:string; powertrainCode:PowertrainCode|''; vehicleId:string; date:string; description:string; laborCost:string; parts:DraftPart[]; }
 export const partsSubtotal = (parts:Pick<JobPart,'quantity'|'unitPrice'>[]) => parts.reduce((sum,p)=>sum+p.quantity*p.unitPrice,0);
 export const worksheetTotal = (job:Pick<ServiceJob,'laborCost'|'jobParts'> & {partsTotal?:number}) => (job.partsTotal??partsSubtotal(job.jobParts))+job.laborCost;
 export const toParts = (parts:DraftPart[]):JobPart[] => parts.map(p=>({...p,quantity:Number(p.quantity),unitPrice:Number(p.unitPrice)}));
-export function draftFrom(job:ServiceJob):WorksheetDraft { return { vehicleId:String(job.vehicleId),date:job.date.slice(0,10),description:job.description,laborCost:String(job.laborCost),parts:job.jobParts.map(p=>({partName:p.partName,partNumber:p.partNumber||'',quantity:String(p.quantity),unitPrice:String(p.unitPrice)})) }; }
+export function draftFrom(job:ServiceJob):WorksheetDraft { return { odometerKm:job.odometerKm?.toString() ?? '',powertrainCode:job.powertrainCode ?? '',vehicleId:String(job.vehicleId),date:job.date.slice(0,10),description:job.description,laborCost:String(job.laborCost),parts:job.jobParts.map(p=>({partName:p.partName,partNumber:p.partNumber||'',quantity:String(p.quantity),unitPrice:String(p.unitPrice)})) }; }
 export function validateDraft(draft:WorksheetDraft) {
  const errors:Record<string,string>={};
+ if(draft.odometerKm !== '' && (!/^\d+$/.test(draft.odometerKm) || Number(draft.odometerKm)>2147483647)) errors.odometerKm='Adjon meg érvényes, nemnegatív egész kilométerértéket.';
  if(!draft.vehicleId) errors.vehicle='Válassz járművet.';
  if(!draft.description.trim()) errors.description='A munka leírása kötelező.';
  if(!draft.date||!Number.isFinite(new Date(draft.date).getTime())) errors.date='Érvényes dátumot adj meg.';

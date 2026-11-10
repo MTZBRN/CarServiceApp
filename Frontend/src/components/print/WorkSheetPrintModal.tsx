@@ -1,12 +1,12 @@
 import DialogSurface from '../ui/DialogSurface';
-import {worksheetTotal,partsSubtotal} from '../../features/worksheets/model';
+import {powertrainLabels,worksheetTotal,partsSubtotal} from '../../features/worksheets/model';
 import {money} from '../../features/records/shared';
 import {ErrorState} from '../ui/StateViews';
 import printStyles from "../../styles/print.css?raw";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useReactToPrint } from "react-to-print";
 import { X, Printer } from "lucide-react";
-import { Vehicle, ServiceJob, WorkshopSettings } from "../../types";
+import { Vehicle, ServiceJob } from "../../types";
 import { useWorkshopResource } from "../../data/useWorkshopData";
 
 interface Props {
@@ -18,9 +18,14 @@ interface Props {
 const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
   const componentRef = useRef<HTMLDivElement>(null);
 
-  const settingsState = useWorkshopResource("settings");
-  const sharedSettings=settingsState.data;
-  const settings: Partial<WorkshopSettings> = sharedSettings || {};
+  const pending = job.companyHistory === 'Pending';
+  const settingsState = useWorkshopResource("settings", undefined, false);
+  const refreshSettings = settingsState.refresh;
+  useEffect(() => {
+    if (pending) void refreshSettings();
+  }, [pending, refreshSettings]);
+  const settings = pending ? settingsState.data : job.companyHistory === 'Captured' ? job.companySnapshot : null;
+  const historyMissing = !pending && !settings;
 
   // Szerkeszthető adatok state
   const [formData, setFormData] = useState({
@@ -39,9 +44,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
     type: "",
     vin: vehicle.vin || "",
     year: vehicle.year.toString(),
-    km: "0",
     fuelLevel: "1/2",
-    fuelType: "Benzin",
     accessories: "Forg. eng., Kulcs",
 
     // Sérülés / Munka
@@ -109,7 +112,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
       }}
     >
 
-      {settingsState.error!=null&&<ErrorState message="A cégadatok nem tölthetők be. Nyomtatás előtt próbáld újra." onRetry={settingsState.refresh} />}
+      {pending && settingsState.error!=null&&<ErrorState message="A cégadatok nem tölthetők be. Nyomtatás előtt próbáld újra." onRetry={settingsState.refresh} />}
       <div
         className="modal-content"
         style={{
@@ -154,7 +157,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
           </div>
           <div style={{ display: "flex", gap: "10px" }}>
             <button
-              disabled={!settingsState.loaded || !!settingsState.error}
+              disabled={pending && (!settingsState.loaded || settingsState.loading || !!settingsState.error)}
               onClick={() => handlePrint && handlePrint()}
               className="ui-button ui-button-primary"
               style={{
@@ -275,9 +278,10 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
             </table>
 
             {/* 2. MEGRENDELŐ / SZERVIZ (ADATBÁZISBÓL) */}
-            <table
+            <table className="print-company-table"
               style={{
                 width: "100%",
+                tableLayout: "fixed",
                 borderCollapse: "collapse",
                 border: "2px solid black",
               }}
@@ -347,6 +351,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                       ...cellStyle,
                       verticalAlign: "top",
                       textAlign: "center",
+                      overflowWrap: "anywhere",
                     }}
                   >
                     {/* ✅ Itt jelennek meg a Settings API-ból jövő adatok */}
@@ -357,19 +362,19 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                         marginTop: "10px",
                       }}
                     >
-                      {settings.companyName || "GTA Szerviz Kft."}
+                      {historyMissing ? 'A korábbi cégadatok nem állnak rendelkezésre.' : settings?.companyName}
                     </div>
                     <div style={{ fontSize: "11px", marginTop: "5px" }}>
-                      {settings.address || "2083 Solymár, Mátyás király út 45."}
+                      {settings?.address}
                     </div>
                     <div style={{ fontSize: "11px" }}>
-                      Tel: {settings.phone || "+36-70/422-8889"}
+                      Tel: {settings?.phone}
                     </div>
                     <div style={{ fontSize: "11px" }}>
-                      Adószám: {settings.taxNumber || "29028933-2-13"}
+                      Adószám: {settings?.taxNumber}
                     </div>
                     <div style={{ fontSize: "11px" }}>
-                      Email: {settings.email || ""}
+                      Email: {settings?.email}
                     </div>
                   </td>
                 </tr>
@@ -444,17 +449,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                   <td style={cellStyle}>
                     <div style={{ display: "flex" }}>
                       <span style={labelStyle}>Km óra:</span>
-                      <input
-                        value={formData.km}
-                        onChange={(e) =>
-                          setFormData({ ...formData, km: e.target.value })
-                        }
-                        style={{
-                          ...inputStyle,
-                          width: "80px",
-                          textAlign: "right",
-                        }}
-                      />
+                      <span style={{width:80,textAlign:"right"}}>{job.odometerKm ?? ""}</span>
                       <span
                         style={{
                           fontSize: "11px",
@@ -469,18 +464,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                   <td style={cellStyle}>
                     <div style={{ display: "flex" }}>
                       <span style={labelStyle}>Üzemanyag:</span>
-                      <select
-                        value={formData.fuelType}
-                        onChange={(e) =>
-                          setFormData({ ...formData, fuelType: e.target.value })
-                        }
-                        style={selectStyle}
-                      >
-                        <option value="Benzin">Benzin</option>
-                        <option value="Dízel">Dízel</option>
-                        <option value="Hibrid">Hibrid</option>
-                        <option value="Elektromos">Elektromos</option>
-                      </select>
+                      <span>{job.powertrainCode ? powertrainLabels[job.powertrainCode] : ""}</span>
                     </div>
                   </td>
                   <td style={cellStyle}>
@@ -590,7 +574,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                   border: "none",
                   resize: "none",
                   fontFamily: '"Times New Roman", Times, serif',
-                  fontSize: "14px",
+                  fontSize: "16px",
                   lineHeight: "1.5",
                   outline: "none",
                   background: "rgba(254, 240, 138, 0.2)",
@@ -774,25 +758,7 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                 </div>
               </div>
 
-              <table className="print-costs" aria-label="Mentett munkalap költségei" style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid black', marginTop: 8, fontSize: 12 }}>
-                <caption style={{ textAlign: 'left', color: 'black' }}>Munkalap #{job.id} · {job.isCompleted ? 'Befejezett' : 'Nyitott'}</caption>
-                <thead><tr>{['Alkatrész / cikkszám', 'Mennyiség', 'Egységár', 'Sorösszeg'].map(label =>
-                  <th key={label} style={cellStyle}>{label}</th>
-                )}</tr></thead>
-                <tbody>{job.jobParts.map((part, i) =>
-                  <tr key={i}>
-                    <td style={cellStyle}>{part.partName} · {part.partNumber || '—'}</td>
-                    <td style={cellStyle}>{part.quantity}</td>
-                    <td style={cellStyle}>{money(part.unitPrice)}</td>
-                    <td style={cellStyle}>{money(part.quantity * part.unitPrice)}</td>
-                  </tr>
-                )}</tbody>
-                <tbody className="print-totals">
-                  <tr><td colSpan={3} style={cellStyle}>Alkatrészek összesen</td><td style={cellStyle}>{money(partsSubtotal(job.jobParts))}</td></tr>
-                  <tr><td colSpan={3} style={cellStyle}>Munkadíj</td><td style={cellStyle}>{money(job.laborCost)}</td></tr>
-                  <tr><th colSpan={3} style={cellStyle}>Végösszeg</th><td style={cellStyle} data-testid="print-total">{money(worksheetTotal(job))}</td></tr>
-                </tbody>
-              </table>
+
               <table
                 className="print-signatures"
                 style={{
@@ -858,6 +824,27 @@ const WorksheetPrintModal: React.FC<Props> = ({ job, vehicle, onClose }) => {
                       Kelt: ...................
                     </td>
                   </tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="print-cost-page">
+              <table className="print-costs" aria-label="Mentett munkalap költségei" style={{ width: '100%', borderCollapse: 'collapse', border: '2px solid black', marginTop: 8, fontSize: 12 }}>
+                <caption style={{ textAlign: 'left', color: 'black' }}>Munkalap #{job.id} · {job.isCompleted ? 'Befejezett' : 'Nyitott'}</caption>
+                <thead><tr>{['Alkatrész / cikkszám', 'Mennyiség', 'Egységár', 'Sorösszeg'].map(label =>
+                  <th key={label} style={cellStyle}>{label}</th>
+                )}</tr></thead>
+                <tbody>{job.jobParts.map((part, i) =>
+                  <tr key={i}>
+                    <td style={cellStyle}>{part.partName} · {part.partNumber || '—'}</td>
+                    <td style={cellStyle}>{part.quantity}</td>
+                    <td style={cellStyle}>{money(part.unitPrice)}</td>
+                    <td style={cellStyle}>{money(part.quantity * part.unitPrice)}</td>
+                  </tr>
+                )}</tbody>
+                <tbody className="print-totals">
+                  <tr><td colSpan={3} style={cellStyle}>Alkatrészek összesen</td><td style={cellStyle}>{money(partsSubtotal(job.jobParts))}</td></tr>
+                  <tr><td colSpan={3} style={cellStyle}>Munkadíj</td><td style={cellStyle}>{money(job.laborCost)}</td></tr>
+                  <tr><th colSpan={3} style={cellStyle}>Végösszeg</th><td style={cellStyle} data-testid="print-total">{money(worksheetTotal(job))}</td></tr>
                 </tbody>
               </table>
             </div>

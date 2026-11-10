@@ -1,3 +1,4 @@
+import {ensureWorkshopCompany} from './worksheet-fixtures';
 import {chooseLookup} from './lookup-helpers';
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
 
@@ -5,12 +6,13 @@ const api = 'http://localhost:5232/api', ui = 'http://127.0.0.1:5173';
 async function fixture(request: APIRequestContext) {
   const token = (await (await request.post(api+'/Auth/login',{data:{email:'admin@test.com',password:'Admin-test-only-123'}})).json()).token;
   const headers = {Authorization:'Bearer '+token}, tag = Math.random().toString(36).slice(2,9);
+  const companyName = await ensureWorkshopCompany(request,api,headers);
   const customer = await (await request.post(api+'/Customers',{headers,data:{name:'Worksheet customer '+tag,phoneNumber:'123456'}})).json();
   const vehicle = await (await request.post(api+'/Vehicle',{headers,data:{customerId:customer.id,licensePlate:'WS-'+tag,make:'Ford',model:'Focus',year:2020}})).json();
   const part = await (await request.post(api+'/parts',{headers,data:{partNumber:'PART-'+tag,name:'Filter '+tag,stockQuantity:7,netPrice:800,grossPrice:1000}})).json();
   const makeJob = async (description:string, isCompleted=false) => (await (await request.post(api+'/ServiceJobs',{headers,data:{vehicleId:vehicle.id,date:'2028-05-16T12:00:00Z',description,isCompleted,laborCost:500,jobParts:[]}})).json());
   const open = await makeJob('Open '+tag), completed = await makeJob('Completed '+tag,true);
-  return {headers,tag,customer,vehicle,part,open,completed};
+  return {companyName,headers,tag,customer,vehicle,part,open,completed};
 }
 async function login(page:Page,path:string) {
   await page.goto(ui+path); await page.getByPlaceholder('Felhasználónév (Email)').fill('admin@test.com'); await page.getByPlaceholder('Jelszó').fill('Admin-test-only-123'); await page.getByRole('button',{name:/belépés/i}).click();
@@ -71,7 +73,7 @@ test('parts, calculations, failed save, save and print use stored data without s
   await w.getByTestId('save-worksheet').click(); await expect(w.getByRole('alert').filter({hasText:'Teszt mentési hiba'})).toBeVisible(); await expect(w.getByLabel('Megnevezés 2 *')).toHaveValue('Manual '+f.tag);
   await page.unroute('**/api/ServiceJobs/'+f.open.id); await w.getByLabel('Munka leírása *').fill('Saved print '+f.tag); await w.getByRole('button',{name:'Mentés és nyomtatás'}).click();
   const preview=page.getByRole('dialog',{name:'Munkalap nyomtatási előnézet'}); await expect(preview).toBeVisible(); await expect(preview).toContainText('Munkalap #'+f.open.id); await expect(preview).toContainText('Manual '+f.tag); await expect(preview.getByTestId('print-total')).toHaveText(await w.getByTestId('worksheet-total').innerText());
-  await expect(preview.locator('input[value="'+f.vehicle.licensePlate+'"]')).toHaveCount(1); await expect(preview.locator('input[value="'+f.customer.name+'"]')).toHaveCount(1); await expect(preview.locator('textarea')).toHaveValue('Saved print '+f.tag); await expect(preview.locator('input[value="2028. 05. 16."]')).toHaveCount(1); await expect(preview).toContainText('Nyitott'); await expect(preview).toContainText('GTA Szerviz');
+  await expect(preview.locator('input[value="'+f.vehicle.licensePlate+'"]')).toHaveCount(1); await expect(preview.locator('input[value="'+f.customer.name+'"]')).toHaveCount(1); await expect(preview.locator('textarea')).toHaveValue('Saved print '+f.tag); await expect(preview.locator('input[value="2028. 05. 16."]')).toHaveCount(1); await expect(preview).toContainText('Nyitott'); await expect(preview).toContainText(f.companyName);
   const saved=await(await request.get(api+'/ServiceJobs/'+f.open.id,{headers:f.headers})).json(); expect(saved.description).toBe('Saved print '+f.tag); expect(saved.jobParts).toHaveLength(2); expect(saved.laborCost).toBe(400);
   const parts=await(await request.get(api+'/parts',{headers:f.headers})).json(); expect(parts.find((p:{id:number})=>p.id===f.part.id).stockQuantity).toBe(7); expect(parts.some((p:{name:string})=>p.name==='Manual '+f.tag)).toBe(false);
 });
@@ -135,4 +137,48 @@ test('worksheet visual review artifacts',async({page,request})=>{
  await w.getByRole('button',{name:'Mentés és nyomtatás'}).click(); const preview=page.getByRole('dialog',{name:'Munkalap nyomtatási előnézet'}); await expect(preview).toBeVisible(); await page.screenshot({path:'review-artifacts/stage26/worksheet-print-preview.png'}); await page.keyboard.press('Escape');
  await page.goto(ui+'/worksheets/'+f.completed.id); await expect(editor(page)).toContainText('Befejezett'); await page.screenshot({path:'review-artifacts/stage26/worksheet-completed-desktop.png',fullPage:true});
  await page.setViewportSize({width:390,height:844}); await page.goto(ui+'/worksheets/'+f.open.id); await expect(editor(page)).toContainText(f.vehicle.licensePlate); await page.screenshot({path:'review-artifacts/stage26/worksheet-mobile.png',fullPage:true});
+});
+
+test('missing company settings keep the completion dialog and entered mileage',async({page,request})=>{
+  const f=await fixture(request);
+  await login(page,'/worksheets/'+f.open.id);
+  const message='A munkalap befejezéséhez előbb mentse a cégadatokat a Beállításokban.';
+  await page.route('**/api/ServiceJobs/'+f.open.id,route=>route.request().method()==='PUT'
+    ? route.fulfill({status:400,json:{message}}) : route.continue());
+  await editor(page).getByLabel('Km óra (km)').fill('0');
+  await editor(page).getByRole('button',{name:'Munkalap befejezése'}).click();
+  const dialog=page.getByRole('dialog',{name:'Munkalap befejezése'});
+  await dialog.getByRole('button',{name:'Megerősítés'}).click();
+  await expect(dialog.getByRole('alert')).toHaveText(message);
+  await expect(editor(page).getByLabel('Km óra (km)')).toHaveValue('0');
+});
+
+test('built worksheet cannot complete before company settings are first saved', async ({page,request}) => {
+  // This second loopback server uses the built SPA and its own disposable SQLite file.
+  const origin = 'http://localhost:15232';
+  const auth = await request.post(origin+'/api/Auth/login',{data:{email:'admin@test.com',password:'Admin-test-only-123'}});
+  expect(auth.ok()).toBeTruthy();
+  const headers = {Authorization:'Bearer '+(await auth.json()).token};
+  const settings = await request.get(origin+'/api/Settings',{headers});
+  expect((await settings.json()).id).toBe(0);
+  async function create(path:string,data:object) {
+    const result = await request.post(origin+'/api/'+path,{headers,data});
+    expect(result.ok()).toBeTruthy();
+    return result.json();
+  }
+  const customer = await create('Customers',{name:'Fresh Workshop Fixture',phoneNumber:'5550192'});
+  const vehicle = await create('Vehicle',{customerId:customer.id,make:'Fixture',model:'One',licensePlate:'NO-CFG',year:2020});
+  const job = await create('ServiceJobs',{vehicleId:vehicle.id,description:'Fixture draft'});
+  await page.goto(origin+'/worksheets/'+job.id);
+  await page.getByPlaceholder('Felhasználónév (Email)').fill('admin@test.com');
+  await page.getByPlaceholder('Jelszó').fill('Admin-test-only-123');
+  await page.getByRole('button',{name:/belépés/i}).click();
+  await editor(page).getByRole('button',{name:'Munkalap befejezése'}).click();
+  const dialog = page.getByRole('dialog',{name:'Munkalap befejezése'});
+  const completion = page.waitForResponse(r=>r.request().method()==='PUT' && r.url()===origin+'/api/ServiceJobs/'+job.id);
+  await dialog.getByRole('button',{name:'Megerősítés'}).click();
+  expect((await completion).status()).toBe(400);
+  await expect(dialog.getByRole('alert')).toContainText('előbb mentse a cégadatokat');
+  const stored = await request.get(origin+'/api/ServiceJobs/'+job.id,{headers});
+  expect(await stored.json()).toMatchObject({isCompleted:false,companyHistory:'Pending',companySnapshot:null,version:job.version});
 });
