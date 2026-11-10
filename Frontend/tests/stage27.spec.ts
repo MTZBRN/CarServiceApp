@@ -1,3 +1,4 @@
+import {ensureWorkshopCompany} from './worksheet-fixtures';
 import {chooseLookup} from './lookup-helpers';
 import {expectedVersion} from './versioned-request';
 import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
@@ -103,11 +104,12 @@ test('company settings validate, retain failed values, prevent duplicates, save 
     await page.reload();
     await expect(page.getByLabel('Rezsióradíj (Ft)',{exact:true})).toHaveValue('0');
     await expect(page.getByLabel('ÁFA (%)',{exact:true})).toHaveValue('0');
-    const jobs=await (await request.get(api+'/ServiceJobs',{headers})).json();
-    if(jobs.length){
-      await page.goto(ui+'/worksheets/'+jobs[0].id+'?print=1');
-      await expect(page.getByRole('dialog',{name:'Munkalap nyomtatási előnézet'})).toContainText(company);
-    }
+    const owner = await (await request.post(api+'/Customers',{headers,data:{name:'Company print fixture',phoneNumber:'123'}})).json();
+    const vehicle = await (await request.post(api+'/Vehicle',{headers,data:{customerId:owner.id,licensePlate:'CFG-'+Date.now().toString().slice(-6),make:'Fixture',model:'One',year:2020}})).json();
+    const pending = await request.post(api+'/ServiceJobs',{headers,data:{vehicleId:vehicle.id,description:'Settings preview'}});
+    expect(pending.ok()).toBeTruthy();
+    await page.goto(ui+'/worksheets/'+(await pending.json()).id+'?print=1');
+    await expect(page.getByRole('dialog',{name:'Munkalap nyomtatási előnézet'})).toContainText(company);
   } finally {expect((await request.post(api+'/Settings',await expectedVersion(request,api+'/Settings',{headers,data:previous}))).ok()).toBeTruthy();}
 });
 
@@ -293,7 +295,8 @@ for(const width of [1440,1024,768,390]){
   });
 }
 
-test('complete workshop journey through appointment, worksheet, labor, completion, reopening, print and logout',async({page})=>{
+test('complete workshop journey through appointment, worksheet, labor, completion, reopening, print and logout',async({page,request})=>{
+  await ensureWorkshopCompany(request,api,await admin(request));
   await login(page);
   const activeBefore=Number(await page.locator('.overview-metric').filter({hasText:'Aktív munkalapok'}).locator('strong').textContent());
   const tag=String(Date.now()),plate='J27-'+tag.slice(-6);

@@ -33,6 +33,8 @@
     caret-color: transparent;
   }
 
+  .print-company-table { max-width: 100%; }
+
   .print-wrapper ::placeholder { color: transparent !important; }
 
   .print-work-description { display: block !important; }
@@ -40,7 +42,7 @@
   .print-work-description textarea { display: none !important; }
   .print-work-description-text {
     display: block !important;
-    font-size: 14px;
+    font-size: 16px;
     line-height: 1.5;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
@@ -48,6 +50,7 @@
     orphans: 2;
   }
 
+  .print-cost-page { break-before: page; }
   .print-signatures, .print-totals, .print-costs tr { break-inside: avoid; }
   .print-costs thead { display: table-header-group; }
   .print-costs td { overflow-wrap: anywhere; }

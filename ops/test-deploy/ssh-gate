@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+# Root-owned authorized_keys forces this exact executable. Never evaluate the SSH command.
+[ -f /etc/carservice-test-deploy/actions-enabled ] || exit 1
+case "${SSH_ORIGINAL_COMMAND-}" in
+  'deploy-test test-deploy '*) revision=${SSH_ORIGINAL_COMMAND#'deploy-test test-deploy '} ;;
+  *) exit 1 ;;
+esac
+case "$revision" in ''|*[!0123456789abcdef]*) exit 1 ;; esac
+[ "${#revision}" -eq 40 ] || exit 1
+printf '%s\n' "$revision" | /usr/bin/sudo -n -- /usr/local/sbin/carservice-test-deploy

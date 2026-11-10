@@ -15,6 +15,9 @@ namespace CarServiceShop.Tests;
 public class Stage3EAuditTests
 {
     private static Task<JsonElement> Json(HttpResponseMessage response)=>response.Content.ReadFromJsonAsync<JsonElement>();
+
+    private static async Task SaveCompany(HttpClient client) =>
+        (await client.PostAsJsonAsync("/api/Settings", new { companyName = "Fixture Workshop" })).EnsureSuccessStatusCode();
     private static List<AuditEvent> Events(SecurityHost host){using var scope=host.Services.CreateScope();return scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().AuditEvents.AsNoTracking().OrderBy(e=>e.Id).ToList();}
     private static async Task<int> Vehicle(HttpClient client){var c=await client.PostAsJsonAsync("/api/Customers",new {name="PRIVATE CUSTOMER",phoneNumber="123",address="PRIVATE ADDRESS"});c.EnsureSuccessStatusCode();var v=await client.PostAsJsonAsync("/api/Vehicle",new {customerId=(await Json(c)).GetProperty("id").GetInt32(),licensePlate="PRIVATE-PLATE",make="Ford",model="Focus",year=2020});v.EnsureSuccessStatusCode();return (await Json(v)).GetProperty("id").GetInt32();}
     private static async Task<JsonElement> Job(HttpClient client,int vehicleId){var r=await client.PostAsJsonAsync("/api/ServiceJobs",new {vehicleId,description="PRIVATE NOTES",laborCost=100,jobParts=new[]{new {partName="PRIVATE ITEM",quantity=1,unitPrice=2}}});r.EnsureSuccessStatusCode();return await Json(r);}
@@ -75,6 +78,7 @@ public class Stage3EAuditTests
     {
         using var host=new SecurityHost();using var client=await host.SignedIn();var job=await Job(client,await Vehicle(client));var id=job.GetProperty("id").GetInt32();
         async Task Update(bool complete,int labor){var r=await client.PutAsJsonAsync("/api/ServiceJobs/"+id,new {version=job.GetProperty("version").GetString(),description="PRIVATE DESCRIPTION",laborCost=labor,isCompleted=complete,jobParts=new[]{new{partName="PRIVATE",quantity=1,unitPrice=2}}});r.EnsureSuccessStatusCode();job=await Json(r);}
+        await SaveCompany(client);
         await Update(false,200);await Update(true,200);await Update(true,300);await Update(false,300);
         (await client.PostAsJsonAsync("/api/JobParts",new {serviceJobId=id,version=job.GetProperty("version").GetString(),partName="PRIVATE EXTRA",quantity=1,unitPrice=1})).EnsureSuccessStatusCode();
         job=await Json(await client.GetAsync("/api/ServiceJobs/"+id));await Update(true,300);(await client.DeleteAsync("/api/ServiceJobs/"+id)).EnsureSuccessStatusCode();
@@ -86,6 +90,7 @@ public class Stage3EAuditTests
     public async Task UnauthorizedMechanicCannotProduceFalseHistorySuccess()
     {
         using var host=new SecurityHost();using var client=await host.SignedIn();var job=await Job(client,await Vehicle(client));var id=job.GetProperty("id").GetInt32();
+        await SaveCompany(client);
         var completed=await client.PutAsJsonAsync("/api/ServiceJobs/"+id,new {version=job.GetProperty("version").GetString(),description="Complete",isCompleted=true});completed.EnsureSuccessStatusCode();job=await Json(completed);
         host.AddUser("worker",role:"mechanic");using var mechanic=host.Client();var login=await mechanic.PostAsJsonAsync("/api/Auth/login",new {email="worker",password="Synthetic-password-123"});mechanic.DefaultRequestHeaders.Authorization=new("Bearer",(await Json(login)).GetProperty("token").GetString());var count=Events(host).Count;
         Assert.Equal(HttpStatusCode.Forbidden,(await mechanic.PutAsJsonAsync("/api/ServiceJobs/"+id,new {version=job.GetProperty("version").GetString(),description="Unauthorized",isCompleted=false})).StatusCode);
@@ -129,11 +134,16 @@ public class Stage3EAuditTests
     [Theory][InlineData(false)][InlineData(true)]
     public async Task RequiredAuditFailureRollsBackCriticalMutation(bool deletion)
     {
-        using var host=new SecurityHost();using var client=await host.SignedIn();var job=await Job(client,await Vehicle(client));var id=job.GetProperty("id").GetInt32();var count=Events(host).Count;
+        // The failure must be in the audit append, after a valid capture was staged.
+        using var host=new SecurityHost();using var client=await host.SignedIn();var job=await Job(client,await Vehicle(client));var id=job.GetProperty("id").GetInt32();
+        await SaveCompany(client);
+        var count = Events(host).Count;
         using(var scope=host.Services.CreateScope())await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.ExecuteSqlRawAsync("CREATE TRIGGER Reject_Audit BEFORE INSERT ON AuditEvents BEGIN SELECT RAISE(ABORT,'private audit failure detail'); END;");
         var response=deletion?await client.DeleteAsync("/api/ServiceJobs/"+id):await client.PutAsJsonAsync("/api/ServiceJobs/"+id,new {version=job.GetProperty("version").GetString(),description="MUST ROLLBACK",laborCost=999,isCompleted=true});
         Assert.Equal(HttpStatusCode.InternalServerError,response.StatusCode);Assert.DoesNotContain("private audit failure",await response.Content.ReadAsStringAsync());Assert.Equal(count,Events(host).Count);
         var stored=await Json(await client.GetAsync("/api/ServiceJobs/"+id));Assert.Equal("PRIVATE NOTES",stored.GetProperty("description").GetString());Assert.False(stored.GetProperty("isCompleted").GetBoolean());Assert.Single(stored.GetProperty("jobParts").EnumerateArray());
+        Assert.Equal("Pending", stored.GetProperty("companyHistory").GetString());
+        Assert.Equal(JsonValueKind.Null, stored.GetProperty("companySnapshot").ValueKind);
     }
 
     [Fact]

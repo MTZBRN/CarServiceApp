@@ -70,6 +70,23 @@ public class JobPartRequest : LineItemRequest
 }
 public class UpdateWorksheetRequest : IValidatableObject
 {
+    private int? odometerKm;
+    private string? powertrainCode;
+    internal bool HasOdometerKm { get; private set; }
+    internal bool HasPowertrainCode { get; private set; }
+
+    [Range(0, int.MaxValue)]
+    public int? OdometerKm
+    {
+        get => odometerKm;
+        set { odometerKm = value; HasOdometerKm = true; }
+    }
+
+    public string? PowertrainCode
+    {
+        get => powertrainCode;
+        set { powertrainCode = value; HasPowertrainCode = true; }
+    }
     [StringLength(64)] public string? Version { get; set; }
     public int? Id { get; set; }
     [Required, StringLength(10000)] public string Description { get; set; } = "";
@@ -77,6 +94,8 @@ public class UpdateWorksheetRequest : IValidatableObject
     public bool IsCompleted { get; set; }
     [Required, MaxLength(500)] public List<LineItemRequest> JobParts { get; set; } = [];
     public virtual IEnumerable<ValidationResult> Validate(ValidationContext context) {
+        if (PowertrainCode is not (null or "petrol" or "diesel" or "hybrid" or "electric" or "lpg" or "cng" or "other"))
+            yield return new("Érvénytelen hajtástípus.", [nameof(PowertrainCode)]);
         if (JobParts == null || JobParts.Any(p=>p==null)) { yield return new("Érvénytelen alkatrészlista."); yield break; }
         if (JobParts.Sum(p=>(decimal)p.Quantity*p.UnitPrice)+LaborCost > InputRules.WorksheetTotalMax) yield return new("A végösszeg túl nagy.");
     }

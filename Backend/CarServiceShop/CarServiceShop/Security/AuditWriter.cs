@@ -36,7 +36,8 @@ public sealed class AuditWriter(IHttpContextAccessor? accessor=null)
         var type=target switch {Customer=>"Customer",Vehicle=>"Vehicle",Appointment=>"Appointment",ServiceJob=>"Worksheet",Part=>"Inventory",User=>"User",GlobalSettings=>"Settings",_=>throw new InvalidOperationException("Unsupported audited resource.")};
         string[] fields=target switch {
             Customer=>["Name","PhoneNumber","Email","Address"], Vehicle=>["CustomerId","LicensePlate","Make","Model","Year","VIN","MOTExpiry"],
-            Appointment=>["VehicleId","StartTime","EndTime","Note"],ServiceJob=>["Description","LaborCost","IsCompleted","AppointmentId"],
+            Appointment=>["VehicleId","StartTime","EndTime","Note"],
+            ServiceJob=>["Description","LaborCost","IsCompleted","AppointmentId","OdometerKm","PowertrainCode"],
             Part=>["Name","PartNumber","StockQuantity","NetPrice","GrossPrice"],User=>["Name","Email","Role"],
             GlobalSettings=>["CompanyName","Address","TaxNumber","Phone","Email","HourlyRate","VatRate"],_=>[]};
         var changed=fields.Where(f=>entry.State!=EntityState.Modified || entry.Property(f).IsModified).ToList();

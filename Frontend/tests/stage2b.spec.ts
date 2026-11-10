@@ -1,3 +1,4 @@
+import {ensureWorkshopCompany} from './worksheet-fixtures';
 import {test,expect,type Page,type APIRequestContext} from '@playwright/test';
 const api='http://localhost:5232/api';
 async function login(page:Page,email='admin@test.com') {
@@ -31,6 +32,7 @@ test('two worksheet forms cannot silently overwrite a newer save',async({page,co
 test('mechanic sees completed work read-only and no destructive controls',async({page,request})=>{
  const f=await fixture(request);const email='mechanic-'+f.suffix;
  expect((await request.post(api+'/Users',{headers:f.headers,data:{name:'Mechanic',email,password:'Admin-test-only-123',role:'mechanic'}})).ok()).toBeTruthy();
+ await ensureWorkshopCompany(request,api,f.headers);
  expect((await request.put(api+'/ServiceJobs/'+f.job.id,{headers:f.headers,data:{id:f.job.id,version:f.job.version,description:f.job.description,isCompleted:true}})).ok()).toBeTruthy();
  await login(page,email);await page.goto('/worksheets/'+f.job.id);
  await expect(page.getByLabel('Munka leírása *')).toBeDisabled();await expect(page.getByLabel('Munkadíj (Ft) *')).toBeDisabled();

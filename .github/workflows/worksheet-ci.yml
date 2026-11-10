@@ -1,0 +1,41 @@
+name: Workshop CI
+on:
+  push:
+    branches: [main, test-deploy, 'feature/**']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.22.2
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - run: dotnet test Backend/CarServiceShop/CarServiceShop.Tests --configuration Release
+      - run: npm ci && npm run build
+        working-directory: Frontend
+      - name: Deployment, backup and request-log privacy checks
+        run: |
+          mkdir -p "$RUNNER_TEMP/nginx-package"
+          (cd "$RUNNER_TEMP/nginx-package" && apt-get download nginx && dpkg-deb -x nginx_*.deb root)
+          python -m unittest discover -s scripts/tests -p 'test_test_deploy.py'
+          python -m unittest discover -s scripts/tests -p 'test_ops_storage.py'
+          python scripts/tests/check-nginx-log-privacy.py --nginx "$RUNNER_TEMP/nginx-package/root/usr/sbin/nginx"
+          node scripts/tests/check-compose.mjs
+      - name: Browser, PDF, session and authorization regressions
+        working-directory: Frontend
+        run: |
+          python -m pip install pypdf==6.21.4
+          npx --no-install playwright install --with-deps chromium
+          npx --no-install playwright test worksheet-pdf.spec.ts idle-session.spec.ts stage2b.spec.ts stage3a.spec.ts stage26.spec.ts --grep-invert 'visual review|responsive' --reporter=list

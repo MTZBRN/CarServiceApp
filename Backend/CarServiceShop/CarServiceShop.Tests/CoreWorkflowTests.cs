@@ -41,6 +41,8 @@ public class CoreWorkflowTests
         var vehicle = new Vehicle { Customer = customer, LicensePlate = "TEST" };
         var appointment = new Appointment { Id = 42, Vehicle = vehicle, Note = "Brake repair", StartTime = DateTime.Today, EndTime = DateTime.Today.AddHours(2) };
         db.Add(appointment); await db.SaveChangesAsync();
+        db.GlobalSettings.Add(new GlobalSettings { CompanyName = "Fixture Workshop" });
+        await db.SaveChangesAsync();
         var controller = new ServiceJobsController(db);
         var request = new CreateWorksheetRequest { AppointmentId = 42, VehicleId = vehicle.Id, Description = "Repair", JobParts = [new LineItemRequest { PartName = "Pads", Quantity = 2, UnitPrice = 500 }] };
         var created=Assert.IsType<CreatedAtActionResult>((await controller.CreateServiceJob(request)).Result);

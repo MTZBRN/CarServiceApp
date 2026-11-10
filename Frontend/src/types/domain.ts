@@ -39,7 +39,12 @@ export interface JobPart {
 }
 
 // --- ITT A LÉNYEG! ---
+export type PowertrainCode = 'petrol' | 'diesel' | 'hybrid' | 'electric' | 'lpg' | 'cng' | 'other';
 export interface ServiceJob {
+  odometerKm?: number | null;
+  powertrainCode?: PowertrainCode | null;
+  companyHistory?: 'Pending' | 'Captured' | 'HistoricalUnavailable';
+  companySnapshot?: (Pick<WorkshopSettings, 'companyName'|'address'|'phone'|'email'|'taxNumber'> & {settingsVersion:string; capturedAtUtc:string}) | null;
   partsTotal?: number;
   lineItemCount?: number;
   version?: string;

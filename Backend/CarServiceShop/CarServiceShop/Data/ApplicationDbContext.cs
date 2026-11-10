@@ -47,6 +47,12 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<User>().Property(u=>u.NormalizedLogin).HasComputedColumnSql("upper(trim(Email))", stored: false);
         modelBuilder.Entity<User>().HasIndex(u=>u.NormalizedLogin).IsUnique();
         modelBuilder.Entity<ServiceJob>().Property(j=>j.Version).IsConcurrencyToken();
+        modelBuilder.Entity<ServiceJob>().Property(j => j.CompanyHistory)
+            .HasConversion<string>().HasDefaultValue(CompanyHistory.HistoricalUnavailable)
+            .ValueGeneratedNever();
+        modelBuilder.Entity<ServiceJob>().Property(j => j.CompanySnapshot).HasConversion(
+            value => System.Text.Json.JsonSerializer.Serialize(value, (System.Text.Json.JsonSerializerOptions?)null),
+            json => System.Text.Json.JsonSerializer.Deserialize<CompanySnapshot>(json, (System.Text.Json.JsonSerializerOptions?)null));
         modelBuilder.Entity<Appointment>().Property(j=>j.Version).IsConcurrencyToken();
         modelBuilder.Entity<Part>().Property(j=>j.Version).IsConcurrencyToken();
         modelBuilder.Entity<GlobalSettings>().Property(j=>j.Version).IsConcurrencyToken();

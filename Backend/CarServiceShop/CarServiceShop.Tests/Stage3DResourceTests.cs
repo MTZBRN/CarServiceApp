@@ -17,12 +17,16 @@ public class Stage3DResourceTests
     private static async Task Seed(SecurityHost host,int count=235)
     {
         using var scope=host.Services.CreateScope();var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var company = new GlobalSettings { CompanyName = "Pagination fixture" };
+        db.GlobalSettings.Add(company);
         for(var i=1;i<=count;i++) {
             var c=new Customer{Name=i==221?"ÁRVÍZ ŐR":"Member "+i,PhoneNumber="555-"+i,Email=$"member{i}@test.invalid"};
             var v=new Vehicle{Customer=c,LicensePlate="PAGE-"+i,Make="Ford",Model="Focus",Year=2020,MOTExpiry=new DateTime(2026,1,10).AddDays(i%40)};
             db.Vehicles.Add(v);db.Parts.Add(new Part{PartNumber="STOCK-"+i,Name="Grouped part "+i,StockQuantity=i%7,NetPrice=1,GrossPrice=2});
             db.Appointments.Add(new Appointment{Vehicle=v,StartTime=new DateTime(2026,1,10,9,0,0),EndTime=new DateTime(2026,1,10,10,0,0),Note="Booking "+i});
-            db.ServiceJobs.Add(new ServiceJob{Vehicle=v,Date=new DateTime(2026,1,10),Description="Grouped job "+i,IsCompleted=i%2==0,LaborCost=5,JobParts=[new(){PartName="Snapshot",Quantity=2,UnitPrice=3}]});
+            var job = new ServiceJob{Vehicle=v,Date=new DateTime(2026,1,10),Description="Grouped job "+i,IsCompleted=i%2==0,LaborCost=5,JobParts=[new(){PartName="Snapshot",Quantity=2,UnitPrice=3}]};
+            if (job.IsCompleted) job.CaptureCompany(company);
+            db.ServiceJobs.Add(job);
         }
         await db.SaveChangesAsync();
     }

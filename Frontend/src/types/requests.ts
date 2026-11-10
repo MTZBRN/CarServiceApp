@@ -4,8 +4,8 @@ export type UpdateCustomerRequest = CreateCustomerRequest;
 export type CreateVehicleRequest = Omit<Vehicle, 'id' | 'customer'>;
 export type CreateAppointmentRequest = Pick<Appointment, 'vehicleId' | 'startTime' | 'endTime' | 'note'>;
 export type UpdateAppointmentRequest = CreateAppointmentRequest & {version?:string};
-export type CreateWorksheetRequest = Omit<ServiceJob, 'id' | 'vehicle' | 'appointment'>;
-export type UpdateWorksheetRequest = Pick<ServiceJob, 'description' | 'laborCost' | 'isCompleted' | 'jobParts'> & { appointmentId?: number | null; version?:string };
+export type CreateWorksheetRequest = Pick<ServiceJob, 'vehicleId'|'appointmentId'|'date'|'description'|'laborCost'|'isCompleted'|'jobParts'|'odometerKm'|'powertrainCode'>;
+export type UpdateWorksheetRequest = Pick<ServiceJob, 'description' | 'laborCost' | 'isCompleted' | 'jobParts' | 'odometerKm' | 'powertrainCode'> & { appointmentId?: number | null; version?:string };
 export type SavePartRequest = Omit<Part, 'id'>;
 export type SaveSettingsRequest = Omit<WorkshopSettings, 'id'>;
 export interface LoginRequest { email: string; password: string; }
