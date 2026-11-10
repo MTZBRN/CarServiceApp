@@ -17,6 +17,16 @@ public class ServiceJobsController : ControllerBase
         _context = context;
     }
 
+    private async Task<BadRequestObjectResult?> PrepareCompletion(ServiceJob job)
+    {
+        var settings = await _context.GlobalSettings.AsNoTracking().FirstOrDefaultAsync();
+        if (settings == null || string.IsNullOrWhiteSpace(settings.CompanyName) || string.IsNullOrWhiteSpace(settings.Version))
+            return BadRequest(new { message = "A munkalap befejezéséhez előbb mentse a cégadatokat a Beállításokban." });
+        if (job.CompanyHistory == CompanyHistory.Pending)
+            job.CaptureCompany(settings);
+        return null;
+    }
+
     // GET: api/ServiceJobs
     // VISSZAADJA AZ ÖSSZES MUNKÁT (Ez kell a Dashboard listához és naptárhoz!)
     [HttpGet]
@@ -64,6 +74,7 @@ public class ServiceJobsController : ControllerBase
     public async Task<ActionResult<ServiceJob>> CreateServiceJob(CreateWorksheetRequest input)
     {
         var serviceJob = new ServiceJob { VehicleId=input.VehicleId, AppointmentId=input.AppointmentId, Date=input.Date ?? DateTime.Now,
+            OdometerKm=input.OdometerKm, PowertrainCode=input.PowertrainCode,
             Description=input.Description, LaborCost=input.LaborCost, IsCompleted=input.IsCompleted, JobParts=input.JobParts.Select(p=>p.ToEntity()).ToList() };
 
         // Ha AppointmentId alapján jön (pl. naptárból konvertáljuk), keressük meg az autót
@@ -80,9 +91,12 @@ public class ServiceJobsController : ControllerBase
             if (await _context.ServiceJobs.AnyAsync(j => j.AppointmentId == serviceJob.AppointmentId)) return Conflict("Appointment already has a worksheet.");
         }
         serviceJob.Id = 0;
+        await using var transaction = input.IsCompleted ? await _context.Database.BeginTransactionAsync() : null;
+        if (input.IsCompleted && await PrepareCompletion(serviceJob) is { } error) return error;
         serviceJob.JobParts = serviceJob.JobParts.Select(p => new JobPart { PartName = p.PartName, PartNumber = p.PartNumber, Quantity = p.Quantity, UnitPrice = p.UnitPrice }).ToList();
         _context.ServiceJobs.Add(serviceJob);
         await _context.SaveAuditedAsync(serviceJob);
+        if (transaction != null) await transaction.CommitAsync();
 
         return CreatedAtAction("GetServiceJob", new { id = serviceJob.Id }, serviceJob);
     }
@@ -109,6 +123,11 @@ public class ServiceJobsController : ControllerBase
         if (!await _context.Vehicles.AnyAsync(v=>v.Id==existingJob.VehicleId)) return BadRequest("Invalid vehicle.");
         if (existingJob.AppointmentId.HasValue && !await _context.Appointments.AnyAsync(a=>a.Id==existingJob.AppointmentId && a.VehicleId==existingJob.VehicleId)) return BadRequest("Invalid appointment.");
         // 2. Frissítjük az alap adatokat
+        var completing = serviceJob.IsCompleted && !existingJob.IsCompleted;
+        await using var transaction = completing ? await _context.Database.BeginTransactionAsync() : null;
+        if (completing && await PrepareCompletion(existingJob) is { } error) return error;
+        if (serviceJob.HasOdometerKm) existingJob.OdometerKm = serviceJob.OdometerKm;
+        if (serviceJob.HasPowertrainCode) existingJob.PowertrainCode = serviceJob.PowertrainCode;
         existingJob.Description = serviceJob.Description;
         existingJob.LaborCost = serviceJob.LaborCost;
         existingJob.IsCompleted = serviceJob.IsCompleted;
@@ -124,6 +143,7 @@ public class ServiceJobsController : ControllerBase
         try
         {
             await _context.SaveAuditedAsync(existingJob);
+            if (transaction != null) await transaction.CommitAsync();
         }
         catch (DbUpdateConcurrencyException)
         {

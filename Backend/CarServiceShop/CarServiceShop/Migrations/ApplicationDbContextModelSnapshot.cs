@@ -248,6 +248,14 @@ namespace CarServiceShop.Migrations
                     b.Property<int?>("AppointmentId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("CompanyHistory")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("HistoricalUnavailable");
+
+                    b.Property<string>("CompanySnapshot")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("Date")
                         .HasColumnType("TEXT");
 
@@ -260,6 +268,12 @@ namespace CarServiceShop.Migrations
 
                     b.Property<int>("LaborCost")
                         .HasColumnType("INTEGER");
+
+                    b.Property<int?>("OdometerKm")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PowertrainCode")
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("VehicleId")
                         .HasColumnType("INTEGER");

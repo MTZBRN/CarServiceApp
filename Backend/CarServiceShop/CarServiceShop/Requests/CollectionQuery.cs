@@ -81,6 +81,7 @@ public static class CollectionReads
     public static IQueryable<WorksheetRow> JobRows(IQueryable<ServiceJob> source) => source.Select(j => new WorksheetRow {
         Id=j.Id, Version=j.Version, AppointmentId=j.AppointmentId, VehicleId=j.VehicleId, Date=j.Date,
         Description=j.Description, LaborCost=j.LaborCost, IsCompleted=j.IsCompleted,
+        OdometerKm=j.OdometerKm, PowertrainCode=j.PowertrainCode,
         Vehicle=j.Vehicle == null ? null : new Vehicle { Id=j.Vehicle.Id, LicensePlate=j.Vehicle.LicensePlate, Make=j.Vehicle.Make,
             Model=j.Vehicle.Model, Year=j.Vehicle.Year, MOTExpiry=j.Vehicle.MOTExpiry, CustomerId=j.Vehicle.CustomerId, Customer=j.Vehicle.Customer },
         PartsTotal=j.JobParts.Sum(p => (long)p.Quantity * p.UnitPrice),
@@ -102,6 +103,8 @@ public static class CollectionReads
 
 public class WorksheetRow
 {
+    public int? OdometerKm { get; set; }
+    public string? PowertrainCode { get; set; }
     public int Id { get; set; }
     public string Version { get; set; } = "";
     public int? AppointmentId { get; set; }

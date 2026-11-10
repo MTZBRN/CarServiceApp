@@ -68,6 +68,7 @@ public class SeedController : ControllerBase
             Date = DateTime.Now.AddMonths(-2),
             Description = "Éves kisszerviz (Olaj + Szűrők)",
             IsCompleted = true,
+            CompanyHistory = CompanyHistory.HistoricalUnavailable,
             LaborCost = 15000,
             JobParts = new List<JobPart>
             {
