@@ -1,0 +1,57 @@
+name: Deploy isolated TEST
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Reviewed full commit SHA on the protected test-deploy tip
+        type: string
+        required: true
+permissions: {}
+concurrency:
+  group: carserviceapp-test-deployment
+  cancel-in-progress: false
+jobs:
+  authorize:
+    if: github.repository == 'MTZBRN/CarServiceApp' && github.ref == 'refs/heads/test-deploy' && github.ref_protected && vars.TEST_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Check dispatch SHA, current protected tip and successful push CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVISION: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]]
+          repo="repos/MTZBRN/CarServiceApp"
+          [[ "$REVISION" == "$GITHUB_SHA" ]]
+          gh api "$repo/branches/test-deploy" | jq -e --arg sha "$REVISION" '.protected == true and .commit.sha == $sha'
+          gh api "$repo/actions/workflows/worksheet-ci.yml/runs?branch=test-deploy&event=push&head_sha=$REVISION&per_page=1" |
+            jq -e --arg sha "$REVISION" '.workflow_runs[0] | .head_sha==$sha and .head_branch=="test-deploy" and .event=="push" and .status=="completed" and .conclusion=="success"'
+  deploy:
+    needs: authorize
+    runs-on: ubuntu-24.04
+    environment: isolated-test
+    timeout-minutes: 45
+    steps:
+      - name: Request approved TEST deployment
+        env:
+          REVISION: ${{ inputs.revision }}
+          DEPLOY_HOST: ${{ vars.TEST_SSH_HOST }}
+          PRIVATE_KEY: ${{ secrets.TEST_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TEST_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          [[ "$REVISION" =~ ^[0-9a-f]{40}$ && "$DEPLOY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          umask 077
+          keydir=$(mktemp -d)
+          trap 'rm -f -- "$keydir/key" "$keydir/hosts"; rmdir "$keydir"' EXIT
+          printf '%s\n' "$PRIVATE_KEY" > "$keydir/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$keydir/hosts"
+          unset PRIVATE_KEY KNOWN_HOSTS
+          ssh -T -F /dev/null -o BatchMode=yes -o ConnectTimeout=15 -o IdentitiesOnly=yes -o ClearAllForwardings=yes \
+            -o StrictHostKeyChecking=yes -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile="$keydir/hosts" \
+            -i "$keydir/key" "carservice-test-ci@$DEPLOY_HOST" "deploy-test test-deploy $REVISION"
+          printf 'Verified isolated TEST revision `%s`\n' "$REVISION" >> "$GITHUB_STEP_SUMMARY"
