@@ -1,7 +1,6 @@
 import axios from 'axios';
 const isProduction = (import.meta as ImportMeta & { env?: { PROD?: boolean } }).env?.PROD ?? false;
 export const serverOrigin = isProduction ? '' : 'http://localhost:5232';
-export const profilePictureUrl = (fileName: string) => serverOrigin + '/uploads/' + encodeURIComponent(fileName);
 const client = axios.create({ baseURL: serverOrigin + '/api' });
 let sessionGeneration = 0;
 const storedToken = () => typeof localStorage === 'undefined' ? null : localStorage.getItem('authToken');
