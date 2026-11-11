@@ -57,7 +57,7 @@ def fixture_dockerfile(role, generation):
     uid = 1654 if role == "backend" else 101
     return f'''FROM {BASE_IMAGE}
 COPY fixture.py /fixture.py
-RUN printf '{role}' > /role && printf '{generation}' > /generation
+RUN printf '{role}' > /role && printf '{generation}' > /generation && chmod 0644 /role /generation
 USER {uid}:{uid}
 EXPOSE 8080
 HEALTHCHECK --interval=1s --timeout=3s --start-period=1s --retries=3 CMD ["python", "/fixture.py", "health"]
@@ -70,6 +70,29 @@ def dc(*args, file=None, tag="baseline"):
                     "--project-directory", str(d.ETC), "--env-file", str(d.ENV_FILE),
                     "-f", str(file or d.ETC/"docker-compose.test.yml"), *args,
                     env={"APP_IMAGE_TAG":tag}, timeout=240)
+
+
+def startup_diagnostics():
+    """Allowlisted state only: never emit inspect config, env, logs or command output."""
+    rows = []
+    for service in d.SERVICES:
+        try:
+            ids = real_run("docker", "ps", "-aq", "--filter", f"label=com.docker.compose.project={d.PROJECT}",
+                           "--filter", f"label=com.docker.compose.service={service}").splitlines()
+            for cid in ids:
+                state = json.loads(real_run("docker", "inspect", "--format", "{{json .State}}", cid))
+                health = state.get("Health", {})
+                rows.append({"service": service,
+                             "status": state.get("Status") if state.get("Status") in
+                             ("created", "running", "paused", "restarting", "removing", "exited", "dead") else "unknown",
+                             "exit_code": state.get("ExitCode") if type(state.get("ExitCode")) is int else None,
+                             "health": health.get("Status") if health.get("Status") in
+                             ("starting", "healthy", "unhealthy") else "unknown",
+                             "health_exit_codes": [v["ExitCode"] for v in health.get("Log", [])[-3:]
+                                                   if type(v.get("ExitCode")) is int]})
+        except Exception:
+            rows.append({"service": service, "diagnostics": "unavailable"})
+    print(json.dumps({"fixture_startup": rows}), flush=True)
 
 
 def provision(scenario):
@@ -130,7 +153,11 @@ def provision(scenario):
           "compose_sha256":d.storage.digest(d.LIVE_COMPOSE),
           "frozen_compose_sha256":d.storage.digest(d.ETC/"docker-compose.test.yml"),
           "env_sha256":d.storage.digest(d.ENV_FILE), "migrations":["001_fixture", "002_fixture"]}))
-    dc("up", "-d", "--no-build", "--pull", "never", "--wait", "--wait-timeout", "45")
+    try:
+        dc("up", "-d", "--no-build", "--pull", "never", "--wait", "--wait-timeout", "45")
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        startup_diagnostics()
+        raise
     return sha
 
 

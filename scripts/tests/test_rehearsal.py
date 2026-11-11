@@ -1,5 +1,9 @@
 """Offline checks of the rehearsal safety boundary and fictional migration."""
 import importlib.util
+import io
+import json
+import os
+from contextlib import redirect_stdout
 from contextlib import closing
 from pathlib import Path
 import sqlite3
@@ -25,6 +29,38 @@ context = load("prepare_context")
 
 
 class RehearsalTests(unittest.TestCase):
+    def test_fixture_metadata_permissions_are_explicit_for_both_service_users(self):
+        for role, uid in (("backend", 1654), ("frontend", 101)):
+            for generation in ("old", "new"):
+                dockerfile = h.fixture_dockerfile(role, generation)
+                self.assertIn("chmod 0644 /role /generation", dockerfile)
+                self.assertLess(dockerfile.index("chmod 0644"), dockerfile.index(f"USER {uid}:{uid}"))
+                self.assertIn('"/fixture.py", "health"', dockerfile)
+
+    @unittest.skipUnless(os.name == "posix", "requires POSIX permission semantics")
+    def test_exact_metadata_command_remains_readable_under_private_umask(self):
+        for role in ("backend", "frontend"):
+            with tempfile.TemporaryDirectory() as tmp:
+                command = next(line[4:] for line in h.fixture_dockerfile(role, "old").splitlines()
+                               if line.startswith("RUN "))
+                command = command.replace("/role", "./role").replace("/generation", "./generation")
+                subprocess.run(["sh", "-c", "umask 077; " + command], cwd=tmp, check=True)
+                for name in ("role", "generation"):
+                    self.assertEqual((Path(tmp)/name).stat().st_mode & 0o777, 0o644)
+
+    def test_startup_diagnostics_discard_output_env_and_error_text(self):
+        state = {"Status":"exited", "ExitCode":1, "Error":"SECRET-CANARY",
+                 "Health":{"Status":"unhealthy", "Log":[{"ExitCode":1,"Output":"SECRET-CANARY"}]},
+                 "Config":{"Env":["SECRET-CANARY"]}}
+        output = io.StringIO()
+        with patch.object(h, "real_run", side_effect=lambda *a: "fixture-id" if a[1] == "ps" else json.dumps(state)), redirect_stdout(output):
+            h.startup_diagnostics()
+        self.assertNotIn("SECRET-CANARY", output.getvalue())
+        rows = json.loads(output.getvalue())["fixture_startup"]
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["health_exit_codes"], [1])
+        self.assertEqual(rows[0]["exit_code"], 1)
+
     def test_boundary_denies_external_interfaces_routes_and_credentials(self):
         header = "Iface Destination Gateway\n"
         h.validate_boundary("phase6e-disposable\n", ["lo", "br-fixture", "vethfixture"], header, {})
