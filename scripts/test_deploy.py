@@ -2,10 +2,13 @@
 """Installed, root-owned TEST deploy entry point. Its only input is one approved SHA on stdin."""
 import hashlib
 import http.client
+import ipaddress
 import json
 import os
 from pathlib import Path
 import re
+import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -53,6 +56,85 @@ def trusted(path, private=False):
         require(st.st_uid == 0 and not st.st_mode & 0o022, "unsafe runtime ownership or permissions")
     if private:
         require(not path.stat().st_mode & 0o077, "private file or directory required")
+
+
+def capacity_requirements(pair_bytes):
+    # Sum budgets when Docker, backup and scratch share a filesystem.
+    gib = 1024 ** 3
+    return ((BACKUPS, 2 * pair_bytes + gib),
+            (Path("/var/tmp"), 2 * pair_bytes + gib), (STATE, 2 * gib))
+
+
+def check_capacity(requirements):
+    budgets = {}
+    for path, needed in requirements:
+        device = path.stat().st_dev
+        total, free = budgets.get(device, (0, shutil.disk_usage(path).free))
+        budgets[device] = (total + needed, min(free, shutil.disk_usage(path).free))
+    require(all(free >= needed for needed, free in budgets.values()), "insufficient deployment disk reserve")
+
+
+def validate_network(model, live_ipam):
+    config = model["networks"]["workshop"]["ipam"]["config"]
+    require(len(config) == 1 and len(live_ipam) == 1, "one TEST subnet required")
+    subnet = ipaddress.ip_network(config[0]["subnet"])
+    require(str(subnet) == live_ipam[0]["Subnet"] and subnet.version == 4, "live TEST subnet mismatch")
+    addresses = [model["services"][s]["networks"]["workshop"]["ipv4_address"] for s in SERVICES]
+    require(len(set(addresses)) == 2 and all(ipaddress.ip_address(a) in subnet
+            and ipaddress.ip_address(a) not in (subnet.network_address, subnet.broadcast_address)
+            and a != live_ipam[0].get("Gateway") for a in addresses), "invalid TEST service addresses")
+    require(model["services"]["backend"]["environment"]["ReverseProxy__KnownProxies__0"] == addresses[1],
+            "trusted proxy must be TEST frontend")
+
+
+def preflight():
+    """Local metadata/configuration checks; no fetch, DB reads or service mutations."""
+    require(os.geteuid() == 0 and sys.version_info >= (3, 12), "requires root and Python 3.12+")
+    for command in ("git", "gh", "docker", "sudo", "ssh", "tar"):
+        require(shutil.which(command, path="/usr/sbin:/usr/bin:/sbin:/bin"), "required package missing")
+    for p in (ETC, BASE, Path("/usr/local/sbin/carservice-test-deploy"),
+              Path("/usr/local/sbin/ops_storage.py"), Path("/usr/local/sbin/carservice-test-ssh-gate")):
+        trusted(p)
+    for p in (STATE, STATE/"home", REPO, BACKUPS, ENV_FILE):
+        trusted(p, private=True)
+    for p in (STATE/"deploy.lock", STATE/"in-progress", ETC/"actions-enabled"):
+        require(not p.is_symlink(), "linked runtime control file")
+        if p.exists():
+            trusted(p)
+            require(p.is_file() and p.stat().st_nlink == 1, "unsafe runtime control file")
+    require(not (STATE/"in-progress").exists(), "unfinished deployment requires local operator")
+    frozen = ETC/"docker-compose.test.yml"
+    trusted(frozen, private=True)
+    # JSON is a YAML subset. Reject file-loading directives BEFORE Compose sees them.
+    raw = json.loads(frozen.read_text())
+    require(set(raw) == {"name", "services", "networks"}, "standalone JSON Compose required")
+    require(set(raw["services"]) == set(SERVICES), "unexpected services")
+    for service in raw["services"].values():
+        require(not set(service).intersection({"build", "extends", "env_file", "label_file"}),
+                "external Compose inputs forbidden")
+    compose = ["docker", "compose", "--project-name", PROJECT, "--project-directory", str(ETC),
+               "--env-file", str(ENV_FILE), "-f", str(frozen)]
+    require("--wait" in run("docker", "compose", "up", "--help"), "Compose wait support required")
+    model = json.loads(run(*compose, "config", "--format", "json", env={"APP_IMAGE_TAG":"preflight"}))
+    validate_model(model, "preflight")
+    validate_network(model, json.loads(run("docker", "network", "inspect", "-f", "{{json .IPAM.Config}}", NETWORK)))
+    current = containers()
+    protect_storage()
+    pair_bytes = 0
+    for root in (DATA, UPLOADS):
+        for p in (root, *root.rglob("*")):
+            s = p.stat()
+            require(s.st_uid == 1654 and s.st_gid == 1654 and not s.st_mode & 0o022,
+                    "TEST storage requires service ownership without group/other write")
+            if stat.S_ISREG(s.st_mode):
+                pair_bytes += s.st_size
+    docker_root = Path(run("docker", "info", "--format", "{{.DockerRootDir}}"))
+    require(docker_root.is_absolute(), "unexpected Docker data root")
+    check_capacity((*capacity_requirements(pair_bytes), (docker_root, 10 * 1024**3)))
+    require(all(c["status"] == "running" for c in current.values()), "TEST baseline not running")
+    for c in current.values():
+        require(run("docker", "inspect", "-f", "{{.State.Health.Status}}", c["id"]) == "healthy",
+                "unhealthy baseline")
 
 
 def run(*args, env=None, stdin=None, timeout=120):
@@ -202,6 +284,7 @@ def deploy(sha):
     import fcntl
     require(os.geteuid() == 0 and sys.version_info >= (3,12), "requires installed root runtime, Python 3.12+")
     os.umask(0o077)
+    preflight()
     trusted(ETC)
     for p in (STATE, STATE/"home", REPO, BACKUPS, ENV_FILE):
         trusted(p, private=True)

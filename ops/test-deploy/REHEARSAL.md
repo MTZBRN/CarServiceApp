@@ -1,0 +1,111 @@
+# Phase 6E: isolated Ubuntu/Docker rehearsal
+
+This replaces the Phase 6D manual plan. It requires no TEST/PROD credentials,
+GitHub API token, VPS connection, live checkout or real database. Prepared locally;
+Linux execution has NOT been performed yet.
+
+## Exact GitHub Actions instructions (after separate publication authorization)
+
+1. Review the uncommitted Phase 6D and 6E changes. This task does not authorize
+   committing, pushing, merging, registering or dispatching any workflow.
+2. After authorization, publish the reviewed rehearsal files together with the
+   Phase 6D dependencies. Register **rehearse-test-deploy.yml**, not deploy-test.yml,
+   on the default branch for manual dispatch. No application promotion is needed
+   for the fictional fixture. Keep the real deployment variable unset/false and
+   the server actions-enabled marker absent; this rehearsal never sets either.
+3. In Actions, select **Disposable TEST pipeline rehearsal**, choose the reviewed
+   ref, and check **approve_fixture_recovery**. This is explicit authorization for
+   restoring fictional fixtures only. Alternatively, using an operator's normal
+   GitHub session outside the rehearsal container:
+
+   ```sh
+   gh workflow run rehearse-test-deploy.yml --repo MTZBRN/CarServiceApp --ref <reviewed-ref> -f approve_fixture_recovery=true
+   gh run list --repo MTZBRN/CarServiceApp --workflow rehearse-test-deploy.yml --limit 5
+   gh run watch <run-id> --repo MTZBRN/CarServiceApp --exit-status
+   ```
+
+   No token is passed to the rehearsal. Omitting/clearing recovery approval leaves
+   both fault cases pending and intentionally fails the acceptance step; it cannot
+   silently claim recovery passed. Recovery occurs in a separate workflow step,
+   never inside the deployment helper's failure handler.
+4. Require all three Ubuntu 24.04 matrix jobs to pass. Read each job summary's
+   JSON report: versions/base image ID, preflight, exact synthetic commit and image
+   IDs, journal stage, injected failure and recovery status. Keep this synthetic
+   evidence with the review. No database, uploads, token or full config is exported.
+5. The always-run cleanup removes only the labelled disposable outer container;
+   the GitHub-hosted runner is discarded after its job. Never run this privileged
+   harness on a VPS, a self-hosted runner, or a machine holding valuable data.
+
+Manual dispatch registration behavior: [GitHub documentation](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
+
+## Isolation boundary
+
+The job uses an explicit file allowlist to build a fresh Ubuntu harness image.
+It does not send the repository root, .git, environment files or local data into
+its build context. Public image/package downloads happen during preparation.
+Checkout has contents-read permission and persist-credentials=false. There is no
+Actions environment, deployment secret, caller-selected host/path/ref/SHA input,
+SSH operation, automatic push/PR trigger or self-hosted runner option.
+
+The outer container has **network none**, no bind mounts, no volumes, no host Docker
+socket, no host PID/network mode and no passed credentials. Privileged mode is used
+only to run its own nested Docker daemon with vfs storage. It is not a sandbox for
+hostile code: dispatch only reviewed code on the disposable GitHub-hosted VM.
+[Docker network none](https://docs.docker.com/engine/network/drivers/none) supplies
+only loopback. The harness refuses external interfaces/default routes and daemon
+or credential overrides; its daemon root must be /var/lib/phase6e-docker.
+
+The fixed /opt, /etc and /var/lib TEST-shaped paths exist only in this new
+container filesystem. Setup refuses any existing runtime paths or containers;
+it never adopts storage. The nested network is internal, with synthetic addresses
+172.29.80.2/3 and loopback 5174 inside the outer container. Images are loaded before
+execution; builds have --network=none --pull=false. Nothing publishes on the outer
+runner or connects to the real VPS. No endpoint can be supplied to the harness.
+
+## What is real and what is a fixture
+
+The existing test_deploy.deploy, installed preflight entry point, Compose template,
+isolation checks, flock/journal, image builds, backup and restore verifier are reused.
+The production helper and SSH gate acquire no rehearsal switches.
+
+A tiny Python HTTP fixture substitutes for the application images. It initializes
+no customer source: one fictional SQLite row and one text upload are seeded locally.
+Its new backend executes a real SQLite migration; its frontend proxies the fixture
+API for the existing SPA-200/API-401 smoke contract. Health checks and service UIDs
+match the deployment contract. This is not EF or application/browser acceptance.
+
+Only GitHub boundaries are replaced in-process: fetch is redirected to the fixed
+local synthetic Git repository, and gh receives a fictional successful push-CI
+response. Original exact-tip, SHA, CI-response and root approval validators still
+execute twice. No network or real credential is needed. Synthetic Git commits are
+created only inside the disposable container, never in the real repository.
+Existing offline tests cover negative CI/ref/approval cases. This does not prove
+live GitHub branch protections, Actions environment approvals or SSH admission.
+
+## Executed Linux cases once dispatched
+
+| Case | Actual operations and required assertions |
+| --- | --- |
+| Preflight | Installed root entry point runs; real packages, Compose/IPAM, disk, ownership, mounts and health checked. Group-writable env is refused without changing containers. |
+| Success | Actual old/new Docker image builds, stopped writers, real SQLite/upload backup and restore verification, successful migration, new pair healthy, fictional row preserved, SPA/API smoke, marker removed. |
+| Backup failure | Only storage.backup raises a deterministic fixture OSError. Both old services remain stopped; no new backend starts; backing-up journal and marker remain. |
+| Migration failure | New fixture backend executes invalid SQL after a schema extension. Container exits with code 1; expected migration remains unapplied; frontend stays stopped; verified backup and starting-backend journal remain. No mocked migration_state. |
+| Recovery after backup failure | Separate approved step acquires the lock, checks old IDs/schema and rollback-tag mapping, starts original backend then frontend, verifies health/data/upload/smoke, records decision before clearing marker. |
+| Recovery after migration failure | Separate approved step stops failed services, uses existing restore_test to create a fresh paired recovery tree, restores service ownership, starts journaled old image pair on new binds, checks integrity/FKs/history/row/upload/health/smoke. Failed pair remains untouched; canonical preflight rejects recovery binds even after marker removal. |
+
+The supplied template is used with only internal networking and restart=no as
+rehearsal-specific changes, so migration failure stays stopped for inspection.
+Disk admission budgets are not mocked or lowered. Insufficient hosted-runner disk
+is a real failure requiring a suitably sized disposable hosted runner, not cleanup
+of unrelated storage or bypassing the preflight.
+
+## Remaining limits
+
+Actual Linux/Docker execution must still pass. Local unit tests cannot establish
+nested-daemon/Compose behavior, disk availability or successful operator recovery.
+Public package/image tags can change; the report records resolved versions and
+fixture base image ID. Pin approved digests if identical future rebuilds are needed.
+Real application/EF migrations, native printing, authenticated application smoke,
+SSH restrictions, live GitHub settings and real VPS metadata remain separate
+activation checks. Do not treat fictional admission or recovery as permission to
+enable deployment. Interruption/SIGKILL recovery remains a later rehearsal case.
