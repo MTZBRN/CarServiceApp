@@ -2,7 +2,8 @@ import { useRef, useState, type FormEvent } from 'react';
 import { useAuth } from '../../auth/AuthProvider';
 import { authApi } from '../../api/auth';
 import { settingsApi } from '../../api/settings';
-import { apiErrorMessage, profilePictureUrl } from '../../api/client';
+import { apiErrorMessage } from '../../api/client';
+import { useProfilePicture } from '../../auth/useProfilePicture';
 import { useWorkshopResource } from '../../data/useWorkshopData';
 import type { SaveSettingsRequest, WorkshopSettings } from '../../types';
 import Card from '../ui/Card';
@@ -28,6 +29,7 @@ function PersonalAccount() {
     try { return JSON.parse(localStorage.getItem('user_data') || '{}').profilePicturePath || user?.profilePicturePath || null; }
     catch { return user?.profilePicturePath || null; }
   });
+  const pictureSource = useProfilePicture(picture);
   async function changePassword(event:FormEvent) {
     event.preventDefault();
     if (passwordLock.current) return;
@@ -68,7 +70,7 @@ function PersonalAccount() {
   return <section className="settings-section" aria-labelledby="personal-heading">
     <h2 id="personal-heading">Személyes fiók</h2>
     <Card><h3>Profiladatok és profilkép</h3><div className="account-profile">
-      {picture && <img className="account-picture" src={profilePictureUrl(picture)} alt="Saját profilkép" onError={()=>setPicture(null)} />}
+      {pictureSource && <img className="account-picture" src={pictureSource} alt="Saját profilkép" onError={()=>setPicture(null)} />}
       <div><strong>{user?.userName}</strong><p><Badge tone="neutral">{user?.role==='admin'?'Rendszergazda':'Szerelő'}</Badge></p></div>
     </div><p className="records-note">A név és a szerepkör ezen az oldalon nem módosítható.</p>
       <form className="records-form" onSubmit={upload} noValidate aria-busy={uploading}>

@@ -27,13 +27,15 @@ public static class ProductionHardening
     public static void AddHeaders(HttpContext context, bool development)
     {
         var headers=context.Response.Headers;
-        // Upload middleware owns its stricter sandbox policy; never replace it on response start.
+        // Protected image routes retain a strict sandbox policy, including denied responses.
+        if(context.Request.Path.StartsWithSegments("/uploads") || context.Request.Path.StartsWithSegments("/api/ProfileImages"))
+            headers["Content-Security-Policy"]="default-src 'none'; sandbox";
         if (!headers.ContainsKey("Content-Security-Policy")) headers["Content-Security-Policy"]=development?DevelopmentCsp:ProductionCsp;
         headers["X-Frame-Options"]="DENY";
         headers["X-Content-Type-Options"]="nosniff";
         headers["Referrer-Policy"]="no-referrer";
         headers["Permissions-Policy"]="camera=(), microphone=(), geolocation=(), payment=(), usb=()";
-        if(context.Request.Path.StartsWithSegments("/api")) headers.CacheControl="no-store";
+        if(context.Request.Path.StartsWithSegments("/api") || context.Request.Path.StartsWithSegments("/uploads")) headers.CacheControl="no-store";
     }
 
     public static async Task UnexpectedError(HttpContext context)

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { CalendarDays, Car, ChevronLeft, ChevronRight, FileText, LayoutDashboard, LogOut, Package, Settings, ShieldCheck, Users, Wrench, Code2, X, type LucideIcon } from 'lucide-react';
 import { useAuth } from '../../auth/AuthProvider';
-import { profilePictureUrl } from '../../api/client';
+import { useProfilePicture } from '../../auth/useProfilePicture';
 import { useWorkshopResource } from '../../data/useWorkshopData';
 import IconButton from '../ui/IconButton';
 interface Props { collapsed?: boolean; mobile?: boolean; onToggle?: () => void; onClose?: () => void; onNavigate: () => void; onLogout: () => void; onDevTools?: () => void; }
@@ -18,9 +18,10 @@ export default function Sidebar({ collapsed = false, mobile = false, onToggle, o
   const { user } = useAuth();
   const { data: settings } = useWorkshopResource('settings');
   const [picture, setPicture] = useState<string | null>(null);
+  const pictureSource = useProfilePicture(picture);
   useEffect(() => {
     const update = () => {
-      try { const data = JSON.parse(localStorage.getItem('user_data') || '{}'); const file = data.profilePicturePath || user?.profilePicturePath; setPicture(typeof file === 'string' && file ? profilePictureUrl(file) : null); }
+      try { const data = JSON.parse(localStorage.getItem('user_data') || '{}'); const file = data.profilePicturePath || user?.profilePicturePath; setPicture(typeof file === 'string' && file ? file : null); }
       catch { setPicture(null); }
     };
     update(); window.addEventListener('profile-updated', update);
@@ -35,7 +36,7 @@ export default function Sidebar({ collapsed = false, mobile = false, onToggle, o
     </nav>
     <div className="shell-sidebar-lower">
       {user?.role === 'admin' && <nav aria-label="Adminisztráció" className="shell-nav"><span className="shell-nav-caption">Adminisztráció</span>{link({ to: '/users', label: 'Felhasználók', icon: ShieldCheck })}{link({ to: '/settings', label: 'Beállítások', icon: Settings })}{link({to:'/audit',label:'Eseménynapló',icon:ShieldCheck})}{onDevTools && <button type="button" className="shell-nav-item shell-dev-tools" onClick={() => { onNavigate(); onDevTools(); }} title={collapsed ? 'Fejlesztői eszközök' : undefined}><Code2 size={18} aria-hidden="true" /><span className="shell-nav-label">Fejlesztői eszközök</span></button>}</nav>}
-      <div className="shell-profile"><span className="shell-avatar" aria-hidden="true">{picture ? <img src={picture} alt="" onError={() => setPicture(null)} /> : (user?.userName || '?').slice(0, 2).toUpperCase()}</span><div className="shell-profile-text"><strong>{user?.userName}</strong><span>{role}</span></div><IconButton label="Kijelentkezés" onClick={onLogout}><LogOut size={17} aria-hidden="true" /></IconButton></div>
+      <div className="shell-profile"><span className="shell-avatar" aria-hidden="true">{pictureSource ? <img src={pictureSource} alt="" onError={() => setPicture(null)} /> : (user?.userName || '?').slice(0, 2).toUpperCase()}</span><div className="shell-profile-text"><strong>{user?.userName}</strong><span>{role}</span></div><IconButton label="Kijelentkezés" onClick={onLogout}><LogOut size={17} aria-hidden="true" /></IconButton></div>
       {!mobile && <button type="button" className="shell-collapse" onClick={onToggle} aria-expanded={!collapsed} aria-controls="desktop-navigation" title={collapsed ? 'Oldalsáv kibontása' : 'Oldalsáv összecsukása'} aria-label={collapsed ? 'Oldalsáv kibontása' : 'Oldalsáv összecsukása'}>{collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}<span>Oldalsáv összecsukása</span></button>}
     </div>
   </aside>;

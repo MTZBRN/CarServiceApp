@@ -189,23 +189,14 @@ app.UseHttpsRedirection();
 
 // ✅ ÚJ: Ezek kellenek a React kiszolgálásához!
 app.UseDefaultFiles(); // Megkeresi az index.html-t a wwwroot-ban
-app.UseStaticFiles();  // Kiszolgálja a React fájlokat (js, css, képek)
+// Never allow a webroot copy to bypass the protected image controller.
+app.UseWhen(ctx => !ctx.Request.Path.StartsWithSegments("/uploads") &&
+    !ctx.Request.Path.StartsWithSegments("/api"), branch => branch.UseStaticFiles());
 
 // Egyedi mappa a feltöltéseknek (profilképek)
 var images = app.Services.GetRequiredService<ProfileImages>();
 Directory.CreateDirectory(images.DirectoryPath);
-// Only canonical server-generated PNGs and legacy raster names are public. Old active files stay unreachable.
-app.Use(async (ctx, next) => {
-    if (ctx.Request.Path.StartsWithSegments("/uploads", out var name)) {
-        if (!System.Text.RegularExpressions.Regex.IsMatch(name.Value ?? "", @"^/profile_\d+_[a-zA-Z0-9]+\.(png|jpg|jpeg)$")) { ctx.Response.StatusCode = 404; return; }
-        ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
-        ctx.Response.Headers["Content-Security-Policy"] = "default-src 'none'; sandbox";
-    }
-    await next();
-});
-app.UseStaticFiles(new StaticFileOptions {
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(images.DirectoryPath), RequestPath = "/uploads"
-});
+// ProfileImagesController handles both API and legacy /uploads URLs after authorization.
 app.UseAuthentication(); 
 app.UseRateLimiter();
 app.UseAuthorization();  

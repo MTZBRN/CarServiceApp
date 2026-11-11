@@ -144,7 +144,7 @@ test('personal password and profile image workflows accept responses and persist
     await page.getByLabel('Új profilkép',{exact:true}).setInputFiles({name:'profile.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYPj/HwADAgH/5ncLrgAAAABJRU5ErkJggg==','base64')});
     await page.getByRole('button',{name:'Kép mentése'}).click();
     await expect(page.getByText('A profilkép mentve.',{exact:true})).toBeVisible();
-    await expect(page.locator('.shell-avatar img')).toHaveAttribute('src',/uploads\/profile_/);
+    await expect(page.locator('.shell-avatar img')).toHaveAttribute('src',/^data:image\/png;base64,/);
     await page.reload();
     await expect(page.getByRole('img',{name:'Saját profilkép'})).toBeVisible();
   } finally {expect((await request.delete(api+'/Users/'+account.id,{headers:account.headers})).ok()).toBeTruthy();}
