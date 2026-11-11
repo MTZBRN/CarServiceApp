@@ -27,16 +27,76 @@ def model():
 
 
 class TestDeploymentGuards(unittest.TestCase):
+    def test_runtime_ownership_and_private_modes(self):
+        parent = Mock()
+        path = Mock(parents=[parent])
+        parent.stat.return_value = Mock(st_uid=0,st_mode=0o755)
+        with patch.object(deploy.storage,"safe_path"):
+            path.stat.return_value = Mock(st_uid=0,st_mode=0o600)
+            deploy.trusted(path,private=True)
+            for uid,mode in ((1000,0o600),(0,0o620),(0,0o644)):
+                path.stat.return_value = Mock(st_uid=uid,st_mode=mode)
+                with self.assertRaises(deploy.Refused): deploy.trusted(path,private=True)
+            path.stat.return_value = Mock(st_uid=0,st_mode=0o600)
+            parent.stat.return_value = Mock(st_uid=0,st_mode=0o775)
+            with self.assertRaises(deploy.Refused): deploy.trusted(path)
+
+    def test_preflight_failure_prevents_deployment_commands(self):
+        with patch.dict(sys.modules,fcntl=Mock()), \
+             patch.object(deploy.os,"geteuid",return_value=0,create=True), \
+             patch.object(deploy,"preflight",side_effect=deploy.Refused("fixture")), \
+             patch.object(deploy,"run") as command:
+            with self.assertRaises(deploy.Refused): deploy.deploy("a"*40)
+            command.assert_not_called()
+
+    def test_capacity_aggregates_shared_filesystems(self):
+        a, b = Mock(), Mock()
+        a.stat.return_value.st_dev = b.stat.return_value.st_dev = 1
+        with patch.object(deploy.shutil, "disk_usage", return_value=Mock(free=100)):
+            deploy.check_capacity([(a, 50), (b, 50)])
+            with self.assertRaises(deploy.Refused):
+                deploy.check_capacity([(a, 60), (b, 60)])
+            b.stat.return_value.st_dev = 2
+            deploy.check_capacity([(a, 60), (b, 60)])
+
+    def test_standalone_template_and_network(self):
+        import re
+        from pathlib import PurePosixPath
+        raw = (Path(__file__).resolve().parents[2]/"ops/test-deploy/docker-compose.test.yml").read_text()
+        values = {"APP_IMAGE_TAG":"tag", "TEST_SUBNET":"172.29.80.0/24",
+                  "TEST_BACKEND_IP":"172.29.80.2", "TEST_FRONTEND_IP":"172.29.80.3",
+                  "JWT_KEY":"synthetic", "JWT_ISSUER":"fixture", "JWT_AUDIENCE":"fixture"}
+        config = json.loads(re.sub(r"\$\{([A-Z_]+):\?[^}]*\}", lambda m:values[m[1]], raw))
+        with patch.object(deploy,"DATA",PurePosixPath("/opt/carserviceapp/test-data")), \
+             patch.object(deploy,"UPLOADS",PurePosixPath("/opt/carserviceapp/test-uploads")):
+            deploy.validate_model(config,"tag")
+        ipam = [{"Subnet":"172.29.80.0/24", "Gateway":"172.29.80.1"}]
+        deploy.validate_network(config,ipam)
+        for subnet in ("172.29.81.0/24", "0.0.0.0/0"):
+            with self.assertRaises(deploy.Refused):
+                deploy.validate_network(config,[{"Subnet":subnet}])
+        config["services"]["backend"]["environment"]["ReverseProxy__KnownProxies__0"] = "172.29.80.8"
+        with self.assertRaises(deploy.Refused): deploy.validate_network(config,ipam)
+
+    def test_registration_patch_contains_only_unchanged_dispatcher(self):
+        root = Path(__file__).resolve().parents[2]
+        text = (root/"ops/test-deploy/register-main.patch").read_text()
+        self.assertEqual(text.count("+++ "),1)
+        self.assertIn("+++ b/.github/workflows/deploy-test.yml\n",text)
+        added = "".join(line[1:] for line in text.splitlines(keepends=True)
+                        if line.startswith("+") and not line.startswith("+++"))
+        self.assertEqual(added,(root/".github/workflows/deploy-test.yml").read_text())
+
     def test_backup_and_migration_gate_service_start(self):
         sha = "a"*40
-        for failure in ("promotion during build", "backup", "migration", None):
+        for failure in ("promotion during build", "backup-write", "backup", "migration", None):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as tmp, ExitStack() as stack:
                 root = Path(tmp)
                 for name in ("ETC","STATE","REPO","BASE","BACKUPS"):
                     stack.enter_context(patch.object(deploy,name,root))
                 stack.enter_context(patch.dict(sys.modules,fcntl=Mock(LOCK_EX=2,LOCK_NB=4)))
                 stack.enter_context(patch.object(deploy.os,"geteuid",return_value=0,create=True))
-                for name in ("trusted","check_mount_layout","protect_storage","smoke","check_ci"):
+                for name in ("preflight","trusted","check_mount_layout","protect_storage","smoke","check_ci"):
                     stack.enter_context(patch.object(deploy,name))
                 stack.enter_context(patch.object(deploy.storage,"safe_path",side_effect=lambda p:p))
                 stack.enter_context(patch.object(deploy.storage,"digest",return_value="digest"))
@@ -48,7 +108,8 @@ class TestDeploymentGuards(unittest.TestCase):
                 stack.enter_context(patch.object(deploy,"containers",side_effect=lambda:copy.deepcopy(live)))
                 stack.enter_context(patch.object(deploy,"migration_state",
                     side_effect=[["001"], ["001"] if failure=="migration" else ["001","002"]]))
-                stack.enter_context(patch.object(deploy.storage,"backup",return_value=root/"pair"))
+                stack.enter_context(patch.object(deploy.storage,"backup",return_value=root/"pair",
+                    side_effect=ValueError("fixture backup failure") if failure == "backup-write" else None))
                 def restore(*args):
                     events.append("restore")
                     if failure=="backup": raise ValueError("bad backup")
@@ -83,7 +144,8 @@ class TestDeploymentGuards(unittest.TestCase):
                     with self.assertRaises(ValueError): deploy.deploy(sha)
                 else: deploy.deploy(sha)
                 expected = ["stop-frontend","stop-backend","restore"]
-                if failure != "backup": expected.append("up-backend")
+                if failure == "backup-write": expected.remove("restore")
+                if failure not in ("backup", "backup-write"): expected.append("up-backend")
                 if not failure: expected.append("up-frontend")
                 self.assertEqual(events, [] if failure == "promotion during build" else expected)
                 self.assertEqual((root/"in-progress").exists(),bool(failure))

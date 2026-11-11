@@ -1,0 +1,105 @@
+{
+  "name": "carserviceapp-test",
+  "services": {
+    "backend": {
+      "restart": "unless-stopped",
+      "read_only": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "image": "carserviceapp-test-backend:${APP_IMAGE_TAG:?Release tag required}",
+      "expose": [
+        "8080"
+      ],
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,nodev,size=134217728,mode=1777"
+      ],
+      "mem_limit": "1g",
+      "cpus": 1.0,
+      "pids_limit": 256,
+      "networks": {
+        "workshop": {
+          "ipv4_address": "${TEST_BACKEND_IP:?Supply reviewed existing TEST backend address}"
+        }
+      },
+      "environment": {
+        "ASPNETCORE_ENVIRONMENT": "Production",
+        "DOTNET_ENVIRONMENT": "Production",
+        "Jwt__Key": "${JWT_KEY:?Supply external random signing key}",
+        "Jwt__Issuer": "${JWT_ISSUER:?Supply issuer}",
+        "Jwt__Audience": "${JWT_AUDIENCE:?Supply audience}",
+        "Uploads__Path": "/app/uploads",
+        "ConnectionStrings__DefaultConnection": "Data Source=/app/data/app.db",
+        "ReverseProxy__KnownProxies__0": "${TEST_FRONTEND_IP:?Supply reviewed existing TEST frontend address}"
+      },
+      "volumes": [
+        {
+          "type": "bind",
+          "source": "/opt/carserviceapp/test-data",
+          "target": "/app/data",
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/opt/carserviceapp/test-uploads",
+          "target": "/app/uploads",
+          "bind": {
+            "create_host_path": false
+          }
+        }
+      ]
+    },
+    "frontend": {
+      "restart": "unless-stopped",
+      "read_only": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "image": "carserviceapp-test-frontend:${APP_IMAGE_TAG:?Release tag required}",
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,nodev,size=33554432,mode=1777"
+      ],
+      "mem_limit": "128m",
+      "cpus": 0.5,
+      "pids_limit": 64,
+      "networks": {
+        "workshop": {
+          "ipv4_address": "${TEST_FRONTEND_IP:?Supply reviewed existing TEST frontend address}"
+        }
+      },
+      "ports": [
+        {
+          "target": 8080,
+          "published": "5174",
+          "host_ip": "127.0.0.1",
+          "protocol": "tcp"
+        }
+      ],
+      "depends_on": {
+        "backend": {
+          "condition": "service_healthy"
+        }
+      }
+    }
+  },
+  "networks": {
+    "workshop": {
+      "name": "carserviceapp-test_workshop",
+      "ipam": {
+        "config": [
+          {
+            "subnet": "${TEST_SUBNET:?Supply reviewed existing TEST subnet}"
+          }
+        ]
+      }
+    }
+  }
+}
