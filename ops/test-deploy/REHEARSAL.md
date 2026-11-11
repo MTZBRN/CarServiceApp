@@ -4,6 +4,40 @@ This replaces the Phase 6D manual plan. It requires no TEST/PROD credentials,
 GitHub API token, VPS connection, live checkout or real database. Prepared locally;
 Linux execution has NOT been performed yet.
 
+### Provisioning startup investigation (2026-11-11)
+
+Prepared on `feature/rehearsal-startup-fix` from freshly fetched `origin/test-deploy`
+at `5441b58fee44e5d228fc71c6d292b26233397f11`.
+Baseline tags match the template (`carserviceapp-test-{backend,frontend}:baseline`);
+the imported Python base supplies the interpreter used by startup and healthchecks.
+The metadata files `/role` and `/generation` were created by root without explicit
+permissions, before switching to UID 1654/101. The outer daemon is launched under
+umask 077. If that mask reaches the build RUN process, metadata is 0600 and the
+fixture raises PermissionError before binding port 8080. Both old/new images now
+explicitly chmod only these fictional metadata files to 0644. Healthchecks and
+production guards remain unchanged.
+
+This is a candidate cause, not a verified diagnosis of the reported Actions run:
+the supplied failure contains no container state or stderr, and this Windows host
+has no Docker or installed WSL. Verify actual image metadata modes and startup on
+Linux before declaring the incident resolved. A POSIX regression runs the exact
+metadata creation command under umask 077 and checks resulting permissions.
+
+Provisioning failures now emit a bounded JSON projection of each fixture service's
+status, exit code, health status and last three healthcheck exit codes. Raw logs,
+healthcheck output, Docker configuration/environment and exception text are omitted.
+Diagnostics failure does not replace the original Compose failure. Production
+deployment logging is unchanged.
+
+Local results: rehearsal suite 7 passed/1 POSIX-only skip; deployment guard suite
+11 passed. Existing workflow safety assertions passed (manual hosted runner,
+network-none, no deployment secrets/environment, explicit recovery approval).
+The workflow YAML itself was not changed; no Actions dispatch occurred.
+After separately authorized publication, run all three matrix cases with
+`approve_fixture_recovery=true`; require baseline health, success migration,
+both intended faults and their recovery assertions to pass. If provisioning still
+fails, use the new state evidence to investigate further; do not weaken healthchecks.
+
 ## Exact GitHub Actions instructions (after separate publication authorization)
 
 1. Review the uncommitted Phase 6D and 6E changes. This task does not authorize
