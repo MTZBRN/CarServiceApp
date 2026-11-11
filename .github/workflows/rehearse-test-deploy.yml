@@ -1,0 +1,74 @@
+name: Disposable TEST pipeline rehearsal
+on:
+  workflow_dispatch:
+    inputs:
+      approve_fixture_recovery:
+        description: Approve restoring fictional fixtures only (required for full acceptance)
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  rehearsal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [success, backup-failure, migration-failure]
+    # No deployment environment, secrets, release inputs or self-hosted runners.
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Build disposable harness from allowlisted sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 ops/test-deploy/rehearsal/prepare_context.py "$RUNNER_TEMP/phase6e-context"
+          docker pull python:3.12-slim-bookworm
+          docker save -o "$RUNNER_TEMP/phase6e-context/base.tar" python:3.12-slim-bookworm
+          docker build -t phase6e-harness "$RUNNER_TEMP/phase6e-context"
+      - name: Start isolated daemon without mounts or external network
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name phase6e-box --label phase6e=disposable \
+            --privileged --network none phase6e-harness
+          test "$(docker inspect -f '{{json .Mounts}}' phase6e-box)" = '[]'
+          test "$(docker inspect -f '{{.HostConfig.NetworkMode}}' phase6e-box)" = none
+          for attempt in $(seq 1 90); do
+            if docker exec phase6e-box test -e /run/phase6e-ready; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Reuse offline guards and exercise real Docker deployment
+        env:
+          SCENARIO: ${{ matrix.scenario }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker exec -w /review phase6e-box python3 -m unittest discover -s scripts/tests -p test_test_deploy.py
+          docker exec -w /review phase6e-box python3 -m unittest discover -s scripts/tests -p test_ops_storage.py
+          docker exec -w /review phase6e-box python3 -m unittest discover -s scripts/tests -p test_rehearsal.py
+          docker exec phase6e-box python3 /review/ops/test-deploy/rehearsal/harness.py run "$SCENARIO"
+      - name: Explicit operator recovery rehearsal
+        if: matrix.scenario != 'success' && inputs.approve_fixture_recovery
+        run: docker exec phase6e-box python3 /review/ops/test-deploy/rehearsal/harness.py recover --approve-fixture-recovery
+      - name: Require completed rehearsal including approved recovery
+        run: docker exec phase6e-box python3 /review/ops/test-deploy/rehearsal/harness.py verify
+      - name: Record synthetic evidence
+        if: always()
+        shell: bash
+        run: |
+          if docker cp phase6e-box:/evidence/report.json "$RUNNER_TEMP/phase6e-report.json"; then
+            cat "$RUNNER_TEMP/phase6e-report.json" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Remove only this disposable container
+        if: always()
+        shell: bash
+        run: |
+          if docker container inspect phase6e-box >/dev/null 2>&1; then
+            test "$(docker inspect -f '{{index .Config.Labels "phase6e"}}' phase6e-box)" = disposable
+            docker rm -f phase6e-box
+          fi
