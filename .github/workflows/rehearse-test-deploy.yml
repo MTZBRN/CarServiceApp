@@ -57,6 +57,16 @@ jobs:
         run: docker exec phase6e-box python3 /review/ops/test-deploy/rehearsal/harness.py recover --approve-fixture-recovery
       - name: Require completed rehearsal including approved recovery
         run: docker exec phase6e-box python3 /review/ops/test-deploy/rehearsal/harness.py verify
+      - name: Record sanitized runtime diagnostics before cleanup
+        if: always()
+        shell: bash
+        run: |
+          if docker container inspect phase6e-box >/dev/null 2>&1; then
+            test "$(docker inspect -f '{{index .Config.Labels "phase6e"}}' phase6e-box)" = disposable
+            docker exec phase6e-box python3 /review/ops/test-deploy/rehearsal/harness.py diagnose > "$RUNNER_TEMP/phase6e-runtime.json" || true
+            cat "$RUNNER_TEMP/phase6e-runtime.json"
+            cat "$RUNNER_TEMP/phase6e-runtime.json" >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Record synthetic evidence
         if: always()
         shell: bash
