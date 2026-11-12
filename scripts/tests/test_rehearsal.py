@@ -26,9 +26,53 @@ def load(name):
 
 h = load("harness")
 context = load("prepare_context")
+cg = load("cgroup_setup")
 
 
 class RehearsalTests(unittest.TestCase):
+    def test_cgroup_setup_requires_delegated_controllers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root/'cgroup.controllers').write_text('cpu pids')
+            with self.assertRaisesRegex(RuntimeError, 'unavailable'):
+                cg.prepare(root)
+            self.assertFalse((root/'init').exists())
+
+    def test_cgroup_setup_moves_processes_before_enabling_controllers(self):
+        calls = []
+        def read(path):
+            return {'cgroup.controllers':'cpu memory pids', 'cgroup.procs':'123 456',
+                    'cgroup.subtree_control':'cpu memory pids'}[path.name]
+        def write(path, value):
+            calls.append((path.as_posix(), value))
+        with patch.object(Path, 'read_text', read), patch.object(Path, 'write_text', write), patch.object(Path, 'mkdir'):
+            cg.prepare(Path('/synthetic-cgroup'))
+        self.assertEqual(calls, [('/synthetic-cgroup/init/cgroup.procs', '123'),
+                                 ('/synthetic-cgroup/init/cgroup.procs', '456'),
+                                 ('/synthetic-cgroup/cgroup.subtree_control', '+cpu +memory +pids')])
+
+    def test_cgroup_setup_propagates_permission_errors(self):
+        with patch.object(Path, 'read_text', return_value='cpu memory pids'), patch.object(Path, 'mkdir', side_effect=PermissionError):
+            with self.assertRaises(PermissionError): cg.prepare()
+
+    def test_cgroup_setup_does_not_ignore_missing_enforcement(self):
+        def read(path):
+            return 'cpu memory pids' if path.name == 'cgroup.controllers' else ''
+        with patch.object(Path, 'read_text', read), patch.object(Path, 'write_text'), patch.object(Path, 'mkdir'), patch.object(cg.time, 'sleep'):
+            with self.assertRaisesRegex(RuntimeError, 'unable to enable'): cg.prepare()
+
+    def test_cgroup_bootstrap_preserves_private_namespace_and_limits(self):
+        entry = (FOLDER/'entry.sh').read_text()
+        self.assertLess(entry.index('cgroup_setup.py'), entry.index('dockerd --'))
+        self.assertIn('--exec-opt native.cgroupdriver=cgroupfs', entry)
+        workflow = (ROOT/'.github/workflows/rehearse-test-deploy.yml').read_text()
+        self.assertIn('--network none --cgroupns private', workflow)
+        self.assertNotIn('--cgroupns host', workflow)
+        model = json.loads((ROOT/'ops/test-deploy/docker-compose.test.yml').read_text())
+        for service in model['services'].values():
+            self.assertIn('mem_limit', service)
+            self.assertIn('cpus', service)
+            self.assertIn('pids_limit', service)
     def test_runtime_error_preserves_cause_but_not_secrets_paths_or_controls(self):
         message = 'OCI runtime create failed: open sysctl net.ipv4.ip_unprivileged_port_start: permission denied SECRET-CANARY /private/customer.db token=abc123\n\x1b'
         clean = h.diagnostic_text(message)

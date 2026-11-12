@@ -125,7 +125,18 @@ def startup_diagnostics():
                                                    if type(v.get("ExitCode")) is int]})
         except Exception:
             rows.append({"service": service, "diagnostics": "unavailable"})
-    print(json.dumps({"fixture_startup": rows, "daemon_tail": daemon_diagnostics()}), flush=True)
+    cgroups = {}
+    for field, filename in (("available", "cgroup.controllers"), ("enabled", "cgroup.subtree_control")):
+        try:
+            cgroups[field] = sorted(set(Path('/sys/fs/cgroup', filename).read_text().split()) & {"cpu", "memory", "pids"})
+        except OSError:
+            cgroups[field] = "unavailable"
+    try:
+        driver = real_run("docker", "info", "--format", "{{.CgroupDriver}}")
+        cgroups['driver'] = driver if driver in ('systemd', 'cgroupfs') else 'unknown'
+    except Exception:
+        cgroups['driver'] = 'unavailable'
+    print(json.dumps({"fixture_startup": rows, "daemon_tail": daemon_diagnostics(), "cgroups": cgroups}), flush=True)
 
 
 def provision(scenario):

@@ -13,6 +13,7 @@ FILES = (
     "ops/test-deploy/rehearsal/entry.sh", "ops/test-deploy/rehearsal/fixture.py",
     "ops/test-deploy/rehearsal/harness.py",
     "ops/test-deploy/rehearsal/prepare_context.py", "ops/test-deploy/rehearsal/Dockerfile",
+    "ops/test-deploy/rehearsal/cgroup_setup.py",
 )
 
 

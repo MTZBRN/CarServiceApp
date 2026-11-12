@@ -34,9 +34,10 @@ jobs:
         run: |
           set -euo pipefail
           docker run -d --name phase6e-box --label phase6e=disposable \
-            --privileged --network none phase6e-harness
+            --privileged --network none --cgroupns private phase6e-harness
           test "$(docker inspect -f '{{json .Mounts}}' phase6e-box)" = '[]'
           test "$(docker inspect -f '{{.HostConfig.NetworkMode}}' phase6e-box)" = none
+          test "$(docker inspect -f '{{.HostConfig.CgroupnsMode}}' phase6e-box)" = private
           for attempt in $(seq 1 90); do
             if docker exec phase6e-box test -e /run/phase6e-ready; then exit 0; fi
             sleep 1
