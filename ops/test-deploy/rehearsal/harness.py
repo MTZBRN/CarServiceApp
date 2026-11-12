@@ -2,6 +2,7 @@
 from contextlib import ExitStack, closing
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import sqlite3
@@ -72,8 +73,39 @@ def dc(*args, file=None, tag="baseline"):
                     env={"APP_IMAGE_TAG":tag}, timeout=240)
 
 
+def diagnostic_text(value):
+    """Default-deny vocabulary: arbitrary identifiers, paths and credentials never leave the box."""
+    words = set(('failed to create task for container shim OCI runtime runc unable start process '
+                 'error during init open sysctl reopen fd permission denied operation not permitted '
+                 'mount mounting mounted namespace namespaces network bridge endpoint veth iptables '
+                 'cgroup cgroups memory cpu pids read only file system no such directory exists '
+                 'invalid argument executable format exec stat bind address already in use '
+                 'apparmor seccomp profile apply load security context capability capabilities '
+                 'cannot allocate space left on device resource temporarily unavailable '
+                 'daemon docker containerd starting started listening API socket initialization '
+                 'completed warning info fatal debug level time msg transport timeout connection '
+                 'refused unsupported function not implemented exit status code unknown eacces eperm enoent '
+                 'net.ipv4.ip_unprivileged_port_start net.ipv4.ip_forward').lower().split())
+    if not isinstance(value, str):
+        return ""
+    # Only known diagnostic words/punctuation survive. Even quoted secret values are redacted.
+    return re.sub(r'''[^\s:;,()="'\\]+''', lambda m: m[0] if m[0].lower() in words else "[redacted]",
+                  re.sub(r"[\x00-\x1f\x7f]", " ", value[:4096]))
+
+
+def daemon_diagnostics():
+    try:
+        with Path("/evidence/daemon.log").open("rb") as log:
+            log.seek(0, 2)
+            log.seek(max(0, log.tell() - 65536))
+            lines = log.read(65536).decode("utf-8", errors="replace").splitlines()[-40:]
+        return [diagnostic_text(line) for line in lines]
+    except OSError:
+        return ["unavailable"]
+
+
 def startup_diagnostics():
-    """Allowlisted state only: never emit inspect config, env, logs or command output."""
+    """State projection and sanitized daemon tail; no raw config, env or log output."""
     rows = []
     for service in d.SERVICES:
         try:
@@ -83,6 +115,7 @@ def startup_diagnostics():
                 state = json.loads(real_run("docker", "inspect", "--format", "{{json .State}}", cid))
                 health = state.get("Health", {})
                 rows.append({"service": service,
+                             "state_error": diagnostic_text(state.get("Error")),
                              "status": state.get("Status") if state.get("Status") in
                              ("created", "running", "paused", "restarting", "removing", "exited", "dead") else "unknown",
                              "exit_code": state.get("ExitCode") if type(state.get("ExitCode")) is int else None,
@@ -92,7 +125,7 @@ def startup_diagnostics():
                                                    if type(v.get("ExitCode")) is int]})
         except Exception:
             rows.append({"service": service, "diagnostics": "unavailable"})
-    print(json.dumps({"fixture_startup": rows}), flush=True)
+    print(json.dumps({"fixture_startup": rows, "daemon_tail": daemon_diagnostics()}), flush=True)
 
 
 def provision(scenario):
@@ -337,7 +370,13 @@ def recover():
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 3 and sys.argv[1] == "run" and sys.argv[2] in SCENARIOS:
+    if sys.argv[1:] == ["diagnose"]:
+        # Works even if daemon readiness failed. Never read any caller-selected path.
+        require(sys.platform == "linux" and Path("/.dockerenv").is_file() and
+                Path("/run/phase6e-container").read_text() == "phase6e-disposable\n",
+                "disposable diagnostics only")
+        startup_diagnostics()
+    elif len(sys.argv) == 3 and sys.argv[1] == "run" and sys.argv[2] in SCENARIOS:
         run_case(sys.argv[2])
     elif sys.argv[1:] == ["recover", "--approve-fixture-recovery"]:
         recover()

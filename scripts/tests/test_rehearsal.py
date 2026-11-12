@@ -29,6 +29,32 @@ context = load("prepare_context")
 
 
 class RehearsalTests(unittest.TestCase):
+    def test_runtime_error_preserves_cause_but_not_secrets_paths_or_controls(self):
+        message = 'OCI runtime create failed: open sysctl net.ipv4.ip_unprivileged_port_start: permission denied SECRET-CANARY /private/customer.db token=abc123\n\x1b'
+        clean = h.diagnostic_text(message)
+        self.assertIn('OCI runtime create failed', clean)
+        self.assertIn('net.ipv4.ip_unprivileged_port_start', clean)
+        self.assertIn('permission denied', clean)
+        for secret in ('SECRET-CANARY', '/private/customer.db', 'abc123', '\n', '\x1b'):
+            self.assertNotIn(secret, clean)
+        self.assertEqual(h.diagnostic_text(None), '')
+
+    def test_daemon_tail_is_bounded_and_sanitized(self):
+        payload = b'secret-value\n' * 10000 + b'failed to create namespace: operation not permitted secret-value\n'
+        with patch.object(Path, 'open', return_value=io.BytesIO(payload)):
+            lines = h.daemon_diagnostics()
+        self.assertEqual(len(lines), 40)
+        self.assertIn('operation not permitted', lines[-1])
+        self.assertNotIn('secret-value', ''.join(lines))
+
+    def test_diagnostics_run_before_cleanup_even_on_failure(self):
+        workflow = (ROOT/'.github/workflows/rehearse-test-deploy.yml').read_text()
+        block = workflow.split('- name: Record sanitized runtime diagnostics before cleanup')[1].split('- name: Record synthetic evidence')[0]
+        self.assertIn('if: always()', block)
+        self.assertIn('harness.py diagnose', block)
+        self.assertNotIn('daemon.log', block)
+        self.assertLess(workflow.index('harness.py diagnose'), workflow.index('docker rm -f'))
+
     def test_fixture_metadata_permissions_are_explicit_for_both_service_users(self):
         for role, uid in (("backend", 1654), ("frontend", 101)):
             for generation in ("old", "new"):

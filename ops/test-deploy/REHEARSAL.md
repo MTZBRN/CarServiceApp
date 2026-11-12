@@ -4,6 +4,61 @@ This replaces the Phase 6D manual plan. It requires no TEST/PROD credentials,
 GitHub API token, VPS connection, live checkout or real database. Prepared locally;
 Linux execution has NOT been performed yet.
 
+## Runtime investigation continuation — 2026-11-12
+
+Branch `feature/rehearsal-runtime-diagnostics` starts at freshly fetched
+`origin/test-deploy` dc8e65a05d7a13171c6f32d5c8adc0b1b037dc69 (PR #7 merged).
+The permission fix is retained without modification.
+
+Retrieved all three job logs from [run 43023372253](https://github.com/MTZBRN/CarServiceApp/actions/runs/43023372253):
+success job 130531848657, backup-failure 130531849130, migration-failure 130531849194.
+Each shows backend `created`, exit 128, health `unknown`, empty health exit codes;
+frontend `created`, exit 0, health `unknown`. Compose exits 1 during provisioning.
+Outer image build and isolated daemon readiness passed. The logged Ubuntu package
+was docker.io 29.1.3-0ubuntu3~24.04.2. All eight existing rehearsal tests passed on
+Linux, including metadata permissions, before the startup failure.
+
+**Confirmed evidence gap:** State.Error was excluded from diagnostics, daemon.log
+was not exported, report.json did not exist, and cleanup deleted the outer box.
+Those missing fields cannot be recovered from the historical job logs. No new
+workflow was dispatched. The error is consistent with a failure before the fixture
+process starts, not evidence that its Python startup or healthcheck failed.
+
+| Candidate layer | Evidence needed before changing behavior |
+|---|---|
+| OCI runtime / namespace | State.Error mentioning OCI/runc/task creation, namespace or sysctl; correlate daemon errors |
+| Mount / cgroup | Mount, read-only filesystem or cgroup error; distinguish from application file access |
+| Network | Endpoint/bridge/iptables/address failure; an unreachable backend health URL has not been observed |
+| Permissions / security profile | EACCES/EPERM, AppArmor/seccomp/capability details; created/128 does not prove fixture metadata permissions |
+
+No runtime cause is confirmed and no runtime, Compose, isolation or healthcheck
+behavior is changed. Diagnostic code now reads real State.Error and emits a
+sanitized vocabulary projection, plus the last 40 daemon lines from a bounded
+64 KiB tail. Unknown words, paths, IDs and credential values are redacted; control
+characters are removed. This intentionally trades some detail for disclosure
+control. Unknown errors may need a follow-up vocabulary extension based on safe
+operator evidence; redacted text must not be treated as a complete error message.
+No raw Docker config, environment, healthcheck output or daemon log is published.
+
+The rehearsal workflow collects this JSON with `always()` before cleanup, even
+when provisioning fails before report.json exists. Diagnostics are best-effort;
+they neither replace the failure nor mark a scenario successful. A fixed-path
+diagnose command also works when inner daemon readiness failed, provided the outer
+box is still running and has its disposable marker. If the outer box has exited,
+docker exec cannot collect evidence; this remains a stated limitation.
+
+Local validation: 10 rehearsal tests passed, one existing POSIX-only test skipped
+on Windows; workflow safety/order assertions and diff whitespace check passed.
+No local Docker/Linux execution or full Actions schema validation is claimed.
+
+Next authorized Actions verification: publish reviewed changes separately, open
+Actions → Disposable TEST pipeline rehearsal → Run workflow, select the published
+reviewed branch and set approve_fixture_recovery=true. One dispatch runs all three
+scenarios. Read `Record sanitized runtime diagnostics before cleanup` and each job
+summary for `state_error` and `daemon_tail`. Preserve the run URL and compare the
+errors across scenarios before proposing a fix. No success claim is valid until
+baseline health, intended fault injection and approved recoveries actually pass.
+
 ### Provisioning startup investigation (2026-11-11)
 
 Prepared on `feature/rehearsal-startup-fix` from freshly fetched `origin/test-deploy`
