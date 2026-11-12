@@ -239,7 +239,16 @@ def saved_report(value):
 def run_case(scenario):
     sha = provision(scenario)
     # Invoke the installed preflight as well as the in-process deployment preflight.
-    real_run("/usr/local/sbin/carservice-test-preflight")
+    try:
+        real_run("/usr/local/sbin/carservice-test-preflight")
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        # Separate -I processes preserve each module's installed/source import context.
+        for variant in ("installed", "source"):
+            try:
+                print(real_run("python3", "-I", str(Path(__file__).with_name("preflight_diagnostics.py")), variant), flush=True)
+            except Exception:
+                print(json.dumps({"preflight_variant": variant, "status": "diagnostics-unavailable"}), flush=True)
+        raise  # Never turn a refused wrapper into an accepted rehearsal.
     original = d.containers()
     # Exercise real ownership refusal before mutation, then restore the fixture.
     d.ENV_FILE.chmod(0o620)

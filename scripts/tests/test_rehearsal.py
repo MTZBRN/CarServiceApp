@@ -27,9 +27,35 @@ def load(name):
 h = load("harness")
 context = load("prepare_context")
 cg = load("cgroup_setup")
+pd = load("preflight_diagnostics")
 
 
 class RehearsalTests(unittest.TestCase):
+    def test_preflight_diagnostics_reports_real_invariant_without_values(self):
+        with patch.object(h.d, 'preflight', side_effect=h.d.Refused('unexpected TEST mounts')):
+            self.assertEqual(pd.result(h.d), {'status':'refused', 'invariant':'unexpected TEST mounts'})
+        for error in (h.d.Refused('SECRET-CANARY'), RuntimeError('SECRET-CANARY'),
+                      subprocess.CalledProcessError(1, ['docker', 'SECRET-CANARY'], output=b'SECRET-CANARY')):
+            with patch.object(h.d, 'preflight', side_effect=error):
+                self.assertNotIn('SECRET-CANARY', json.dumps(pd.result(h.d)))
+        with patch.object(h.d, 'preflight', return_value=None):
+            self.assertEqual(pd.result(h.d), {'status':'passed'})
+
+    def test_failed_installed_preflight_still_aborts_after_diagnostics(self):
+        failure = subprocess.CalledProcessError(1, ['carservice-test-preflight'])
+        calls = []
+        def command(*args, **kwargs):
+            calls.append(args)
+            if len(args) == 1: raise failure
+            return '{"status":"passed"}'
+        with patch.object(h, 'provision', return_value='a'*40), patch.object(h, 'real_run', side_effect=command), \
+             patch.object(h.d, 'containers') as containers, redirect_stdout(io.StringIO()):
+            with self.assertRaises(subprocess.CalledProcessError) as caught: h.run_case('success')
+        self.assertIs(caught.exception, failure)
+        containers.assert_not_called()
+        self.assertEqual([c[-1] for c in calls[1:]], ['installed', 'source'])
+        self.assertTrue(all(c[:2] == ('python3', '-I') for c in calls[1:]))
+
     def test_cgroup_setup_requires_delegated_controllers(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

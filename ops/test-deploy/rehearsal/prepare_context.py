@@ -14,6 +14,7 @@ FILES = (
     "ops/test-deploy/rehearsal/harness.py",
     "ops/test-deploy/rehearsal/prepare_context.py", "ops/test-deploy/rehearsal/Dockerfile",
     "ops/test-deploy/rehearsal/cgroup_setup.py",
+    "ops/test-deploy/rehearsal/preflight_diagnostics.py",
 )
 
 
