@@ -2,7 +2,172 @@
 
 This replaces the Phase 6D manual plan. It requires no TEST/PROD credentials,
 GitHub API token, VPS connection, live checkout or real database. Prepared locally;
-Linux execution has NOT been performed yet.
+End-to-end Linux acceptance of the current stabilization changes is still pending.
+
+## Pipeline stabilization — 2026-11-12
+
+Worktree `C:\CarServiceApp\rehearsal-pipeline-stabilization`, branch
+`feature/rehearsal-pipeline-stabilization`, starts at fetched `origin/test-deploy`
+`31a896b54979baa6be74c11724140f2911db9b52` (PR #11). Earlier permission,
+cgroup, diagnostics and Compose compatibility changes are retained.
+
+### Evidence and limits
+
+Inspected all three jobs in [run 43201430898](https://github.com/MTZBRN/CarServiceApp/actions/runs/43201430898):
+
+| Scenario | Job | Assertion time (UTC) |
+|---|---|---|
+| success | 131125571991 | 10:34:48 |
+| backup-failure | 131125571522 | 10:34:49 |
+| migration-failure | 131125572304 | 10:34:54 |
+
+Each fails at `admission not repeated`. After the 21 rehearsal tests finish,
+there is **no deployment `building` checkpoint**. The earlier checkpoints with
+revision `aaaa...` are deployment unit-test output, not the scenario. Diagnostics
+show both baseline services running/healthy. No `/evidence/report.json` exists.
+The installed preflight completed; otherwise run_case could not reach this assertion.
+
+**The exact historical exception, admission list and private journal are not
+recoverable from these logs.** The old harness retained only an exception class
+name, asserted before reading the journal, and never saved a failure report.
+Do not describe an inferred historical sequence as observed GitHub evidence.
+
+Confirmed fixture mismatch: `provision()` sets the only application network to
+`internal:true`, while unchanged `test_deploy.smoke()` connects to
+`127.0.0.1:5174`. Internal-only Docker networks do not publish the requested host
+port. Container-local health checks on port 8080 can pass independently.
+`containers()` checks requested `HostConfig.PortBindings`, not an actual listener.
+This accounts for the healthy baseline/preflight and subsequent smoke failure.
+See the [Moby endpoint implementation](https://github.com/moby/moby/blob/v28.2.2/libnetwork/endpoint.go)
+(`!n.internal` gates external-connectivity programming) and the
+[maintainer explanation of internal-network publication](https://github.com/moby/moby/discussions/53256).
+The run installed Ubuntu's `docker.io` 29.1.3 package; this machine cannot execute it.
+The fixture mismatch is established; attributing this particular historical failure
+to it remains an inference until Linux evidence confirms it or reveals an earlier failure.
+
+Local reproduction uses the real helper's smoke check with an absent loopback
+listener. It raises `ConnectionRefusedError` after
+`["local-fetch", "fixture-ci"]`, with no journal/marker and the simulated baseline
+still running. This is a regression reproduction, **not a Linux Docker run**.
+A separate real local Git test executes unchanged `check_release()` twice through
+the adapter and observes exactly
+`["local-fetch", "fixture-ci", "local-fetch", "fixture-ci"]`.
+The existing adapter's fetch rewrite is correct; the required sequence is unchanged.
+
+### Complete execution path and expected evidence
+
+1. Provision fictional DB/uploads and old images in the isolated daemon; run
+   installed preflight, then the negative ownership check without changing containers.
+2. Start fixture-only loopback ingress. `deploy()` runs its own preflight, validates
+   approval/configuration digests and takes its deployment lock.
+3. First `check_release()`: real local fixture fetch, current-tip and commit checks,
+   then the fixture CI response through the real CI validator. Validate resolved
+   Compose, storage layout, baseline containers, smoke and health.
+4. Create the unfinished marker and `building` journal, retain rollback image tags,
+   archive source and build both images. Check baseline identity, then repeat the
+   complete release/CI admission **before stopping either service**.
+5. Stop frontend then backend; verify quiescence and migration inventory. Checkpoint
+   `backing-up`; create the real paired SQLite/uploads backup; restore-verify it.
+6. Start/wait for backend; validate image, migrations and existing business counts.
+   Only then start/wait for frontend, verify both images and smoke, checkpoint
+   `healthy`, remove the marker.
+
+| Scenario | Admission trace | Required end state before recovery | Approved operator action |
+|---|---|---|---|
+| success | four calls above | healthy; both new images; migrations 001/002; no marker | none |
+| backup-failure | four calls above | backing-up; original services stopped; no backup recorded; marker retained | validate rollback tags/schema, restart original containers, health/smoke/preflight |
+| migration-failure | four calls above | starting-backend; new backend exited 1; original frontend stopped; history still 001; verified backup and marker retained | stop writers, verify/restore backup to a new temporary pair, start original image pair, verify history/row/upload/health/smoke; require preflight refusal of temporary binds |
+
+Neither failure is automatically rolled back by the helper. Recovery remains a
+separate explicitly approved command. Migration recovery preserves the failed
+original DB/uploads; temporary recovered binds remain inadmissible for deployment.
+
+### Changes and security implications
+
+Only `rehearsal/harness.py`, `scripts/tests/test_rehearsal.py`, and this document change.
+Production helper, storage helper, Compose template, workflow, cgroup bootstrap,
+preflight and admission implementations are unchanged. No new dependencies.
+
+- A standard-library TCP relay supplies the fixture's intended ingress strictly
+  **inside the outer container**: `127.0.0.1:5174` to fixed frontend
+  `172.29.80.3:8080`. It requires the inner network to remain internal, has no
+  caller-selected address, and exists only during run/recovery. Bind conflicts
+  fail closed. It transports actual frontend responses, including backend-proxied
+  authentication checks; it never manufactures a successful response. Socket
+  timeouts and context cleanup bound connections. Recovery can reopen the port.
+  This does not test Docker's host-port publication; that limitation is explicit.
+- Outer `--network none`, no host mounts/socket/port publication, private cgroup
+  namespace, enforced resource limits, internal application network, build
+  `--network=none`, unprivileged fixture users and healthchecks remain intact.
+  No firewall, route, extra network or external connectivity is introduced.
+- Before asserting, save/print a bounded-schema projection of the actual admission
+  calls, error kind/exit code/errno, allowlisted refusal, journal count/stage,
+  marker presence and service statuses. Arbitrary exception text, command
+  arguments/output, environment and unreviewed journal fields are not emitted.
+  Unexpected failures are re-raised rather than replaced with an admission assertion.
+  The CLI emits only sanitized error metadata and a failing exit status.
+- Expected failure scenarios still require all four calls, their exact checkpoint,
+  appropriate error type and existing state/image/schema checks. Incomplete or
+  unexpected reports cannot pass `verify` or enter approved recovery.
+- Additional confirmed reporting defect: recovery previously saved completion and
+  removed its marker **before** final preflight validation. Now completion follows
+  validation; failed final validation restores the marker and retains pending
+  evidence. Regression coverage checks rollback-tag drift and this failure path.
+
+### Local validation and remaining Linux acceptance
+
+Python 3.14 on Windows; all data fictional. The full scripts test suite is run via:
+
+Final result: **82 tests, 80 passed, 2 skipped**. Rehearsal coverage is 31 tests
+(30 passed, one POSIX permission skip); deployment guards 11 passed; storage
+10 passed with one unavailable-symlink-permission skip; the remaining 29 script regressions passed.
+Python syntax parsing (seven relevant files), rehearsal shell `bash -n`, workflow
+safety contract assertions and `git diff --check` passed. The workflow itself is
+unchanged; no actionlint binary was available. Windows sandbox escalation was
+needed for Git's local subprocess transport, not for external service access.
+
+```powershell
+$env:TEMP='C:/CarServiceApp/rehearsal-pipeline-stabilization/test-results/temp'
+$env:TMP=$env:TEMP
+& C:/CarServiceApp/.stage4a-tools/python314/python.exe -m unittest discover -s scripts/tests
+```
+
+Contract tests run actual deployment/admission logic, SQLite migration code,
+backup/checksums/restore verification and recovery against explicitly simulated
+Docker and Linux OS boundaries. Separate tests use real local Git and loopback
+TCP/HTTP. Coverage includes every scenario, correct repeated admission, failed
+fetch/CI/second tip check, smoke/build/backup-verification failure propagation,
+operator approval, rollback drift, final recovery validation and sanitized errors.
+This is not proof of image builds, real container recreation or Linux isolation.
+
+No Docker executable is installed locally and WSL reports it is not installed.
+The full disposable rehearsal was **not** executed here. Linux-only remaining
+checks include relay reachability on the actual internal bridge, real archived
+image builds, stopped-container metadata, migration exit/health behavior, restoring
+ownership and temporary recovery binds, and installed/source preflight checks.
+
+After separately authorized review/publication (none performed in this task):
+
+1. Open repository **Actions → Disposable TEST pipeline rehearsal → Run workflow**.
+2. Select the reviewed ref containing these changes (feature branch, or
+   `test-deploy` after authorized integration). An old run's **Re-run jobs** uses
+   the old revision and will not test these changes.
+3. Set **approve_fixture_recovery = true**, then manually choose **Run workflow**.
+   This launches all three matrix scenarios; there is no per-scenario input.
+4. Confirm outer isolation/cgroup checks, all offline tests, baseline health and
+   installed preflight. Inspect `deployment_evidence`: each scenario must have all
+   four calls and the checkpoint from the table above. An earlier refusal remains
+   a failure with its own evidence; do not relax admission to hide it.
+5. Confirm approved recovery succeeds for both failure scenarios and final logs
+   show `PASS: success`, `PASS: backup-failure`, `PASS: migration-failure`. In each
+   summary verify original rollback images, fictional data and cleared marker;
+   migration recovery must still reject temporary binds at preflight.
+6. Keep the sanitized evidence on failures. Verify disposable-container cleanup
+   in every matrix job. Only a fully green Linux run establishes rehearsal acceptance.
+
+No VPS access, real data, deployment activation, commit, push, merge or dispatch
+occurred. Synthetic commits exist only inside temporary test repositories and are
+removed with those fixtures. No HANDOFF.md was present in this worktree.
 
 ## Compose JSON compatibility fix — 2026-11-12
 
