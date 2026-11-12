@@ -4,6 +4,74 @@ This replaces the Phase 6D manual plan. It requires no TEST/PROD credentials,
 GitHub API token, VPS connection, live checkout or real database. Prepared locally;
 Linux execution has NOT been performed yet.
 
+## Cgroup v2 startup fix — 2026-11-12
+
+Prepared in isolated `feature/rehearsal-cgroup-fix` from fetched origin/test-deploy
+3845737 (PR #8). PR #7 metadata permissions and PR #8 sanitization remain intact.
+
+Evidence retrieved from [run 43194455268](https://github.com/MTZBRN/CarServiceApp/actions/runs/43194455268),
+jobs 131101695957, 131101696496 and 131101696545: all three report
+`OCI runtime create failed: runc create failed: unable to start container process:
+unable to apply cgroup [redacted]`. Backend remains created/128 and healthchecks
+have no results. Daemon diagnostics mention cpu/memory/pids and `no such file
+[redacted] directory`. Logs identify runc 1.3.4-0ubuntu1~24.04.1. The precise
+controller path and remaining runtime error were redacted and cannot be recovered.
+
+Confirmed failure layer: cgroup application before fixture execution. Confirmed
+configuration omission: the custom entrypoint starts dockerd directly without any
+cgroup v2 nesting setup. Moby's [DinD wrapper](https://github.com/moby/moby/blob/master/hack/dind)
+moves root processes to an init child and enables subtree controllers before nested
+containers run. This entrypoint previously did neither. Cgroup v2's internal-process
+restriction prevents simply enabling domain controllers while root processes remain.
+
+The proposed minimal repair implements that missing setup for the required CPU,
+memory and PIDs controllers only. It is evidence-supported, but success on the
+reported runner is **not yet verified**. Distinguish these possibilities:
+
+* Missing nested delegation/enabling: strongest source-supported explanation;
+  new setup checks controller availability, relocates processes, enables controllers
+  and fails closed if the parent did not make them available or writable.
+* Namespace: explicitly require private outer cgroup namespace and verify it in
+  workflow inspect; setup requires `/proc/self/cgroup` to be `0::/`. No host
+  namespace fallback or host cgroup bind mount is used.
+* Driver: explicitly select cgroupfs for this shell-PID1 container without systemd.
+  The old logs do not show the selected driver, so a driver mismatch is not claimed
+  as proven. New diagnostics report the selected driver and required controllers.
+* Runtime incompatibility: no direct evidence of an incompatible binary; observed
+  runc is recent. No version downgrade or runtime substitution is justified yet.
+
+Changes: cgroup_setup.py performs bounded process migration/EBUSY retries and
+controller checks; entry.sh invokes it before dockerd and selects cgroupfs;
+prepare_context.py includes the new file; the rehearsal workflow explicitly sets
+and verifies `--cgroupns private`; harness diagnostics add bounded controller/driver
+fields; related regression tests cover ordering and fail-closed behavior.
+
+After loading the fixture base, a fresh network-none probe container must read back
+memory.max=67108864, pids.max=32 and cpu.max with a half-CPU quota. The ready marker
+is created only after these assertions succeed. The probe has no bind mounts,
+socket, credentials or external network. This verifies kernel limits rather than
+only trusting Docker configuration. Existing Compose limits and service
+healthchecks are unchanged.
+
+Security impact: only the already privileged disposable container's cgroup subtree
+is reorganized. Cgroup enforcement is required, not disabled. Outer network-none,
+empty Mounts, private cgroup namespace, no host socket and no deployment credentials
+remain enforced. This remains a trusted-code harness on a disposable GitHub-hosted
+VM; privileged mode is not a hostile-code sandbox. No production helper or live
+Compose configuration changed, and no workflow was dispatched.
+
+Local validation: rehearsal 15 passed/1 POSIX skip; backup/restore 10 passed/1 Windows
+symlink skip. Workflow safety assertions and whitespace check passed. These checks
+cannot simulate kernel cgroup delegation; Docker/Linux is unavailable locally.
+
+Next verification, after separately authorized publication: Actions → Disposable
+TEST pipeline rehearsal → Run workflow → select reviewed published ref → check
+approve_fixture_recovery=true. Require the cgroup nesting-ready message, kernel
+enforcement probe success and all three scenario/recovery results. On failure,
+inspect cgroups.available/enabled/driver and the sanitized state_error/daemon_tail
+before changing anything further. Missing controllers require investigation of
+parent delegation; a failed write must not be bypassed. Full success remains pending.
+
 ## Runtime investigation continuation — 2026-11-12
 
 Branch `feature/rehearsal-runtime-diagnostics` starts at freshly fetched
