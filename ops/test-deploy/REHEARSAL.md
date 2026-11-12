@@ -4,6 +4,61 @@ This replaces the Phase 6D manual plan. It requires no TEST/PROD credentials,
 GitHub API token, VPS connection, live checkout or real database. Prepared locally;
 Linux execution has NOT been performed yet.
 
+## Healthy baseline / preflight investigation — 2026-11-12
+
+Isolated branch `feature/rehearsal-preflight-fix`, fetched baseline
+be93908569630bb0f3d973d07e4e1e4b0ead48d8 (PR #9).
+Inspected [run 43196977356](https://github.com/MTZBRN/CarServiceApp/actions/runs/43196977356),
+success job 131110324072: at 10:05:12Z the installed preflight command exits 1;
+the subsequent diagnostics show both services running/healthy, empty State.Error,
+CPU/memory/PIDs controllers available/enabled and cgroupfs selected. This supersedes
+the older OCI startup failure. No refused invariant appears in published logs.
+
+Comparison: the installed wrapper uses Python -I, loads the extensionless sibling
+carservice-test-deploy via SourceFileLoader, and calls its unchanged preflight().
+That helper inserts its own directory to load the sibling ops_storage.py. The
+rehearsal installs both files from reviewed sources. In-process calls use the
+reviewed scripts/test_deploy.py and its sibling storage module. They share the
+same guard logic but have different import locations and process contexts. The
+wrapper conceals all exception types/messages; therefore its exit code does not
+prove a particular security invariant failed (an import or command failure is
+also possible).
+
+Reviewed invariants include root/package/install ownership, private control
+files, standalone resolved Compose model, network/IPAM/ports/mounts, storage
+ownership/layout, cumulative disk reserves and running/healthy services. Source
+inspection alone does not identify which failed in the deleted Linux fixture.
+No ownership, disk, Compose or mount requirement is relaxed; no fixture change
+is justified yet.
+
+Added preflight_diagnostics.py to the rehearsal source allowlist. After an installed
+wrapper failure only, the harness runs this script twice with python3 -I, once
+loading the installed helper exactly as the wrapper does and once loading the
+source helper. Separate processes avoid sharing import caches. Each calls the
+real unmodified read-only preflight. Refused messages are published only when
+they exactly match literal require() messages from that reviewed helper; unknown
+messages and exception args/stdout/stderr are never emitted. Other failures use
+fixed categories, and import errors are marked load-error. The original wrapper
+failure is re-raised even if a diagnostic re-check passes. Diagnostics never
+call deploy(), CI admission, fetch or service mutations. No production logging
+or wrapper changes are made.
+
+Local validation: rehearsal tests 17 passed, one existing POSIX-only skip;
+deployment-guard tests 11 passed; whitespace check passed. Tests cover known versus
+unknown refusal disclosure, generic/subprocess exception redaction, both isolated
+diagnostic variants, and preservation of the original abort. Docker/Linux execution
+is unavailable locally. No confirmed root cause or successful repair is claimed.
+
+Next verification: after separately authorized publication, run Disposable TEST
+pipeline rehearsal on the reviewed ref with approve_fixture_recovery=true. In the
+failed exercise step, collect both preflight_variant JSON rows. Matching refused
+invariants support a fixture correction; installed-only load/error points to
+installation/import context; a source pass with an installed refusal requires
+comparison of contexts before any fix. If both pass, investigate transient state
+without treating the original failure as success. Keep all existing guards,
+network-none/private namespace/cgroup limits and healthchecks intact. No dispatch,
+VPS access, commit, push or deployment occurred during this investigation.
+
 ## Cgroup v2 startup fix — 2026-11-12
 
 Prepared in isolated `feature/rehearsal-cgroup-fix` from fetched origin/test-deploy
