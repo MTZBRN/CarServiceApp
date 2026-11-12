@@ -28,9 +28,49 @@ h = load("harness")
 context = load("prepare_context")
 cg = load("cgroup_setup")
 pd = load("preflight_diagnostics")
+compat = load("compose_compat")
 
 
 class RehearsalTests(unittest.TestCase):
+    def test_compose_adapter_removes_only_null_image_defaults(self):
+        model = {'services': {'backend': {'command': None, 'entrypoint': None,
+                                          'unknown': None, 'privileged': True},
+                              'frontend': {'command': [], 'entrypoint': ['override']}}}
+        self.assertEqual(compat.normalize(model), {'services': {
+            'backend': {'unknown': None, 'privileged': True},
+            'frontend': {'command': [], 'entrypoint': ['override']}}})
+
+    def test_strict_guard_still_rejects_explicit_overrides_and_unknowns(self):
+        # A minimal valid model from the reviewed template, with fictional interpolation.
+        import re
+        text = (ROOT/'ops/test-deploy/docker-compose.test.yml').read_text()
+        values = {'APP_IMAGE_TAG':'preflight', 'TEST_BACKEND_IP':'172.29.80.2',
+                  'TEST_FRONTEND_IP':'172.29.80.3', 'TEST_SUBNET':'172.29.80.0/24'}
+        text = re.sub(r'\$\{([A-Z_]+):\?[^}]+\}', lambda m: values.get(m[1], 'fictional'), text)
+        model = json.loads(text)
+        # validate_model compares to native Path strings; normalize test paths on Windows.
+        model['services']['backend']['volumes'][0]['source'] = str(h.d.DATA)
+        model['services']['backend']['volumes'][1]['source'] = str(h.d.UPLOADS)
+        for mount in model['services']['backend']['volumes']:
+            mount['bind'] = {}  # Real Compose JSON omits the false boolean.
+        model['services']['backend'].update(command=None, entrypoint=None)
+        with self.assertRaisesRegex(h.d.Refused, 'unreviewed service option'): h.d.validate_model(model, 'preflight')
+        compat.normalize(model)
+        h.d.validate_model(model, 'preflight')
+        for key, value in [('command', []), ('entrypoint', ''), ('command', ['sh']),
+                           ('privileged', True), ('unknown', None)]:
+            model['services']['backend'][key] = value
+            with self.assertRaisesRegex(h.d.Refused, 'unreviewed service option'):
+                h.d.validate_model(compat.normalize(model), 'preflight')
+            del model['services']['backend'][key]
+        model['services']['backend']['volumes'][0]['bind']['create_host_path'] = True
+        with self.assertRaisesRegex(h.d.Refused, 'unexpected TEST mounts'):
+            h.d.validate_model(compat.normalize(model), 'preflight')
+
+    def test_compose_adapter_preserves_config_failure(self):
+        with patch.object(compat.subprocess, 'run', return_value=subprocess.CompletedProcess([], 7, b'not-json')):
+            self.assertEqual(compat.main(['config', '--format', 'json']), 7)
+
     def test_preflight_diagnostics_reports_real_invariant_without_values(self):
         with patch.object(h.d, 'preflight', side_effect=h.d.Refused('unexpected TEST mounts')):
             self.assertEqual(pd.result(h.d), {'status':'refused', 'invariant':'unexpected TEST mounts'})

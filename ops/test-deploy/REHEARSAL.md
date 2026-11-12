@@ -4,6 +4,66 @@ This replaces the Phase 6D manual plan. It requires no TEST/PROD credentials,
 GitHub API token, VPS connection, live checkout or real database. Prepared locally;
 Linux execution has NOT been performed yet.
 
+## Compose JSON compatibility fix — 2026-11-12
+
+Branch feature/rehearsal-compose-options starts at fetched origin/test-deploy
+3d5236a (PR #10). [Run 43199094482](https://github.com/MTZBRN/CarServiceApp/actions/runs/43199094482)
+reports `unreviewed service option` in both installed/source preflight. Success job
+131117521607 emits both refusal rows at 10:19:07Z.
+
+Confirmed local reproduction with official standalone Compose 2.32.4 for Windows,
+SHA256 5df58bb738c7ac2712c031e15154b49f32f4026640d8c0539090d6e0a66d6dfd,
+verified against the official release checksums. `config --format json` needs no
+Docker daemon. Only fictional environment values were supplied.
+
+| Service | Added service keys versus reviewed template | Values |
+|---|---|---|
+| backend | command, entrypoint | null, null |
+| frontend | command, entrypoint | null, null |
+
+These are JSON serialization defaults, not executable overrides. The underlying
+[Compose-go ServiceConfig](https://github.com/compose-spec/compose-go/blob/v2.4.9/types/types.go)
+deliberately omits `omitempty` on these JSON fields, distinguishing null (inherit
+image defaults) from empty command/entrypoint (clear image defaults). Neither key
+is in the deployment helper's strict allowlist, so its set-difference check rejects
+the resolved model even though the input template has no overrides.
+
+The same real JSON capture shows bind.create_host_path=false serialized as bind:{}.
+The helper requires explicit false and conservatively treats a missing value as
+true. This second representation mismatch was reproduced after removing the null
+service defaults. No extra service keys besides command/entrypoint were observed.
+
+Fix is confined to the rehearsal image: compose_compat.py wraps the existing pinned
+Compose plugin. For successful `config --format json` output only, it removes exactly
+null command/entrypoint and materializes the omitted false create_host_path value
+inside an existing bind mapping. Explicit true, non-null command/entrypoint
+(including empty strings/lists), and all unknown service keys are preserved for
+the unchanged strict validator to reject. Other commands exec the original plugin;
+up/build/healthchecks are not altered. A nonzero config exit remains nonzero.
+This is an explicit rehearsal compatibility boundary, not live deployment support
+for additional Compose options. Production helper, template and allowlist are unchanged.
+
+Changed files: rehearsal/compose_compat.py (new), rehearsal/Dockerfile (install
+adapter alongside original plugin), rehearsal/prepare_context.py (allowlist),
+scripts/tests/test_rehearsal.py, and this document. Official downloaded tools and
+fictional resolved JSON stay under ignored test-results/; no runtime dependency
+or application source changes are introduced.
+
+Validation: actual locally generated Compose JSON passes unchanged validate_model()
+after normalization (only native Windows Path comparisons adapted for this check).
+Rehearsal tests: 20 passed, one existing POSIX skip. Deployment guards: 11 passed.
+Negative cases retain rejection of explicit overrides, unknown/privileged options
+and create_host_path=true; config failure is preserved. Workflow safety assertions
+and diff whitespace check passed. No Linux daemon or plugin installation test ran
+locally; exact Linux plugin output and full preflight remain to be checked there.
+
+After separately authorized publication, run Disposable TEST pipeline rehearsal on
+the reviewed ref with approve_fixture_recovery=true. Verify plugin discovery,
+baseline health, installed preflight and in-process admission, then all three
+scenario/recovery results. Existing safe diagnostics remain available for any later
+invariant. Network-none, private cgroup namespace, cgroup enforcement and fixture
+healthchecks remain intact. No VPS access, commit, push, merge or dispatch occurred.
+
 ## Healthy baseline / preflight investigation — 2026-11-12
 
 Isolated branch `feature/rehearsal-preflight-fix`, fetched baseline

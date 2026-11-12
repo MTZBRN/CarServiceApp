@@ -3,8 +3,10 @@ FROM ubuntu:24.04
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     python3 git gh docker.io sudo openssh-client tar iptables ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-COPY --from=cli /usr/local/libexec/docker/cli-plugins/docker-compose /usr/libexec/docker/cli-plugins/docker-compose
+COPY --from=cli /usr/local/libexec/docker/cli-plugins/docker-compose /usr/libexec/docker/cli-plugins/docker-compose-real
 COPY review /review
 COPY base.tar /base.tar
 RUN chmod 0755 /review/ops/test-deploy/rehearsal/entry.sh
+RUN cp /review/ops/test-deploy/rehearsal/compose_compat.py /usr/libexec/docker/cli-plugins/docker-compose \
+    && chmod 0755 /usr/libexec/docker/cli-plugins/docker-compose
 ENTRYPOINT ["/review/ops/test-deploy/rehearsal/entry.sh"]
