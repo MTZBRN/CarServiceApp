@@ -1,3 +1,4 @@
 # Operator scripts must retain Unix line endings on Windows checkouts.
 scripts/** text eol=lf
 ops/** text eol=lf
+ops/test-deploy/review-artifacts/*.tar.gz -text

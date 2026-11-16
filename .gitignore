@@ -59,6 +59,9 @@ test-results/
 TestResults/
 playwright-report/
 review-artifacts/
+!/ops/test-deploy/review-artifacts/
+/ops/test-deploy/review-artifacts/*
+!/ops/test-deploy/review-artifacts/phase6f3-storage-review.tar.gz
 .playwright-data/
 stage*-artifacts/
 coverage/
