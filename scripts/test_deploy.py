@@ -153,8 +153,9 @@ def validate_model(model, tag):
     require(not any(model.get(k) for k in ("volumes", "configs", "secrets")), "unexpected shared resources")
     for name, s in model["services"].items():
         allowed = {"image","build","restart","expose","volumes","read_only","tmpfs","cap_drop","security_opt",
-                   "mem_limit","cpus","pids_limit","networks","environment","ports","depends_on"}
+                   "mem_limit","cpus","pids_limit","networks","environment","ports","depends_on","command","entrypoint"}
         require(not set(s).difference(allowed), "unreviewed service option")
+        require(s.get("command") is None and s.get("entrypoint") is None, "executable override")
         require(s["image"] == f"{PROJECT}-{name}:{tag}", "image needs TEST-specific repository and tag")
         require(set(s["networks"]) == {"workshop"}, "unexpected service network")
         require(s.get("read_only") and not s.get("privileged") and s.get("cap_drop") == ["ALL"],
@@ -165,7 +166,7 @@ def validate_model(model, tag):
         mounts = s.get("volumes", [])
         expected = {"/app/data": str(DATA), "/app/uploads": str(UPLOADS)} if name == "backend" else {}
         require(len(mounts) == len(expected) and all(m["type"] == "bind" and expected.get(m["target"]) == m["source"]
-                and not m.get("bind", {}).get("create_host_path", True) for m in mounts), "unexpected TEST mounts")
+                and m.get("bind", {}).get("create_host_path") is False for m in mounts), "unexpected TEST mounts")
         ports = s.get("ports", [])
         if name == "frontend":
             require(len(ports) == 1 and ports[0]["host_ip"] == "127.0.0.1" and str(ports[0]["published"]) == "5174"

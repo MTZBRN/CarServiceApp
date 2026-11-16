@@ -15,7 +15,7 @@ The workflow runs the binary source snapshot at
 `ops/test-deploy/review-artifacts/phase6f3-storage-review.tar.gz`, SHA256:
 
 ```text
-419b587588e9e2734989c0eebd0fcd6ca1ffcc27c5fc2079d5c56919db5f264f
+7928a63a75a943f15acd8d1a4962ef0a3f711632acf9f8009cbf16e16b692d88
 ```
 
 It does not rebuild a package from checkout or accept a URL/user-provided digest.

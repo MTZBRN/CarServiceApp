@@ -437,13 +437,14 @@ class RehearsalTests(unittest.TestCase):
         for mount in model['services']['backend']['volumes']:
             mount['bind'] = {}  # Real Compose JSON omits the false boolean.
         model['services']['backend'].update(command=None, entrypoint=None)
-        with self.assertRaisesRegex(h.d.Refused, 'unreviewed service option'): h.d.validate_model(model, 'preflight')
+        with self.assertRaisesRegex(h.d.Refused, 'unexpected TEST mounts'): h.d.validate_model(model, 'preflight')
         compat.normalize(model)
         h.d.validate_model(model, 'preflight')
         for key, value in [('command', []), ('entrypoint', ''), ('command', ['sh']),
                            ('privileged', True), ('unknown', None)]:
             model['services']['backend'][key] = value
-            with self.assertRaisesRegex(h.d.Refused, 'unreviewed service option'):
+            reason = 'executable override' if key in ('command', 'entrypoint') else 'unreviewed service option'
+            with self.assertRaisesRegex(h.d.Refused, reason):
                 h.d.validate_model(compat.normalize(model), 'preflight')
             del model['services']['backend'][key]
         model['services']['backend']['volumes'][0]['bind']['create_host_path'] = True
