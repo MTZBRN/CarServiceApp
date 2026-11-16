@@ -1,0 +1,15 @@
+name: Deploy isolated TEST
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Reviewed full commit SHA on the protected test-deploy tip
+        type: string
+        required: true
+permissions: {}
+jobs:
+  registration:
+    if: ${{ false }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo registration
