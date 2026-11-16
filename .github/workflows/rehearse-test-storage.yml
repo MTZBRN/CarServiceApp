@@ -1,0 +1,16 @@
+name: Phase 6F.3 disposable storage rehearsal
+on:
+  workflow_dispatch:
+    inputs:
+      approve_fixture_recovery:
+        description: Approve recovery of fictional disposable data only
+        type: boolean
+        required: true
+        default: false
+permissions: {}
+jobs:
+  registration:
+    if: ${{ false }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo registration
