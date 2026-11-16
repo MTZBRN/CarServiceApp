@@ -56,6 +56,65 @@ class TestDeploymentGuards(unittest.TestCase):
                 with self.assertRaisesRegex(deploy.Refused, "unexpected TEST mounts"):
                     deploy.validate_model(config, "tag")
 
+    def test_root_owned_config_does_not_bypass_legacy_storage_parent(self):
+        # Reproduce the reported host metadata without reading any real paths.
+        # Moving ENV_FILE cannot make BASE or BACKUPS trustworthy.
+        relocated_env = deploy.ETC / 'environment'
+        def metadata(path):
+            return Mock(st_uid=1000 if path == deploy.BASE else 0,
+                        st_gid=1000 if path == deploy.BASE else 0,
+                        st_mode=0o750 if path == deploy.BASE else 0o700)
+        with patch.object(Path, 'stat', metadata), \
+             patch.object(deploy.storage, 'safe_path'), \
+             patch.object(deploy, 'ENV_FILE', relocated_env):
+            deploy.trusted(relocated_env, private=True)
+            for path in (deploy.BASE, deploy.BACKUPS):
+                with self.subTest(path=str(path)), self.assertRaisesRegex(
+                        deploy.Refused, 'unsafe runtime ownership or permissions'):
+                    deploy.trusted(path)
+            with patch.object(deploy.os, 'geteuid', return_value=0, create=True), \
+                 patch.object(deploy.shutil, 'which', return_value='/fixture/tool'), \
+                 patch.object(deploy, 'run') as command:
+                with self.assertRaisesRegex(deploy.Refused, 'unsafe runtime ownership or permissions'):
+                    deploy.preflight()
+                command.assert_not_called()
+
+    def test_live_env_private_leaf_does_not_make_ancestor_trusted(self):
+        legacy = Path('/opt/carserviceapp')
+        def metadata(path):
+            return Mock(st_uid=1000 if path == legacy else 0,
+                        st_mode=0o750 if path == legacy else 0o600)
+        with patch.object(Path, 'stat', metadata), patch.object(deploy.storage, 'safe_path'):
+            with self.assertRaisesRegex(deploy.Refused, 'unsafe runtime ownership or permissions'):
+                deploy.trusted(legacy / '.env.test', private=True)
+
+    def test_new_layout_rejects_legacy_bind_sources(self):
+        self.assertEqual(deploy.BASE.as_posix(), '/srv/carserviceapp-test')
+        self.assertEqual(deploy.ENV_FILE, deploy.ETC / 'environment')
+        self.assertTrue(deploy.LIVE_COMPOSE.is_relative_to(deploy.ETC))
+        config = model()
+        deploy.validate_model(config, 'tag')
+        for index, old in enumerate(('/opt/carserviceapp/test-data', '/opt/carserviceapp/test-uploads')):
+            changed = copy.deepcopy(config)
+            changed['services']['backend']['volumes'][index]['source'] = old
+            with self.assertRaisesRegex(deploy.Refused, 'unexpected TEST mounts'):
+                deploy.validate_model(changed, 'tag')
+
+    def test_approval_binds_layout_and_all_three_configurations(self):
+        frozen = deploy.ETC / 'docker-compose.test.yml'
+        policy = {'storage_layout': deploy.STORAGE_LAYOUT, 'compose_sha256': 'baseline',
+                  'frozen_compose_sha256': 'runtime', 'env_sha256': 'env'}
+        hashes = {frozen: 'runtime', deploy.LIVE_COMPOSE: 'baseline', deploy.ENV_FILE: 'env'}
+        with patch.object(deploy, 'trusted'), patch.object(deploy.storage, 'safe_path', side_effect=lambda p:p), \
+             patch.object(deploy.storage, 'digest', side_effect=hashes.__getitem__):
+            deploy.validate_configuration_approval(policy, frozen)
+            for key in policy:
+                changed = {**policy, key: 'old-or-modified'}
+                with self.subTest(key=key), self.assertRaises(deploy.Refused):
+                    deploy.validate_configuration_approval(changed, frozen)
+            with self.assertRaises(deploy.Refused):
+                deploy.validate_configuration_approval({k:v for k,v in policy.items() if k != 'storage_layout'}, frozen)
+
     def test_runtime_ownership_and_private_modes(self):
         parent = Mock()
         path = Mock(parents=[parent])
@@ -96,8 +155,8 @@ class TestDeploymentGuards(unittest.TestCase):
                   "TEST_BACKEND_IP":"172.29.80.2", "TEST_FRONTEND_IP":"172.29.80.3",
                   "JWT_KEY":"synthetic", "JWT_ISSUER":"fixture", "JWT_AUDIENCE":"fixture"}
         config = json.loads(re.sub(r"\$\{([A-Z_]+):\?[^}]*\}", lambda m:values[m[1]], raw))
-        with patch.object(deploy,"DATA",PurePosixPath("/opt/carserviceapp/test-data")), \
-             patch.object(deploy,"UPLOADS",PurePosixPath("/opt/carserviceapp/test-uploads")):
+        with patch.object(deploy,"DATA",PurePosixPath("/srv/carserviceapp-test/data")), \
+             patch.object(deploy,"UPLOADS",PurePosixPath("/srv/carserviceapp-test/uploads")):
             deploy.validate_model(config,"tag")
         ipam = [{"Subnet":"172.29.80.0/24", "Gateway":"172.29.80.1"}]
         deploy.validate_network(config,ipam)
@@ -131,7 +190,7 @@ class TestDeploymentGuards(unittest.TestCase):
                 stack.enter_context(patch.object(deploy.storage,"digest",return_value="digest"))
                 stack.enter_context(patch.object(deploy.storage,"database_info",return_value={"ServiceJobs":1}))
                 (root/"approved.json").write_text(json.dumps({"branch":"test-deploy","revision":sha,"compose_sha256":"digest",
-                    "frozen_compose_sha256":"digest","env_sha256":"digest","migrations":["001","002"]}))
+                    "storage_layout":deploy.STORAGE_LAYOUT, "frozen_compose_sha256":"digest","env_sha256":"digest","migrations":["001","002"]}))
                 events = []
                 live = {n:{"id":n,"status":"running","image":"old-"+n} for n in deploy.SERVICES}
                 stack.enter_context(patch.object(deploy,"containers",side_effect=lambda:copy.deepcopy(live)))
@@ -259,6 +318,10 @@ class TestDeploymentGuards(unittest.TestCase):
                 return deploy.containers()
         rows = {"b":backend,"f":frontend,"s":other}
         self.assertEqual(set(inspect(rows)),set(deploy.SERVICES))
+        legacy = copy.deepcopy(rows)
+        legacy['b'][3][0]['Source'] = '/opt/carserviceapp/test-data'
+        with self.assertRaisesRegex(deploy.Refused, 'live TEST mount mismatch'):
+            inspect(legacy)
         for container,index,value in [
             ("s",3,[{"Source":str(deploy.BASE)}]), ("s",3,[{"Source":str(deploy.BACKUPS)}]),
             ("s",4,{deploy.NETWORK:{}}), ("b",3,other[3]), ("f",5,{}), ("b",2,"frontend")]:

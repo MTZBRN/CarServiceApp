@@ -76,7 +76,7 @@ class LocalPipeline:
         policy = {'branch':'test-deploy', 'revision':self.sha, 'migrations':['001_fixture','002_fixture'],
                   'compose_sha256':h.d.storage.digest(h.d.LIVE_COMPOSE),
                   'frozen_compose_sha256':h.d.storage.digest(h.d.ETC/'docker-compose.test.yml'),
-                  'env_sha256':h.d.storage.digest(h.d.ENV_FILE)}
+                  'env_sha256':h.d.storage.digest(h.d.ENV_FILE), 'storage_layout':h.d.STORAGE_LAYOUT}
         (h.d.ETC/'approved.json').write_text(json.dumps(policy))
         with closing(sqlite3.connect(h.d.DB)) as db, db:
             db.executescript("CREATE TABLE Customers (Id INTEGER PRIMARY KEY, Name TEXT);"

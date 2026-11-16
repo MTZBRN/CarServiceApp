@@ -22,12 +22,14 @@ import ops_storage as storage
 RELEASE_BRANCH = "test-deploy"
 PROJECT = "carserviceapp-test"
 NETWORK = PROJECT + "_workshop"
-BASE = Path("/opt/carserviceapp")
-DATA, UPLOADS, BACKUPS = (BASE / name for name in ("test-data", "test-uploads", "test-backups"))
+STORAGE_LAYOUT = "test-root-v1"
+BASE = Path("/srv/carserviceapp-test")
+DATA, UPLOADS, BACKUPS = (BASE / name for name in ("data", "uploads", "backups"))
 DB = DATA / "app.db"
-ENV_FILE = BASE / ".env.test"
-LIVE_COMPOSE = BASE / "test-compose/docker-compose.test.yml"
 ETC = Path("/etc/carservice-test-deploy")
+ENV_FILE = ETC / "environment"
+# Reviewed migration baseline, never executed by the deployment helper.
+LIVE_COMPOSE = ETC / "baseline/compose.json"
 STATE = Path("/var/lib/carservice-test-deploy")
 REPO = STATE / "source.git"
 SERVICES = ("backend", "frontend")
@@ -95,7 +97,7 @@ def preflight():
     for p in (ETC, BASE, Path("/usr/local/sbin/carservice-test-deploy"),
               Path("/usr/local/sbin/ops_storage.py"), Path("/usr/local/sbin/carservice-test-ssh-gate")):
         trusted(p)
-    for p in (STATE, STATE/"home", REPO, BACKUPS, ENV_FILE):
+    for p in (STATE, STATE/"home", REPO, BACKUPS, ENV_FILE, LIVE_COMPOSE):
         trusted(p, private=True)
     for p in (STATE/"deploy.lock", STATE/"in-progress", ETC/"actions-enabled"):
         require(not p.is_symlink(), "linked runtime control file")
@@ -281,6 +283,15 @@ def smoke():
                 require(b'id="root"' in response.read(65536), "TEST SPA missing")
 
 
+def validate_configuration_approval(policy, frozen):
+    require(policy.get("storage_layout") == STORAGE_LAYOUT, "storage layout approval required")
+    trusted(LIVE_COMPOSE, private=True)
+    # All three inputs are root-controlled. Never read the legacy worktree.
+    require(storage.digest(frozen) == policy["frozen_compose_sha256"]
+            and storage.digest(storage.safe_path(LIVE_COMPOSE)) == policy["compose_sha256"]
+            and storage.digest(ENV_FILE) == policy["env_sha256"], "configuration approval mismatch")
+
+
 def deploy(sha):
     import fcntl
     require(os.geteuid() == 0 and sys.version_info >= (3,12), "requires installed root runtime, Python 3.12+")
@@ -296,10 +307,7 @@ def deploy(sha):
     trusted(frozen)
     policy = json.loads(approval.read_text())
     require(policy["migrations"] and policy["migrations"] == sorted(set(policy["migrations"])), "invalid migration inventory")
-    # Read-only comparison; Compose never executes the worktree file or runs git in that worktree.
-    require(storage.digest(frozen) == policy["frozen_compose_sha256"]
-            and storage.digest(storage.safe_path(LIVE_COMPOSE)) == policy["compose_sha256"]
-            and storage.digest(ENV_FILE) == policy["env_sha256"], "configuration approval mismatch")
+    validate_configuration_approval(policy, frozen)
     with (STATE / "deploy.lock").open("a") as lock:
         fcntl.flock(lock,fcntl.LOCK_EX | fcntl.LOCK_NB)
         active = STATE / "in-progress"

@@ -20,6 +20,11 @@ class StorageActionsTests(unittest.TestCase):
             target=Path(tmp)/'unpacked'
             result=a.verify(ARCHIVE,target)
             self.assertEqual(result['sha256'],a.SHA256)
+            manifest = 'ops/test-deploy/INSTALL_ARTIFACTS.sha256'
+            self.assertEqual((ROOT/manifest).read_bytes(), (target/'review'/manifest).read_bytes())
+            for line in (ROOT/manifest).read_text().splitlines():
+                digest, name = line.split('  ', 1)
+                self.assertEqual(hashlib.sha256((ROOT/name).read_bytes()).hexdigest(), digest, name)
             self.assertNotIn('compose_compat',(target/'Dockerfile').read_text())
             self.assertIn('d.validate_model(model', (target/'review/ops/test-deploy/rehearsal/storage_cutover.py').read_text())
             with self.assertRaises(ValueError): a.verify(ARCHIVE,target)

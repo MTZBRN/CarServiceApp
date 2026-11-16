@@ -38,7 +38,7 @@
       "volumes": [
         {
           "type": "bind",
-          "source": "/opt/carserviceapp/test-data",
+          "source": "/srv/carserviceapp-test/data",
           "target": "/app/data",
           "bind": {
             "create_host_path": false
@@ -46,7 +46,7 @@
         },
         {
           "type": "bind",
-          "source": "/opt/carserviceapp/test-uploads",
+          "source": "/srv/carserviceapp-test/uploads",
           "target": "/app/uploads",
           "bind": {
             "create_host_path": false

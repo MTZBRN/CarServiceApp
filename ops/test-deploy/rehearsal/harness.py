@@ -242,7 +242,7 @@ def provision(scenario):
     write(d.ETC/"actions-read.token", "fictional-token-never-sent")
     write(d.ETC/"approved.json", json.dumps({"branch":"test-deploy", "revision":sha,
           "compose_sha256":d.storage.digest(d.LIVE_COMPOSE),
-          "frozen_compose_sha256":d.storage.digest(d.ETC/"docker-compose.test.yml"),
+          "storage_layout":d.STORAGE_LAYOUT, "frozen_compose_sha256":d.storage.digest(d.ETC/"docker-compose.test.yml"),
           "env_sha256":d.storage.digest(d.ENV_FILE), "migrations":["001_fixture", "002_fixture"]}))
     try:
         dc("up", "-d", "--no-build", "--pull", "never", "--wait", "--wait-timeout", "45")
