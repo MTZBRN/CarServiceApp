@@ -6,7 +6,7 @@ import re
 from pathlib import Path, PurePosixPath
 import tarfile
 
-SHA256 = '419b587588e9e2734989c0eebd0fcd6ca1ffcc27c5fc2079d5c56919db5f264f'
+SHA256 = '7928a63a75a943f15acd8d1a4962ef0a3f711632acf9f8009cbf16e16b692d88'
 SCENARIOS = ('success', 'before-cutover', 'interrupted-cutover', 'failed-startup')
 
 

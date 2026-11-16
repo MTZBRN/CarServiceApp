@@ -27,6 +27,35 @@ def model():
 
 
 class TestDeploymentGuards(unittest.TestCase):
+    def test_native_executable_defaults(self):
+        for role in ("backend", "frontend"):
+            for key in ("command", "entrypoint"):
+                for fields in ({}, {key: None}, {"command": None, "entrypoint": None}):
+                    config = model()
+                    config["services"][role].update(fields)
+                    deploy.validate_model(config, "tag")
+                for value in ("sh", ["sh"], [], "", False, 0, {}):
+                    with self.subTest(role=role, key=key, value=value):
+                        config = model()
+                        config["services"][role][key] = value
+                        with self.assertRaisesRegex(deploy.Refused, "executable override"):
+                            deploy.validate_model(config, "tag")
+            config = model()
+            config["services"][role]["unknown_option"] = None
+            with self.assertRaisesRegex(deploy.Refused, "unreviewed service option"):
+                deploy.validate_model(config, "tag")
+
+    def test_native_mount_requires_explicit_boolean_false(self):
+        for fields in ({}, {"bind": {}}, *({"bind": {"create_host_path": v}}
+                      for v in (True, None, 0, "", "false", []))):
+            with self.subTest(fields=fields):
+                config = model()
+                mount = config["services"]["backend"]["volumes"][0]
+                del mount["bind"]
+                mount.update(fields)
+                with self.assertRaisesRegex(deploy.Refused, "unexpected TEST mounts"):
+                    deploy.validate_model(config, "tag")
+
     def test_runtime_ownership_and_private_modes(self):
         parent = Mock()
         path = Mock(parents=[parent])
