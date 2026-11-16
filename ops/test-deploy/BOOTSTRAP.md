@@ -1,5 +1,10 @@
 # Operator bootstrap (prepared, not executed)
 
+For the existing healthy VPS, use [Phase 6F.3 gated storage migration](MIGRATE_TEST_STORAGE.md).
+It requires a native Compose compatibility test before runtime installation and
+preserves existing storage/configuration permissions. The fresh-directory recipe
+below must not be replayed over that installation.
+
 Keep `TEST_DEPLOY_ENABLED` unset/false and `actions-enabled` absent throughout.
 These commands are for a later authorized local operator session, first on the
 disposable VM. They are not permission to access or change the VPS now.
@@ -27,7 +32,9 @@ disposable VM. They are not permission to access or change the VPS now.
    install -d -o root -g root -m 0711 /etc/carservice-test-deploy
    install -d -o root -g root -m 0700 /var/lib/carservice-test-deploy
    install -d -o root -g root -m 0700 /var/lib/carservice-test-deploy/home
-   install -d -o root -g root -m 0700 /opt/carserviceapp/test-backups
+   install -d -o root -g root -m 0700 /srv/carserviceapp-test
+   install -d -o root -g root -m 0700 /srv/carserviceapp-test/backups
+   install -d -o root -g root -m 0700 /etc/carservice-test-deploy/baseline
    install -o root -g root -m 0755 scripts/test_deploy.py /usr/local/sbin/carservice-test-deploy
    install -o root -g root -m 0644 scripts/ops_storage.py /usr/local/sbin/ops_storage.py
    install -o root -g root -m 0755 scripts/test_deploy_preflight.py /usr/local/sbin/carservice-test-preflight
@@ -40,12 +47,12 @@ disposable VM. They are not permission to access or change the VPS now.
    Existing TEST data/uploads must match image UID:GID `1654:1654`; preflight
    rejects group/other writable entries. Resolve any mismatch separately with the
    operator. Preserve frontend UID:GID `101:101` from its image.
-5. Review `/opt/carserviceapp/.env.test` privately, root:root 0600. It must contain
+5. Review `/etc/carservice-test-deploy/environment` privately, root:root 0600. It must contain
    `JWT_KEY`, `JWT_ISSUER`, `JWT_AUDIENCE` and the existing TEST network's
    `TEST_SUBNET`, `TEST_BACKEND_IP`, `TEST_FRONTEND_IP`. No value is guessed here.
    The explicit project is `carserviceapp-test`, network
    `carserviceapp-test_workshop`, frontend `127.0.0.1:5174 -> 8080`, backend has no
-   published port. Only `/opt/carserviceapp/test-data` and `test-uploads` are bound.
+   published port. Only `/srv/carserviceapp-test/data` and `/srv/carserviceapp-test/uploads` are bound.
    Do not use the base Compose subnet unless metadata confirms it belongs to TEST.
    Image health checks are inherited. No build, includes, env_file, host config
    binds, or staging overlays are used. JSON syntax in the `.yml` file is intentional.
@@ -60,6 +67,8 @@ disposable VM. They are not permission to access or change the VPS now.
    and hooks; no URL rewrites, proxy commands or executable hooks. Provision the
    Actions-read token and per-release approved.json per README, both root:root
    0600. Never put secrets in command arguments, shell history or CI artifacts.
+   Before preflight, the separately authorized migration must populate the new data/uploads,
+   root-controlled environment and reviewed baseline/compose.json. Do not adopt legacy binds.
 7. Run `/usr/local/sbin/carservice-test-preflight` as root. This does not deploy,
    fetch, read database rows or require activation. It checks installed protected
    paths, packages/Compose, TEST model/IPAM, live container isolation and health,
