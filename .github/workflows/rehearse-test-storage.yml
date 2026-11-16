@@ -1,0 +1,98 @@
+name: Phase 6F.3 disposable storage rehearsal
+on:
+  workflow_dispatch:
+    inputs:
+      approve_fixture_recovery:
+        description: Approve recovery of fictional disposable data only
+        type: boolean
+        required: true
+        default: false
+permissions:
+  contents: read
+jobs:
+  storage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [success, before-cutover, interrupted-cutover, failed-startup]
+    env:
+      SCENARIO: ${{ matrix.scenario }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Require explicit fictional recovery approval
+        env:
+          APPROVED: ${{ inputs.approve_fixture_recovery }}
+        run: test "$APPROVED" = true
+      - name: Verify pinned package and all internal manifests
+        run: |
+          set -euo pipefail
+          echo '419b587588e9e2734989c0eebd0fcd6ca1ffcc27c5fc2079d5c56919db5f264f  ops/test-deploy/review-artifacts/phase6f3-storage-review.tar.gz' | sha256sum --check
+          python3 scripts/storage_actions.py verify --archive ops/test-deploy/review-artifacts/phase6f3-storage-review.tar.gz --destination "$RUNNER_TEMP/storage-context"
+      - name: Build native-only disposable image
+        run: |
+          set -euo pipefail
+          test -z "${DOCKER_HOST:-}${DOCKER_CONTEXT:-}${SSH_AUTH_SOCK:-}${GH_TOKEN:-}${GITHUB_TOKEN:-}"
+          test "$(docker context inspect default --format '{{.Endpoints.docker.Host}}')" = unix:///var/run/docker.sock
+          test "$(docker context show)" = default
+          test -z "$(docker ps -aq)"
+          docker pull python:3.12-slim-bookworm
+          docker save -o "$RUNNER_TEMP/storage-context/base.tar" python:3.12-slim-bookworm
+          docker build -t phase6f3-storage "$RUNNER_TEMP/storage-context" > "$RUNNER_TEMP/storage-build.log" 2>&1
+      - name: Start isolated daemon and verify boundary
+        run: |
+          set -euo pipefail
+          docker run -d --name phase6f3-storage-box --label phase6f3=disposable --privileged --network none --cgroupns private phase6f3-storage
+          test "$(docker inspect -f '{{json .Mounts}}' phase6f3-storage-box)" = '[]'
+          test "$(docker inspect -f '{{.HostConfig.NetworkMode}}' phase6f3-storage-box)" = none
+          test "$(docker inspect -f '{{.HostConfig.CgroupnsMode}}' phase6f3-storage-box)" = private
+          for attempt in $(seq 1 90); do
+            if docker exec phase6f3-storage-box test -e /run/phase6e-ready; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Run packaged offline guards
+        run: |
+          set -euo pipefail
+          docker exec -w /review phase6f3-storage-box python3 -m unittest discover -s scripts/tests -p test_test_deploy.py > "$RUNNER_TEMP/storage-tests.log" 2>&1
+          docker exec -w /review phase6f3-storage-box python3 -m unittest discover -s scripts/tests -p test_ops_storage.py >> "$RUNNER_TEMP/storage-tests.log" 2>&1
+      - name: Run native validation and real fictional cutover
+        id: rehearsal
+        run: |
+          set -euo pipefail
+          docker exec phase6f3-storage-box python3 /review/ops/test-deploy/rehearsal/storage_cutover.py "$SCENARIO" --approve-fictional-recovery > "$RUNNER_TEMP/storage-run.jsonl" 2> "$RUNNER_TEMP/storage-run.stderr"
+      - name: Collect fixed evidence before cleanup
+        if: always()
+        run: |
+          set -euo pipefail
+          if docker container inspect phase6f3-storage-box >/dev/null 2>&1; then
+            test "$(docker inspect -f '{{index .Config.Labels "phase6f3"}}' phase6f3-storage-box)" = disposable
+            docker cp phase6f3-storage-box:/evidence/storage-report.json "$RUNNER_TEMP/storage-report.json" >/dev/null 2>&1 || true
+            docker cp phase6f3-storage-box:/cutover-fixture/journal.json "$RUNNER_TEMP/storage-journal.json" >/dev/null 2>&1 || true
+          fi
+      - name: Publish sanitized PASS or FAIL
+        if: always()
+        env:
+          EXECUTION_OUTCOME: ${{ steps.rehearsal.outcome }}
+        run: |
+          set -euo pipefail
+          python3 scripts/storage_actions.py report --scenario "$SCENARIO" --outcome "${EXECUTION_OUTCOME:-skipped}" --log "$RUNNER_TEMP/storage-run.jsonl" --report "$RUNNER_TEMP/storage-report.json" --journal "$RUNNER_TEMP/storage-journal.json" --output "sanitized/$SCENARIO.json" >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain only sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: storage-${{ matrix.scenario }}-${{ github.run_attempt }}
+          path: sanitized/${{ matrix.scenario }}.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove only labelled disposable box
+        if: always()
+        run: |
+          set -euo pipefail
+          if docker container inspect phase6f3-storage-box >/dev/null 2>&1; then
+            test "$(docker inspect -f '{{index .Config.Labels "phase6f3"}}' phase6f3-storage-box)" = disposable
+            docker rm -f phase6f3-storage-box
+          fi
