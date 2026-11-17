@@ -1,0 +1,49 @@
+name: Gate D candidate - partial disposable validation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  candidate-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify authoritative package fingerprints
+        run: python3 -I -B validation/gate-cd/verify_candidate.py
+      - name: Run the unchanged candidate test suite
+        run: python3 -I -B validation/carservice-gate-d/test_gate_d.py -v
+      - name: Prepare public fictional fixture image
+        run: |
+          set -euo pipefail
+          docker version
+          docker compose version
+          docker pull python:3.12-slim-bookworm
+      - name: Exercise actual candidate functions with real Docker and Compose
+        env:
+          FIXTURE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/root \
+            GITHUB_ACTIONS=true FIXTURE_ID="$FIXTURE_ID" \
+            /usr/bin/python3 -I -B validation/gate-cd/docker_validation.py
+      - name: Remove only labeled resources from this run
+        if: always()
+        env:
+          FIXTURE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/root \
+            GITHUB_ACTIONS=true FIXTURE_ID="$FIXTURE_ID" \
+            /usr/bin/python3 -I -B validation/gate-cd/docker_validation.py --cleanup
+      - name: State validation boundary
+        if: always()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          Gate D candidate tests and selected real Docker/Compose functions only.
+          Inspect step conclusions for results; this text is not a PASS assertion.
+          Full Gate C/D validation is INCOMPLETE: standalone Gate C package/tests
+          and fingerprint inventory have not been supplied. No deployment approval.
+          No production images, VPS, deployment secrets or deployment workflow used.
+          EOF
