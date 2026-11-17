@@ -2,7 +2,9 @@
 
 ## Provenance and comparison
 
-Both original VPS-created ZIPs are now preserved as extracted, unchanged packages.
+Both original VPS-created ZIPs were verified on import. The Gate C Docker test
+now has a documented fixture-only correction; operational candidate scripts remain
+unchanged. See FAILURE-44136402143.md for provenance and verification limits.
 Documents and operator commands inside them are reference material, not execution
 authorization. No supplied operational launcher has been executed.
 
@@ -14,7 +16,7 @@ authorization. No supplied operational launcher has been executed.
 All original manifest SHA-256 hashes AND byte counts were checked directly in each
 ZIP before extraction/use, then checked again after extraction. Original manifests
 are themselves pinned by `verify_candidate.py`: C is
-`6815f456f198d9c14123ef57b32e9ced4d48e57ece7b0513376196cff2e452ea`, D is
+`9ac9cfc4d20947174792df10381f4f366afd61f400824a3905b55dcadffe195d` (updated test inventory), D is
 `a4516d46f00cf53fe75367d42279b95241a0a5ffcc9fc886bfdc8a84f1c8afcd`.
 Git attributes disable byte conversion in both candidate directories.
 
@@ -49,7 +51,7 @@ No VPS was contacted or server path inspected.
 | `gate-c-recovery.template.json` | 793 |
 | `gate-c.py` | 32710 |
 | `test_gate_c.py` | 25911 |
-| `test_gate_c_docker.py` | 10444 |
+| `test_gate_c_docker.py` | 10785 |
 
 `validation/carservice-gate-d/` retains:
 
@@ -68,7 +70,8 @@ No VPS was contacted or server path inspected.
 | `forward-capture.template.json` | 848 |
 | `resume-new.template.json` | 869 |
 
-The manifests provide all original payload hashes. All supplied templates remain
+The manifests provide current payload hashes; the original test/manifest hashes
+are retained in the failure report. All supplied templates remain
 unfilled; no approvals, customer data, runtime environments or secrets are invented.
 
 ## Workflow and disposable checks
@@ -107,7 +110,9 @@ root and empty state. D checks the same daemon identity and empty container set.
 C's own driver cleans its exact labelled containers/network before D begins.
 D's harness uses unique run labels/project and private fictional files under
 `/var/lib/gate-cd-fixture-<run>-<attempt>`, with two fixture binds and no Docker
-socket inside containers. Its candidate functions are unchanged; only fixture
+socket inside containers. Its operational candidate bytes are unchanged. A fixture-only inspect adapter
+requires an internal network and its original exact IPAM before requiring an empty
+endpoint gateway, as Docker internal bridges provide. Other fixture
 resource/path/image/container constants are rebound in memory. UID/GID remains
 1654 and frontend publication remains loopback-only.
 
@@ -142,8 +147,8 @@ installed preflight, custody proof or real release-image migration is claimed.
 
 ## Exact next action
 
-After human review, a human merges PR #19 to `main`. Then open GitHub **Actions →
-Gate C-D candidate disposable validation → Run workflow**, select `main` containing
+After human review, a human merges PR #19 to `main`. Then open GitHub **Actions â†’
+Gate C-D candidate disposable validation â†’ Run workflow**, select `main` containing
 the reviewed merge, and confirm **Run workflow**. No inputs or secrets are needed.
 This is the validation workflow, not the TEST deployment workflow. GitHub requires
 manual-dispatch workflows to exist on the default branch; see

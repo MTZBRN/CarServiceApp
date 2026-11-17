@@ -69,6 +69,8 @@ def main():
     if run('image', 'inspect', '--format', '{{.Id}}', a.fixture_image) != a.fixture_image:
         raise SystemExit('STOP: fixture image not already loaded by exact ID')
     m = load(HERE / 'gate-c.py', 'gate_c_disposable_subject')
+    adapter = load(HERE.parent / 'gate-cd' / 'internal_fixture.py', 'internal_fixture')
+    adapter.bind_internal_inspect(m)
     unit = load(HERE / 'test_gate_c.py', 'gate_c_disposable_support')
     tag = 'gate-c-disposable-' + uuid.uuid4().hex[:12]
     temp = Path(tempfile.mkdtemp(prefix='gate-c-fictional-'))
@@ -184,6 +186,9 @@ def main():
         report['status'] = 'PASS'
     except Exception as error:
         report['failure_class'] = type(error).__name__
+        # Only fixed candidate refusal codes, never arbitrary exception content.
+        if isinstance(error, RuntimeError) and re.fullmatch('[a-z0-9-]+', str(error)):
+            report['failure_code'] = str(error)
     finally:
         try:
             for cid in ids.values():

@@ -13,6 +13,8 @@ jobs:
           persist-credentials: false
       - name: Verify authoritative package fingerprints
         run: python3 -I -B validation/gate-cd/verify_candidate.py
+      - name: Verify isolated fixture metadata expectations
+        run: python3 -I -B validation/gate-cd/test_internal_fixture.py -v
       - name: Run the unchanged Gate C unit test suite
         run: python3 -I -B validation/carservice-gate-c/test_gate_c.py -v
       - name: Run the unchanged Gate D unit test suite
