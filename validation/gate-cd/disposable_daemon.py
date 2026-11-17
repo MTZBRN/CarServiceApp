@@ -74,13 +74,18 @@ def main(archive):
         image = subprocess.check_output(DOCKER + ['image', 'inspect', '--format', '{{.Id}}',
                                                  'python:3.12-slim-bookworm'], env=ENV, text=True).strip()
         report = ROOT / 'gate-c-docker-report.json'
-        subprocess.run(['/usr/bin/python3', '-I', '-B',
+        completed = subprocess.run(['/usr/bin/python3', '-I', '-B',
                         str(HERE.parent / 'carservice-gate-c' / 'test_gate_c_docker.py'),
                         '--disposable-socket', str(SOCKET), '--fixture-image', image,
                         '--output', str(report), '--i-confirm-disposable-daemon'],
-                       env=ENV, check=True, timeout=600)
+                       env=ENV, check=False, timeout=600)
         result = json.loads(report.read_text())
-        print(json.dumps({k: result[k] for k in ('status', 'checks', 'scope', 'script_sha256') }), flush=True)
+        print(json.dumps({k: result[k] for k in (
+            'status', 'checks', 'scope', 'script_sha256', 'failure_class',
+            'failure_code', 'cleanup_failure_class') if k in result}), flush=True)
+        completed.check_returncode()
+        if result.get('status') != 'PASS':
+            raise RuntimeError('gate-c-report-not-pass')
         subprocess.run(['/usr/bin/python3', '-I', '-B', str(HERE / 'docker_validation.py')],
                        env=ENV, check=True, timeout=600)
     finally:

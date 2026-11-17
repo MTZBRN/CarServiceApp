@@ -76,6 +76,7 @@ def main():
     os.umask(0o077)
     d = load(CANDIDATE / 'gate-d.py', 'candidate_d')
     d.C = c = d.load_c()  # Candidate enforces its own Gate C dependency hash.
+    load(HERE / 'internal_fixture.py', 'internal_fixture').bind_internal_inspect(c)
     c.DOCKER = DOCKER
     info = json.loads(docker('info', '--format', '{{json .}}'))
     if ('carservice.gate-c.fixture=true' not in (info.get('Labels') or [])

@@ -37,7 +37,7 @@ def verify_package(directory, manifest_sha256, count):
 def verify():
     verify_package(CANDIDATE, MANIFEST_SHA256, 11)
     original = CANDIDATE.parent / 'carservice-gate-c'
-    verify_package(original, '6815f456f198d9c14123ef57b32e9ced4d48e57ece7b0513376196cff2e452ea', 8)
+    verify_package(original, '9ac9cfc4d20947174792df10381f4f366afd61f400824a3905b55dcadffe195d', 8)
     if (original / 'gate-c.py').read_bytes() != (CANDIDATE / 'gate-c.py').read_bytes():
         raise RuntimeError('original Gate C differs from Gate D dependency')
     return CANDIDATE
