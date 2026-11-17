@@ -1,0 +1,54 @@
+name: Gate C-D candidate disposable validation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  candidate-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Verify authoritative package fingerprints
+        run: python3 -I -B validation/gate-cd/verify_candidate.py
+      - name: Run the unchanged Gate C unit test suite
+        run: python3 -I -B validation/carservice-gate-c/test_gate_c.py -v
+      - name: Run the unchanged Gate D unit test suite
+        run: python3 -I -B validation/carservice-gate-d/test_gate_d.py -v
+      - name: Prepare public fictional fixture image
+        run: |
+          set -euo pipefail
+          docker version
+          docker compose version
+          docker pull python:3.12-slim-bookworm
+          docker save --output "$RUNNER_TEMP/gate-cd-fixture.tar" python:3.12-slim-bookworm
+      - name: Run original Gate C Docker recovery tests and Gate D Compose checks
+        env:
+          FIXTURE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/root \
+            GITHUB_ACTIONS=true FIXTURE_ID="$FIXTURE_ID" \
+            /usr/bin/python3 -I -B validation/gate-cd/disposable_daemon.py \
+            "$RUNNER_TEMP/gate-cd-fixture.tar"
+      - name: Stop only this run's private daemon
+        if: always()
+        env:
+          FIXTURE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/root \
+            GITHUB_ACTIONS=true FIXTURE_ID="$FIXTURE_ID" \
+            /usr/bin/python3 -I -B validation/gate-cd/disposable_daemon.py --cleanup
+      - name: State validation boundary
+        if: always()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          Both original unit suites, original Gate C Docker recovery suite,
+          and selected Gate D real Compose/storage checks are configured.
+          Inspect step conclusions for results; this text is not a PASS assertion.
+          Both candidate packages are present and fingerprint-verified.
+          Fixture results do not grant operational or deployment approval.
+          No production images, VPS, deployment secrets or deployment workflow used.
+          EOF

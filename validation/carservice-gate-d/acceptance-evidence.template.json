@@ -1,0 +1,14 @@
+{
+  "gate_d_approval_sha256": null,
+  "current_ids": {
+    "backend": null,
+    "frontend": null
+  },
+  "smoke_status": null,
+  "startup_migrations_unchanged": false,
+  "prod_metadata_unchanged": false,
+  "new_data_verified": false,
+  "validation_writes_reviewed": false,
+  "decision_reference": null,
+  "private_verification_records": null
+}

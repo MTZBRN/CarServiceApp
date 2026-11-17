@@ -1,0 +1,33 @@
+{
+  "operation": "resume-new",
+  "approved": false,
+  "approval_id": null,
+  "approval_reference": null,
+  "decision_maker": null,
+  "window_start_utc": null,
+  "window_end_utc": null,
+  "ingress_closed": false,
+  "custody_continuous": false,
+  "github_gate_disabled": false,
+  "no_other_automation": false,
+  "gate_c_approval_sha256": null,
+  "old_model": null,
+  "old_model_sha256": null,
+  "new_model": null,
+  "new_model_sha256": null,
+  "runtime_environment": null,
+  "runtime_environment_sha256": null,
+  "expected_history": null,
+  "expected_history_sha256": null,
+  "max_upload_bytes": null,
+  "gate_d_approval_sha256": null,
+  "current_ids": {
+    "backend": null,
+    "frontend": null
+  },
+  "current_layout": null,
+  "new_source_authoritative": false,
+  "repair_completed_and_accepted": false,
+  "forward_evidence": null,
+  "forward_evidence_sha256": null
+}
