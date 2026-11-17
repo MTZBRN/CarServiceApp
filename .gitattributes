@@ -3,4 +3,5 @@ scripts/** text eol=lf
 ops/** text eol=lf
 # Preserve the fingerprinted VPS candidate byte for byte.
 validation/carservice-gate-d/** -text
+validation/carservice-gate-c/** -text
 validation/gate-cd/** text eol=lf

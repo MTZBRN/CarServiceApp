@@ -1,6 +1,6 @@
 """Selected candidate functions on fictional GitHub-hosted resources.
 
-Not a Gate C/D CLI execution or standalone Gate C acceptance suite. Candidate
+Not a Gate C/D CLI execution. Candidate
 functions are never replaced: only fixture resource/path/identity constants change.
 """
 import copy
@@ -33,7 +33,12 @@ PROJECT = 'gate-cd-fixture-' + RUN
 NETWORK = PROJECT + '-workshop'
 LABEL = 'gate-cd.fixture=' + RUN
 ROOT = Path('/var/lib') / PROJECT
-DOCKER = ['/usr/bin/docker', '--host', 'unix:///var/run/docker.sock']
+SOCKET = Path(os.environ.get('FIXTURE_SOCKET', ''))
+if (SOCKET != Path('/tmp') / ('carservice-gate-c-docker-' + RUN) / 'docker.sock'
+        or SOCKET != SOCKET.resolve() or not SOCKET.is_socket()
+        or SOCKET.parent.stat().st_uid != 0 or SOCKET.parent.stat().st_mode & 0o777 != 0o700):
+    raise SystemExit('requires private disposable daemon socket')
+DOCKER = ['/usr/bin/docker', '--host', 'unix://' + str(SOCKET)]
 ENV = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'HOME': '/root', 'LC_ALL': 'C'}
 
 
@@ -71,6 +76,12 @@ def main():
     os.umask(0o077)
     d = load(CANDIDATE / 'gate-d.py', 'candidate_d')
     d.C = c = d.load_c()  # Candidate enforces its own Gate C dependency hash.
+    c.DOCKER = DOCKER
+    info = json.loads(docker('info', '--format', '{{json .}}'))
+    if ('carservice.gate-c.fixture=true' not in (info.get('Labels') or [])
+            or Path(info['DockerRootDir']).resolve() != SOCKET.parent / 'data'
+            or docker('ps', '-aq')):
+        raise RuntimeError('fixture daemon must be labelled, isolated and empty')
     storage = load(CANDIDATE / 'ops_storage.fixture.py', 'candidate_storage')
     image = docker('image', 'inspect', '--format', '{{.Id}}', 'python:3.12-slim-bookworm')
     if not re.fullmatch(r'sha256:[0-9a-f]{64}', image):
@@ -206,7 +217,7 @@ def main():
     refused(d.old_authority_admission)
     passed('accepted-authority-blocks-old-recovery')
     print(json.dumps({'scope': 'selected candidate functions only', 'checks': checks,
-                      'full_gate_c_d_validation': 'INCOMPLETE - standalone Gate C package missing',
+                      'operational_gate_c_d_approval': False,
                       'fixture_image': image,
                       'engine': docker('version', '--format', '{{.Server.Version}}'),
                       'compose': docker('compose', 'version', '--short')}, indent=2))
