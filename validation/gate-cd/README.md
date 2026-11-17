@@ -1,3 +1,7 @@
+> Latest: Gate C real Docker lifecycle PASS (8 checks) in run 44140101543.
+> Gate D Compose 2.38.2 normalization fix and local reproduction are documented
+> in [the latest investigation](FAILURE-44140101543.md). Hosted D execution is pending.
+
 > Current candidate revision includes the documented Gate C mount-order fix.
 > See [second-run investigation](FAILURE-44137909902.md) for current results,
 > byte changes and next action. Original ZIP hashes describe import provenance.
@@ -20,14 +24,14 @@ All original manifest SHA-256 hashes AND byte counts were checked directly in ea
 ZIP before extraction/use, then checked again after extraction. Original manifests
 are themselves pinned by `verify_candidate.py`: C is
 `a8d648c2316de103409578a998be8c52c07fc1f4b433f02647f2cd17a4d9a166` (updated test inventory), D is
-`341f9fdde35eda9c671ff06ce5d65714ebd5275520c0d9cf9153a0f77bf794d5`.
+`71c7167bb6a4d239f4469b68a9d0ef5a04e162e2cc50a85197b0ef751db7283d`.
 Git attributes disable byte conversion in both candidate directories.
 
 **Comparison: no differences.** Original C `gate-c.py` and the dependency in D
 are byte-for-byte identical: 33241 bytes, SHA-256
 `a0fae6538c6b64e4160041c274cc4f8662e38e93b677504f867026f0f8208989`.
-Both copies carry the same correction. D `gate-d.py` remains 31451 bytes, SHA-256
-`14bd29fd4d4a1724327361a7e72c5e77448b3701fffc22ef78a3ccf1307cb957`.
+Both copies carry the same correction. D `gate-d.py` remains 32502 bytes, SHA-256
+`44746fef63b5e0e74ac2c1bb75e4266a3d04d10e46c3c6052c44221ba4fed5bb`.
 The D fixture helper remains SHA-256
 `90ddda01a6aba871c10441900506889d819571069d03f2d764c867ca9940f2dc`.
 No candidate defect requiring a byte change was identified by local static checks.
@@ -61,11 +65,11 @@ No VPS was contacted or server path inspected.
 | File | Bytes |
 | --- | ---: |
 | `FILE-FINGERPRINTS.txt` | 1044 |
-| `OPERATOR.md` | 21500 |
+| `OPERATOR.md` | 21931 |
 | `gate-c.py` | 33241 |
-| `gate-d.py` | 31451 |
+| `gate-d.py` | 32502 |
 | `ops_storage.fixture.py` | 13686 |
-| `test_gate_d.py` | 17310 |
+| `test_gate_d.py` | 18169 |
 | `cutover.template.json` | 694 |
 | `accept.template.json` | 866 |
 | `acceptance-evidence.template.json` | 343 |

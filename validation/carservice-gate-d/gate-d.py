@@ -84,7 +84,14 @@ def validate_model(model, layout):
     need(set(model) <= {'name', 'services', 'networks'} and model.get('name') == C.PROJECT,
          'compose-project-or-directives')
     need(set(model.get('services', {})) == {'backend', 'frontend'}, 'compose-service-set')
-    need(model.get('networks') == {'workshop': {'name': C.NETWORK, 'external': True}}, 'external-network-required')
+    networks = model.get('networks')
+    need(isinstance(networks, dict) and set(networks) == {'workshop'}, 'external-network-required')
+    network = networks['workshop']
+    # Compose 2.38.2 emits an empty IPAM object for external networks.
+    # Accept that representation only; never admit network creation parameters.
+    need(isinstance(network, dict) and set(network) <= {'name', 'external', 'ipam'}
+         and network.get('name') == C.NETWORK and network.get('external') is True
+         and network.get('ipam', {}) == {}, 'external-network-required')
     paths = (OLD_DATA, OLD_UPLOADS) if layout == 'old' else (TARGET / 'data', TARGET / 'uploads')
     need(backend_paths(model) == {'/app/data': str(paths[0]), '/app/uploads': str(paths[1])}, 'compose-storage-layout')
     for service, spec in model['services'].items():
@@ -164,8 +171,16 @@ def compose(a, key, tail):
 
 
 def native_models(a):
+    # Authored baselines must explicitly prohibit host-path creation.
+    validate_models(C.decode_json(reference(a, 'old_model')), C.decode_json(reference(a, 'new_model')))
     old = C.decode_json(compose(a, 'old_model', ['config', '--format', 'json']))
     new = C.decode_json(compose(a, 'new_model', ['config', '--format', 'json']))
+    # Compose omits the false zero value. This applies only to native output
+    # after the explicit source contract above; an explicit true is never changed.
+    for model in (old, new):
+        for volume in model.get('services', {}).get('backend', {}).get('volumes', []):
+            if volume.get('type') == 'bind' and isinstance(volume.get('bind'), dict):
+                volume['bind'].setdefault('create_host_path', False)
     validate_models(old, new)
 
 

@@ -1,9 +1,9 @@
 # Gate D execution package — candidate, not execution approval
 
-`gate-d.py`: **31,451 bytes**, SHA256:
+`gate-d.py`: **32,502 bytes**, SHA256:
 
 ```text
-14bd29fd4d4a1724327361a7e72c5e77448b3701fffc22ef78a3ccf1307cb957
+44746fef63b5e0e74ac2c1bb75e4266a3d04d10e46c3c6052c44221ba4fed5bb
 ```
 
 Dependency `gate-c.py` must sit beside it unchanged, SHA256 `a0fae6538c6b64e4160041c274cc4f8662e38e93b677504f867026f0f8208989`. Runtime storage helper remains `/usr/local/sbin/ops_storage.py`, SHA256 `90ddda01a6aba871c10441900506889d819571069d03f2d764c867ca9940f2dc`. `ops_storage.fixture.py` is an exact reviewed copy for local fictional tests ONLY; do not install it or execute it against application data. Gate C includes the documented mount-order correction; see ../gate-cd/FAILURE-44137909902.md.
@@ -57,14 +57,14 @@ This is a future OPERATOR procedure, not permission for Codex to run it. After i
 $script = Join-Path (Get-Location) 'gate-d.py'
 $dependency = Join-Path (Get-Location) 'gate-c.py'
 $approval = Join-Path (Get-Location) 'gate-d-approved.json'
-if ((Get-FileHash -LiteralPath $script -Algorithm SHA256).Hash.ToLowerInvariant() -ne '14bd29fd4d4a1724327361a7e72c5e77448b3701fffc22ef78a3ccf1307cb957') { throw 'STOP: script fingerprint' }
-if ((Get-Item -LiteralPath $script).Length -ne 31451) { throw 'STOP: script length' }
+if ((Get-FileHash -LiteralPath $script -Algorithm SHA256).Hash.ToLowerInvariant() -ne '44746fef63b5e0e74ac2c1bb75e4266a3d04d10e46c3c6052c44221ba4fed5bb') { throw 'STOP: script fingerprint' }
+if ((Get-Item -LiteralPath $script).Length -ne 32502) { throw 'STOP: script length' }
 if ((Get-FileHash -LiteralPath $dependency -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'a0fae6538c6b64e4160041c274cc4f8662e38e93b677504f867026f0f8208989') { throw 'STOP: dependency fingerprint' }
 $approvalHash = (Get-FileHash -LiteralPath $approval -Algorithm SHA256).Hash.ToLowerInvariant()
 Write-Output "Reviewed operation approval SHA256: $approvalHash"
-ssh -o BatchMode=yes gta-test 'mkdir -m 0700 -- "$HOME/gate-d-14bd29fd"'
+ssh -o BatchMode=yes gta-test 'mkdir -m 0700 -- "$HOME/gate-d-44746fef"'
 if ($LASTEXITCODE -ne 0) { throw 'STOP: directory exists or SSH failure' }
-scp -o BatchMode=yes $script $dependency $approval 'gta-test:gate-d-14bd29fd/'
+scp -o BatchMode=yes $script $dependency $approval 'gta-test:gate-d-44746fef/'
 if ($LASTEXITCODE -ne 0) { throw 'STOP: transfer failure' }
 ssh -tt -o BatchMode=yes gta-test
 ```
@@ -81,14 +81,14 @@ path = sys.argv[1]
 fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
 with os.fdopen(fd,"rb") as f:
     s = os.fstat(f.fileno())
-    if not stat.S_ISREG(s.st_mode) or s.st_nlink != 1 or s.st_size != 31451:
+    if not stat.S_ISREG(s.st_mode) or s.st_nlink != 1 or s.st_size != 32502:
         sys.exit("STOP: invalid script file")
     code = f.read(65537)
-if hashlib.sha256(code).hexdigest() != "14bd29fd4d4a1724327361a7e72c5e77448b3701fffc22ef78a3ccf1307cb957":
+if hashlib.sha256(code).hexdigest() != "44746fef63b5e0e74ac2c1bb75e4266a3d04d10e46c3c6052c44221ba4fed5bb":
     sys.exit("STOP: script fingerprint")
 sys.argv = [path] + sys.argv[2:]
 exec(compile(code,path,"exec"),{"__name__":"__main__","__file__":path})
-' "$HOME/gate-d-14bd29fd/gate-d.py" "$@"
+' "$HOME/gate-d-44746fef/gate-d.py" "$@"
 }
 ```
 
@@ -97,7 +97,7 @@ For initial cutover ONLY, paste the independently reviewed Windows approval fing
 ```sh
 printf 'Reviewed CUTOVER approval SHA256: '
 IFS= read -r gate_d_approval_hash
-gate_d_operator cutover --approval "$HOME/gate-d-14bd29fd/gate-d-approved.json" --approval-sha256 "$gate_d_approval_hash"
+gate_d_operator cutover --approval "$HOME/gate-d-44746fef/gate-d-approved.json" --approval-sha256 "$gate_d_approval_hash"
 gate_d_status=$?
 printf 'Gate D exit code: %s\n' "$gate_d_status"
 ```
@@ -129,3 +129,11 @@ Interactive tokens: `APPROVE-GATE-D-CUTOVER`, `APPROVE-GATE-D-OLD-PATH-RECOVER`,
 NOT performed: real Docker/Compose lifecycle, actual image UID 1654 traversal, root credential dropping, installed preflight, PowerShell execution, live migration/cutover/recovery, PROD/STAGING access or activation. Existing accepted tests are reused, not described as proof of these NEW branches. Real disposable validation remains required on the dedicated runner; never test by stopping live TEST or using the shared VPS daemon. A passing unit suite is not Gate C/D execution approval.
 
 All exact file hashes/byte counts are in `FILE-FINGERPRINTS.txt`. Fill only concrete private values and run-specific hashes; this package invents no secrets, private baseline digest, live replacement ID, migration list, maintenance date or incident repair.
+
+## Compose normalization compatibility
+
+The current Gate D candidate accepts only absent or empty external-network IPAM
+metadata, preserving the exact name and literal external=true. native_models
+first validates authored baselines with explicit bind.create_host_path=false,
+then restores only omitted false values in native Compose output. Explicit true
+remains forbidden. See ../gate-cd/FAILURE-44140101543.md for reproduction.
