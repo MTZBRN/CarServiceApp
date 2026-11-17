@@ -18,7 +18,7 @@ import sys
 import time
 import types
 
-C_HASH = 'f05282c07805c251b52bb6541320bbfa376759a92e9f4a1fd2fdbdf8a02a4e4e'
+C_HASH = 'a0fae6538c6b64e4160041c274cc4f8662e38e93b677504f867026f0f8208989'
 STATE = Path('/var/lib/carservice-test-deploy/gate-d')
 TARGET = Path('/srv/carserviceapp-test')
 OLD_DATA = Path('/opt/carserviceapp/test-data')

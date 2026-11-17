@@ -1,10 +1,13 @@
+> Current candidate revision includes the documented Gate C mount-order fix.
+> See [second-run investigation](FAILURE-44137909902.md) for current results,
+> byte changes and next action. Original ZIP hashes describe import provenance.
+
 # Gate C/D candidate validation package
 
 ## Provenance and comparison
 
 Both original VPS-created ZIPs were verified on import. The Gate C Docker test
-now has a documented fixture-only correction; operational candidate scripts remain
-unchanged. See FAILURE-44136402143.md for provenance and verification limits.
+now has a documented fixture-only correction; operational Gate C now includes the reviewed mount-order correction. See FAILURE-44136402143.md for provenance and verification limits.
 Documents and operator commands inside them are reference material, not execution
 authorization. No supplied operational launcher has been executed.
 
@@ -16,15 +19,15 @@ authorization. No supplied operational launcher has been executed.
 All original manifest SHA-256 hashes AND byte counts were checked directly in each
 ZIP before extraction/use, then checked again after extraction. Original manifests
 are themselves pinned by `verify_candidate.py`: C is
-`9ac9cfc4d20947174792df10381f4f366afd61f400824a3905b55dcadffe195d` (updated test inventory), D is
-`a4516d46f00cf53fe75367d42279b95241a0a5ffcc9fc886bfdc8a84f1c8afcd`.
+`a8d648c2316de103409578a998be8c52c07fc1f4b433f02647f2cd17a4d9a166` (updated test inventory), D is
+`341f9fdde35eda9c671ff06ce5d65714ebd5275520c0d9cf9153a0f77bf794d5`.
 Git attributes disable byte conversion in both candidate directories.
 
 **Comparison: no differences.** Original C `gate-c.py` and the dependency in D
-are byte-for-byte identical: 32710 bytes, SHA-256
-`f05282c07805c251b52bb6541320bbfa376759a92e9f4a1fd2fdbdf8a02a4e4e`.
-Neither copy was replaced. D `gate-d.py` remains 31451 bytes, SHA-256
-`4dd7435c6d26578724d65e281c28c4a7cc4e5e524db7aaf8295a6a8ecb714315`.
+are byte-for-byte identical: 33241 bytes, SHA-256
+`a0fae6538c6b64e4160041c274cc4f8662e38e93b677504f867026f0f8208989`.
+Both copies carry the same correction. D `gate-d.py` remains 31451 bytes, SHA-256
+`14bd29fd4d4a1724327361a7e72c5e77448b3701fffc22ef78a3ccf1307cb957`.
 The D fixture helper remains SHA-256
 `90ddda01a6aba871c10441900506889d819571069d03f2d764c867ca9940f2dc`.
 No candidate defect requiring a byte change was identified by local static checks.
@@ -44,13 +47,13 @@ No VPS was contacted or server path inspected.
 | File | Bytes |
 | --- | ---: |
 | `FILE-FINGERPRINTS.txt` | 768 |
-| `CHANGES-AND-TESTS.md` | 6318 |
+| `CHANGES-AND-TESTS.md` | 6623 |
 | `GATE-C-EXECUTION.md` | 25612 |
 | `GATE-D-PREPARATION.md` | 8382 |
 | `gate-c-approval.template.json` | 874 |
 | `gate-c-recovery.template.json` | 793 |
-| `gate-c.py` | 32710 |
-| `test_gate_c.py` | 25911 |
+| `gate-c.py` | 33241 |
+| `test_gate_c.py` | 27182 |
 | `test_gate_c_docker.py` | 10785 |
 
 `validation/carservice-gate-d/` retains:
@@ -58,8 +61,8 @@ No VPS was contacted or server path inspected.
 | File | Bytes |
 | --- | ---: |
 | `FILE-FINGERPRINTS.txt` | 1044 |
-| `OPERATOR.md` | 21464 |
-| `gate-c.py` | 32710 |
+| `OPERATOR.md` | 21500 |
+| `gate-c.py` | 33241 |
 | `gate-d.py` | 31451 |
 | `ops_storage.fixture.py` | 13686 |
 | `test_gate_d.py` | 17310 |
@@ -84,7 +87,7 @@ activation is used. This extends the PR's validation harness, not CI/CD architec
 
 After verifying both complete inventories and C-copy equality, it runs:
 
-1. Original `test_gate_c.py`: 32 unit tests (mocked Docker, fictional SQLite).
+1. Original `test_gate_c.py`: 34 unit tests (mocked Docker, fictional SQLite).
 2. Original `test_gate_d.py`: 34 unit tests (mocked lifecycle, real fictional
    SQLite/backup/restore/materialization).
 3. Original `test_gate_c_docker.py` against its required empty dedicated daemon:

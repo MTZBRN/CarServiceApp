@@ -3,10 +3,10 @@
 `gate-d.py`: **31,451 bytes**, SHA256:
 
 ```text
-4dd7435c6d26578724d65e281c28c4a7cc4e5e524db7aaf8295a6a8ecb714315
+14bd29fd4d4a1724327361a7e72c5e77448b3701fffc22ef78a3ccf1307cb957
 ```
 
-Dependency `gate-c.py` must sit beside it unchanged, SHA256 `f05282c07805c251b52bb6541320bbfa376759a92e9f4a1fd2fdbdf8a02a4e4e`. Runtime storage helper remains `/usr/local/sbin/ops_storage.py`, SHA256 `90ddda01a6aba871c10441900506889d819571069d03f2d764c867ca9940f2dc`. `ops_storage.fixture.py` is an exact reviewed copy for local fictional tests ONLY; do not install it or execute it against application data. Gate C's original delivered files have not been modified.
+Dependency `gate-c.py` must sit beside it unchanged, SHA256 `a0fae6538c6b64e4160041c274cc4f8662e38e93b677504f867026f0f8208989`. Runtime storage helper remains `/usr/local/sbin/ops_storage.py`, SHA256 `90ddda01a6aba871c10441900506889d819571069d03f2d764c867ca9940f2dc`. `ops_storage.fixture.py` is an exact reviewed copy for local fictional tests ONLY; do not install it or execute it against application data. Gate C includes the documented mount-order correction; see ../gate-cd/FAILURE-44137909902.md.
 
 Contract: merged [MIGRATE_TEST_STORAGE.md](https://github.com/MTZBRN/CarServiceApp/blob/5200ede3b9dee3cfa7d5d4ad697029f445d91264/ops/test-deploy/MIGRATE_TEST_STORAGE.md) and the accepted Gate D preparation sheet. Existing CI, Phase 6F.3, native Compose, installed artifacts, mirror, network, capacity and overlap evidence are carried forward. No broad infrastructure audit is requested.
 
@@ -57,14 +57,14 @@ This is a future OPERATOR procedure, not permission for Codex to run it. After i
 $script = Join-Path (Get-Location) 'gate-d.py'
 $dependency = Join-Path (Get-Location) 'gate-c.py'
 $approval = Join-Path (Get-Location) 'gate-d-approved.json'
-if ((Get-FileHash -LiteralPath $script -Algorithm SHA256).Hash.ToLowerInvariant() -ne '4dd7435c6d26578724d65e281c28c4a7cc4e5e524db7aaf8295a6a8ecb714315') { throw 'STOP: script fingerprint' }
+if ((Get-FileHash -LiteralPath $script -Algorithm SHA256).Hash.ToLowerInvariant() -ne '14bd29fd4d4a1724327361a7e72c5e77448b3701fffc22ef78a3ccf1307cb957') { throw 'STOP: script fingerprint' }
 if ((Get-Item -LiteralPath $script).Length -ne 31451) { throw 'STOP: script length' }
-if ((Get-FileHash -LiteralPath $dependency -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'f05282c07805c251b52bb6541320bbfa376759a92e9f4a1fd2fdbdf8a02a4e4e') { throw 'STOP: dependency fingerprint' }
+if ((Get-FileHash -LiteralPath $dependency -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'a0fae6538c6b64e4160041c274cc4f8662e38e93b677504f867026f0f8208989') { throw 'STOP: dependency fingerprint' }
 $approvalHash = (Get-FileHash -LiteralPath $approval -Algorithm SHA256).Hash.ToLowerInvariant()
 Write-Output "Reviewed operation approval SHA256: $approvalHash"
-ssh -o BatchMode=yes gta-test 'mkdir -m 0700 -- "$HOME/gate-d-4dd7435c"'
+ssh -o BatchMode=yes gta-test 'mkdir -m 0700 -- "$HOME/gate-d-14bd29fd"'
 if ($LASTEXITCODE -ne 0) { throw 'STOP: directory exists or SSH failure' }
-scp -o BatchMode=yes $script $dependency $approval 'gta-test:gate-d-4dd7435c/'
+scp -o BatchMode=yes $script $dependency $approval 'gta-test:gate-d-14bd29fd/'
 if ($LASTEXITCODE -ne 0) { throw 'STOP: transfer failure' }
 ssh -tt -o BatchMode=yes gta-test
 ```
@@ -84,11 +84,11 @@ with os.fdopen(fd,"rb") as f:
     if not stat.S_ISREG(s.st_mode) or s.st_nlink != 1 or s.st_size != 31451:
         sys.exit("STOP: invalid script file")
     code = f.read(65537)
-if hashlib.sha256(code).hexdigest() != "4dd7435c6d26578724d65e281c28c4a7cc4e5e524db7aaf8295a6a8ecb714315":
+if hashlib.sha256(code).hexdigest() != "14bd29fd4d4a1724327361a7e72c5e77448b3701fffc22ef78a3ccf1307cb957":
     sys.exit("STOP: script fingerprint")
 sys.argv = [path] + sys.argv[2:]
 exec(compile(code,path,"exec"),{"__name__":"__main__","__file__":path})
-' "$HOME/gate-d-4dd7435c/gate-d.py" "$@"
+' "$HOME/gate-d-14bd29fd/gate-d.py" "$@"
 }
 ```
 
@@ -97,7 +97,7 @@ For initial cutover ONLY, paste the independently reviewed Windows approval fing
 ```sh
 printf 'Reviewed CUTOVER approval SHA256: '
 IFS= read -r gate_d_approval_hash
-gate_d_operator cutover --approval "$HOME/gate-d-4dd7435c/gate-d-approved.json" --approval-sha256 "$gate_d_approval_hash"
+gate_d_operator cutover --approval "$HOME/gate-d-14bd29fd/gate-d-approved.json" --approval-sha256 "$gate_d_approval_hash"
 gate_d_status=$?
 printf 'Gate D exit code: %s\n' "$gate_d_status"
 ```

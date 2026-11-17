@@ -30,3 +30,10 @@ PASS messages printed inside mocked tests are NOT evidence of VPS or real contai
 The private old-path baseline/hash, TEST ingress close/verify/reopen method, custody plan and named operators, expanded-upload bound, approved windows/deadline and explicit C approval remain operator inputs. The ready Gate D execution package, verified recovery package and real disposable Docker report must be reviewed before setting readiness flags. Fresh recovery additionally needs the approved expected migration list/hash and a separately authenticated recovery decision. None are invented or automatically approved by these deliverables.
 
 See `GATE-C-EXECUTION.md` for exact PowerShell → gta-test → interactive sudo procedures and all failure boundaries. See `GATE-D-PREPARATION.md` for the separate cutover preparation and its remaining implementation/approval inputs. `FILE-FINGERPRINTS.txt` lists exact SHA256/byte counts for every delivered file except the inventory itself.
+
+## Stopped-snapshot follow-up
+
+Gate C canonicalizes full mount dictionaries by destination; exact snapshot
+equality and all source/authorization checks remain. Two Linux recovery
+regressions bring the current suite to 34 tests. See
+../gate-cd/FAILURE-44137909902.md for evidence and fingerprint changes.
