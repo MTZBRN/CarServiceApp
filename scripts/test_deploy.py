@@ -1,5 +1,5 @@
 #!/usr/bin/python3 -I
-"""Installed, root-owned TEST deploy entry point. Its only input is one approved SHA on stdin."""
+"""Installed, root-owned TEST deploy entry point. Its only input is one SHA on stdin."""
 import hashlib
 import http.client
 import ipaddress
@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ops_storage as storage
 
 RELEASE_BRANCH = "main"
+MIGRATIONS_PATH = "Backend/CarServiceShop/CarServiceShop/Migrations"
 PROJECT = "carserviceapp-test"
 NETWORK = PROJECT + "_workshop"
 STORAGE_LAYOUT = "test-root-v1"
@@ -220,13 +221,24 @@ def migration_state():
         return [row[0] for row in con.execute('SELECT MigrationId FROM __EFMigrationsHistory ORDER BY MigrationId')]
 
 
+def verify_migration_history(expected):
+    actual = migration_state()
+    require(actual == expected, "database history differs from TEST policy")
+    return actual
+
+
 def check_ci(sha):
     token = ETC / "actions-read.token"
     trusted(token, private=True)
+    auth = {"GH_TOKEN": token.read_text().strip()}
+    branch = json.loads(run("gh", "api", "--hostname", "github.com",
+                            "repos/MTZBRN/CarServiceApp/branches/main", env=auth))
+    require(branch.get("protected") is True and branch["commit"]["sha"] == sha,
+            "revision is not the protected main tip")
     endpoint = ("repos/MTZBRN/CarServiceApp/actions/workflows/worksheet-ci.yml/runs"
                 f"?branch={RELEASE_BRANCH}&event=push&head_sha={sha}&per_page=1")
     runs = json.loads(run("gh","api","--hostname","github.com",endpoint,
-                          env={"GH_TOKEN":token.read_text().strip()}))["workflow_runs"]
+                          env=auth))["workflow_runs"]
     require(runs and all(runs[0].get(k) == v for k,v in {
         "head_sha":sha, "head_branch":RELEASE_BRANCH, "event":"push", "status":"completed",
         "conclusion":"success",
@@ -239,16 +251,40 @@ def check_activation():
     trusted(marker)
 
 
-def check_release(git, sha, approval, policy):
+def read_continuous_policy(path):
+    trusted(path, private=True)
+    info = path.stat()
+    require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_size <= 65536,
+            "unsafe TEST continuous policy")
+    policy = json.loads(path.read_text())
+    digests = ("frozen_compose_sha256", "compose_sha256", "env_sha256")
+    require(isinstance(policy, dict) and set(policy) == {
+        "mode", "branch", "storage_layout", "migrations_tree", "migrations", *digests,
+    } and policy["mode"] == "continuous-test-v1" and policy["branch"] == RELEASE_BRANCH
+        and policy["storage_layout"] == STORAGE_LAYOUT, "invalid TEST continuous policy")
+    require(isinstance(policy["migrations_tree"], str) and SHA.fullmatch(policy["migrations_tree"])
+            and all(isinstance(policy[key], str) and re.fullmatch(r"[0-9a-f]{64}", policy[key])
+                    for key in digests), "invalid TEST policy fingerprints")
+    migrations = policy["migrations"]
+    require(isinstance(migrations, list) and migrations
+            and all(isinstance(item, str) and item for item in migrations)
+            and migrations == sorted(set(migrations)), "invalid migration inventory")
+    return policy
+
+
+def check_release(git, sha, policy_path, policy, frozen):
     check_activation()
-    trusted(approval, private=True)
-    require(policy.get("branch") == RELEASE_BRANCH and policy.get("revision") == sha and SHA.fullmatch(sha)
-            and json.loads(approval.read_text()) == policy, "revision lacks current TEST operator approval")
+    require(SHA.fullmatch(sha) and read_continuous_policy(policy_path) == policy,
+            "TEST continuous policy changed")
+    validate_configuration_approval(policy, frozen)
     ref = "refs/heads/" + RELEASE_BRANCH
     tracking = "refs/remotes/origin/" + RELEASE_BRANCH
     run(*git,"fetch","--no-tags","origin",f"+{ref}:{tracking}")
     require(run(*git,"rev-parse","--verify",tracking) == sha, "revision is not the current main tip")
     require(run(*git,"cat-file","-t",sha) == "commit", "expected commit")
+    tree = run(*git, "rev-parse", "--verify", f"{sha}:{MIGRATIONS_PATH}")
+    require(tree == policy["migrations_tree"] and run(*git, "cat-file", "-t", tree) == "tree",
+            "migration sources changed; separate TEST review required")
     check_ci(sha)
 
 
@@ -303,7 +339,8 @@ def smoke():
 
 def validate_configuration_approval(policy, frozen):
     require(policy.get("storage_layout") == STORAGE_LAYOUT, "storage layout approval required")
-    trusted(LIVE_COMPOSE, private=True)
+    for path in (LIVE_COMPOSE, frozen, ENV_FILE):
+        trusted(path, private=True)
     # All three inputs are root-controlled. Never read the legacy worktree.
     require(storage.digest(frozen) == policy["frozen_compose_sha256"]
             and storage.digest(storage.safe_path(LIVE_COMPOSE)) == policy["compose_sha256"]
@@ -314,25 +351,22 @@ def deploy(sha):
     import fcntl
     require(os.geteuid() == 0 and sys.version_info >= (3,12), "requires installed root runtime, Python 3.12+")
     os.umask(0o077)
+    check_activation()
     preflight()
     trusted(ETC)
     for p in (STATE, STATE/"home", REPO, BACKUPS, ENV_FILE):
         trusted(p, private=True)
     trusted(BASE)
-    approval = ETC / "approved.json"
+    policy_path = ETC / "continuous-policy.json"
     frozen = ETC / "docker-compose.test.yml"
-    trusted(approval, private=True)
-    trusted(frozen)
-    policy = json.loads(approval.read_text())
-    require(policy["migrations"] and policy["migrations"] == sorted(set(policy["migrations"])), "invalid migration inventory")
-    validate_configuration_approval(policy, frozen)
+    policy = read_continuous_policy(policy_path)
     with (STATE / "deploy.lock").open("a") as lock:
         fcntl.flock(lock,fcntl.LOCK_EX | fcntl.LOCK_NB)
         active = STATE / "in-progress"
         require(not active.exists(), "unfinished deployment requires local operator")
         git = ["git","--git-dir",str(REPO)]
         require(run(*git,"remote","get-url","origin") == "https://github.com/MTZBRN/CarServiceApp.git", "unexpected source")
-        check_release(git, sha, approval, policy)
+        check_release(git, sha, policy_path, policy, frozen)
         check_not_deployed(sha)
         run_id = uuid.uuid4().hex
         tag = sha + "-" + run_id
@@ -378,16 +412,14 @@ def deploy(sha):
         current = containers()
         require(all(current[n]["id"] == c["id"] and current[n]["status"] == "running"
                     for n,c in previous.items()), "TEST changed during build")
-        check_release(git, sha, approval, policy)
+        check_release(git, sha, policy_path, policy, frozen)
         checkpoint("stopping")
         for name in ("frontend","backend"):
             run("docker","stop","--time","45",previous[name]["id"])
         stopped = containers()
         require(all(c["status"] == "exited" and c["id"] == previous[n]["id"] for n,c in stopped.items()), "writers not stopped")
         protect_storage()
-        record["before_migrations"] = migration_state()
-        require(record["before_migrations"] and policy["migrations"][:len(record["before_migrations"])] == record["before_migrations"],
-                "database history diverged")
+        record["before_migrations"] = verify_migration_history(policy["migrations"])
         checkpoint("backing-up")
         backup = storage.backup(DB,UPLOADS,BACKUPS,quiesced=True)
         record["backup"] = str(backup)
@@ -397,7 +429,7 @@ def deploy(sha):
         checkpoint("starting-backend")
         dc("up","-d","--no-build","--pull","never","--no-deps","--wait","--wait-timeout","180","backend",timeout=240)
         require(containers()["backend"]["image"] == record["images"]["backend"], "unexpected backend image")
-        require(migration_state() == policy["migrations"], "unexpected migrated schema")
+        verify_migration_history(policy["migrations"])
         before = storage.database_info(backup/"database.sqlite")
         after = storage.database_info(DB)
         require(all(after.get(table) == count for table,count in before.items() if table != "__EFMigrationsHistory"),

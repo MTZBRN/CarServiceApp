@@ -50,7 +50,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Recheck the protected tip after environment approval
+      - name: Recheck the protected tip before SSH
         env:
           GH_TOKEN: ${{ github.token }}
           REVISION: ${{ github.event.workflow_run.head_sha }}
@@ -59,7 +59,7 @@ jobs:
           [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]]
           gh api repos/MTZBRN/CarServiceApp/branches/main |
             jq -e --arg sha "$REVISION" '.protected == true and .commit.sha == $sha' >/dev/null
-      - name: Request approved TEST deployment
+      - name: Request TEST deployment under the standing policy
         env:
           REVISION: ${{ github.event.workflow_run.head_sha }}
           DEPLOY_HOST: ${{ vars.TEST_SSH_HOST }}
