@@ -128,8 +128,12 @@ retries shutdown with PID/command identity checks. No shared daemon is signalled
 no prune is used, and no broad filesystem deletion is performed. Residual fixture
 files and daemon logs stay on the ephemeral runner until GitHub destroys it.
 Cancellation/runner loss can bypass cleanup, but no external resources persist.
-C's full fictional report stays in its private temporary directory; selected
-checks/status and D's result/version information appear in the job log.
+On a successful run, download `gate-c-docker-pass-<run-id>-<attempt>` from
+**Artifacts** on the run summary. It contains the original
+`gate-c-docker-report.json` with the tested Gate C SHA-256, the private Docker
+Engine version, the PASS result and all lifecycle observations. The job checks
+those evidence fields before upload and preserves the original report bytes.
+Selected checks and status also appear in the job log.
 
 ## Results and review status
 

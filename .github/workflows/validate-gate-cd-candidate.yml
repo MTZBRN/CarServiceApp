@@ -60,3 +60,25 @@ jobs:
           Fixture results do not grant operational or deployment approval.
           No production images, VPS, deployment secrets or deployment workflow used.
           EOF
+      - name: Stage the original Gate C Docker PASS report
+        id: gate-c-evidence
+        env:
+          FIXTURE_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          [[ "$FIXTURE_ID" =~ ^[0-9]+-[0-9]+$ ]]
+          evidence_dir=$(mktemp -d "$RUNNER_TEMP/gate-c-evidence.XXXXXXXX")
+          report="$evidence_dir/gate-c-docker-report.json"
+          sudo cat -- "/tmp/carservice-gate-c-docker-$FIXTURE_ID/gate-c-docker-report.json" > "$report"
+          read -r script_sha _ < <(sha256sum validation/carservice-gate-c/gate-c.py)
+          jq -e --arg sha "$script_sha" '
+            .status == "PASS" and .script_sha256 == $sha and
+            (.docker_engine_version | type == "string" and length > 0)
+          ' "$report" >/dev/null
+          printf 'path=%s\n' "$report" >> "$GITHUB_OUTPUT"
+      - name: Upload the complete Gate C Docker PASS report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: gate-c-docker-pass-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.gate-c-evidence.outputs.path }}
+          if-no-files-found: error
