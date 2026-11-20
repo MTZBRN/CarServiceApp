@@ -1,15 +1,81 @@
 name: Deploy isolated TEST
 on:
-  workflow_dispatch:
-    inputs:
-      revision:
-        description: Reviewed full commit SHA on the protected test-deploy tip
-        type: string
-        required: true
+  workflow_run:
+    workflows: [Workshop CI]
+    branches: [main]
+    types: [completed]
 permissions: {}
 jobs:
-  registration:
-    if: ${{ false }}
+  authorize:
+    if: >-
+      github.repository == 'MTZBRN/CarServiceApp' &&
+      github.ref == 'refs/heads/main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      vars.TEST_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
     steps:
-      - run: echo registration
+      - name: Verify successful push CI for the protected main tip
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_RUN: ${{ github.event.workflow_run.id }}
+          REVISION: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$CI_RUN" =~ ^[0-9]+$ && "$REVISION" =~ ^[0-9a-f]{40}$ ]]
+          repo=repos/MTZBRN/CarServiceApp
+          gh api "$repo/actions/runs/$CI_RUN" |
+            jq -e --arg sha "$REVISION" '
+              .path == ".github/workflows/worksheet-ci.yml" and
+              .head_repository.full_name == "MTZBRN/CarServiceApp" and
+              .head_sha == $sha and .head_branch == "main" and .event == "push" and
+              .status == "completed" and .conclusion == "success"' >/dev/null
+          gh api "$repo/branches/main" |
+            jq -e --arg sha "$REVISION" '.protected == true and .commit.sha == $sha' >/dev/null
+  deploy:
+    needs: authorize
+    if: vars.TEST_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    environment: isolated-test
+    concurrency:
+      group: carserviceapp-test-deployment
+      cancel-in-progress: false
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Recheck the protected tip after environment approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVISION: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$REVISION" =~ ^[0-9a-f]{40}$ ]]
+          gh api repos/MTZBRN/CarServiceApp/branches/main |
+            jq -e --arg sha "$REVISION" '.protected == true and .commit.sha == $sha' >/dev/null
+      - name: Request approved TEST deployment
+        env:
+          REVISION: ${{ github.event.workflow_run.head_sha }}
+          DEPLOY_HOST: ${{ vars.TEST_SSH_HOST }}
+          PRIVATE_KEY: ${{ secrets.TEST_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.TEST_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          [[ "$REVISION" =~ ^[0-9a-f]{40}$ && "$DEPLOY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          [[ -n "$PRIVATE_KEY" && -n "$KNOWN_HOSTS" ]]
+          umask 077
+          keydir=$(mktemp -d)
+          trap 'rm -f -- "$keydir/key" "$keydir/hosts"; rmdir "$keydir"' EXIT
+          printf '%s\n' "$PRIVATE_KEY" > "$keydir/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$keydir/hosts"
+          unset PRIVATE_KEY KNOWN_HOSTS
+          ssh -T -F /dev/null -o BatchMode=yes -o ConnectTimeout=15 -o IdentitiesOnly=yes -o ClearAllForwardings=yes \
+            -o StrictHostKeyChecking=yes -o GlobalKnownHostsFile=/dev/null -o UserKnownHostsFile="$keydir/hosts" \
+            -i "$keydir/key" "carservice-test-ci@$DEPLOY_HOST" "deploy-test main $REVISION"
+          printf 'Verified isolated TEST revision `%s`\n' "$REVISION" >> "$GITHUB_STEP_SUMMARY"
