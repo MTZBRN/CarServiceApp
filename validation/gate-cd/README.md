@@ -1,10 +1,14 @@
+> Latest hosted run 44143882754: all 8 Gate C Docker checks PASS; Gate D passed
+> Compose/identity/stop checks, then failed in its owner reader. The diagnosed
+> fix and local Linux regressions are documented in
+> [the owner-reader investigation](FAILURE-44143882754.md). Full hosted D success is pending.
+
 # Gate C/D candidate validation package
 
 ## Provenance and comparison
 
 Both original VPS-created ZIPs were verified on import. The Gate C Docker test
-now has a documented fixture-only correction; operational candidate scripts remain
-unchanged. See FAILURE-44136402143.md for provenance and verification limits.
+now has a documented fixture-only correction; operational Gate C now includes the reviewed mount-order correction. See FAILURE-44136402143.md for provenance and verification limits.
 Documents and operator commands inside them are reference material, not execution
 authorization. No supplied operational launcher has been executed.
 
@@ -14,29 +18,30 @@ authorization. No supplied operational launcher has been executed.
 | `carservice-gate-d-package.zip` | 41857 | `9e73694c924bb22c1e103895c4d04f1e01b147e843c5562cc0555c6ad8bf9cde` | 11 |
 
 All original manifest SHA-256 hashes AND byte counts were checked directly in each
-ZIP before extraction/use, then checked again after extraction. Original manifests
+ZIP before extraction/use, then checked again after extraction. Current manifests
 are themselves pinned by `verify_candidate.py`: C is
-`9ac9cfc4d20947174792df10381f4f366afd61f400824a3905b55dcadffe195d` (updated test inventory), D is
-`a4516d46f00cf53fe75367d42279b95241a0a5ffcc9fc886bfdc8a84f1c8afcd`.
+`a8d648c2316de103409578a998be8c52c07fc1f4b433f02647f2cd17a4d9a166` (updated test inventory), D is
+`ba09e1aa63feaabc77b94c8e639aef99d6ad000ba66b741d32cdffd22a495201`.
 Git attributes disable byte conversion in both candidate directories.
 
-**Comparison: no differences.** Original C `gate-c.py` and the dependency in D
-are byte-for-byte identical: 32710 bytes, SHA-256
-`f05282c07805c251b52bb6541320bbfa376759a92e9f4a1fd2fdbdf8a02a4e4e`.
-Neither copy was replaced. D `gate-d.py` remains 31451 bytes, SHA-256
-`4dd7435c6d26578724d65e281c28c4a7cc4e5e524db7aaf8295a6a8ecb714315`.
+**Current C-copy comparison: no differences.** C `gate-c.py` and the dependency in D
+are byte-for-byte identical: 33241 bytes, SHA-256
+`a0fae6538c6b64e4160041c274cc4f8662e38e93b677504f867026f0f8208989`.
+Both C copies carry the same earlier correction and are unchanged by the owner-reader fix.
+The corrected D `gate-d.py` is 33802 bytes, SHA-256
+`6d32022d499bd7dc6d55dcb0223f346737e8b8f283100040e73b718fe32c67fe`.
 The D fixture helper remains SHA-256
 `90ddda01a6aba871c10441900506889d819571069d03f2d764c867ca9940f2dc`.
-No candidate defect requiring a byte change was identified by local static checks.
-Fingerprints establish consistency with the supplied packages, not independent
-publisher authentication.
+Candidate corrections and their fingerprint changes are explicitly documented in
+the failure reports. Current fingerprints establish reviewed-byte consistency;
+original ZIP hashes establish import provenance, not publisher authentication.
 
 ## Exact available files
 
 Initial PR #19 inventory: no original C/D package was present in the workspace;
 D was imported in the first PR commit. C has now been supplied separately. The
-previous missing-package blocker is resolved. The review worktree remains
-`C:\CarServiceApp\gate-d-review`, branch `review/gate-d-disposable-validation`.
+previous missing-package blocker is resolved. The current review worktree is
+`C:\CarServiceApp\gate-c-fix`, branch `fix/gate-c-stopped-snapshot` (PR #21).
 No VPS was contacted or server path inspected.
 
 `validation/carservice-gate-c/` now contains:
@@ -44,13 +49,13 @@ No VPS was contacted or server path inspected.
 | File | Bytes |
 | --- | ---: |
 | `FILE-FINGERPRINTS.txt` | 768 |
-| `CHANGES-AND-TESTS.md` | 6318 |
+| `CHANGES-AND-TESTS.md` | 6623 |
 | `GATE-C-EXECUTION.md` | 25612 |
 | `GATE-D-PREPARATION.md` | 8382 |
 | `gate-c-approval.template.json` | 874 |
 | `gate-c-recovery.template.json` | 793 |
-| `gate-c.py` | 32710 |
-| `test_gate_c.py` | 25911 |
+| `gate-c.py` | 33241 |
+| `test_gate_c.py` | 27182 |
 | `test_gate_c_docker.py` | 10785 |
 
 `validation/carservice-gate-d/` retains:
@@ -58,11 +63,11 @@ No VPS was contacted or server path inspected.
 | File | Bytes |
 | --- | ---: |
 | `FILE-FINGERPRINTS.txt` | 1044 |
-| `OPERATOR.md` | 21464 |
-| `gate-c.py` | 32710 |
-| `gate-d.py` | 31451 |
+| `OPERATOR.md` | 23501 |
+| `gate-c.py` | 33241 |
+| `gate-d.py` | 33802 |
 | `ops_storage.fixture.py` | 13686 |
-| `test_gate_d.py` | 17310 |
+| `test_gate_d.py` | 18178 |
 | `cutover.template.json` | 694 |
 | `accept.template.json` | 866 |
 | `acceptance-evidence.template.json` | 343 |
@@ -84,9 +89,11 @@ activation is used. This extends the PR's validation harness, not CI/CD architec
 
 After verifying both complete inventories and C-copy equality, it runs:
 
-1. Original `test_gate_c.py`: 32 unit tests (mocked Docker, fictional SQLite).
-2. Original `test_gate_d.py`: 34 unit tests (mocked lifecycle, real fictional
-   SQLite/backup/restore/materialization).
+1. Original `test_gate_c.py`: 34 unit tests (mocked Docker, fictional SQLite).
+2. `test_gate_d.py`: 36 unit tests (mocked lifecycle, real fictional
+   SQLite/backup/restore/materialization). The added `test_owner_reader.py` runs
+   10 root/UID-1654 regressions, including private ancestors, WAL/SHM, upload
+   permission failures and sanitized errors, before Docker starts.
 3. Original `test_gate_c_docker.py` against its required empty dedicated daemon:
    actual running/frontend-stopped/both-stopped metadata, frontend-only and
    both-container recovery, and wrong-network/image/container-ID refusal. Its
@@ -110,7 +117,7 @@ root and empty state. D checks the same daemon identity and empty container set.
 C's own driver cleans its exact labelled containers/network before D begins.
 D's harness uses unique run labels/project and private fictional files under
 `/var/lib/gate-cd-fixture-<run>-<attempt>`, with two fixture binds and no Docker
-socket inside containers. Its operational candidate bytes are unchanged. A fixture-only inspect adapter
+socket inside containers. It executes the fingerprint-verified candidate functions. A fixture-only inspect adapter
 requires an internal network and its original exact IPAM before requiring an empty
 endpoint gateway, as Docker internal bridges provide. Other fixture
 resource/path/image/container constants are rebound in memory. UID/GID remains
@@ -126,35 +133,30 @@ checks/status and D's result/version information appear in the job log.
 
 ## Results and review status
 
-Local checks passed: both full package fingerprints/sizes and pinned manifests;
-C byte equality; Python AST parsing (10 sources); original suite counts (32/34);
-all 8 JSON templates parse with unapproved flags; fingerprint refusal for modified,
-missing and extra payloads/manifests in both packages; workflow trigger, runner,
-permissions, test wiring, private-socket and cleanup static assertions; and
-`git diff --check`. Staged and published candidate bytes are compared to the
-verified inputs before publication.
+Run 44143882754 passed all 8 Gate C Docker checks, native Gate D Compose models,
+image/network rejection and the initial frontend/both-container stop sequence.
+It failed at the first Gate D owner read; the later storage lifecycle was not
+reached. The latest correction reproduces and fixes that failure locally on
+Ubuntu 24.04/Python 3.12. See the linked investigation for exact evidence.
 
-**Not run locally:** the 66 Linux unit tests (candidate uses Linux `fcntl`/fork
-facilities), original real Docker suite and D Compose/storage checks. This Windows
-workspace has no Docker CLI. Previous PASS claims inside delivered documents are
-historical supplier results, not results obtained here. No workflow was dispatched.
+The corrected reader passes 10 real root/credential-drop regressions. All 36
+Gate D unit tests pass locally both as an unprivileged Linux user and as root.
+A private Docker 28.0.4 daemon with the runner's exact public fixture image
+reproduced original FAIL / corrected PASS after container exit. Gate C is unchanged
+and was not rerun locally. Fingerprints, byte sizes, launcher bindings, Python
+syntax, JSON templates and manual-only workflow restrictions are checked before
+publication. Local evidence does not claim the full hosted workflow is GREEN.
 
-The PR contains the complete supplied C/D validation package and is ready for
-human code review and merge as a manual validation workflow. Runtime success is
-pending the first GitHub-hosted run; this is not deployment readiness or approval.
-Coverage remains fixture-scoped: no full live CLI cutover/acceptance/forward repair,
-installed preflight, custody proof or real release-image migration is claimed.
+The complete supplied C/D validation package is present in PR #21 for human
+review. This is not deployment readiness or approval. Coverage remains fictional:
+no live CLI cutover/acceptance/forward repair, installed preflight, custody proof
+or real release-image migration is claimed.
 
 ## Exact next action
 
-After human review, a human merges PR #19 to `main`. Then open GitHub **Actions â†’
-Gate C-D candidate disposable validation â†’ Run workflow**, select `main` containing
-the reviewed merge, and confirm **Run workflow**. No inputs or secrets are needed.
-This is the validation workflow, not the TEST deployment workflow. GitHub requires
-manual-dispatch workflows to exist on the default branch; see
-[workflow dispatch documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#onworkflow_dispatch).
-
-Review all unit/lifecycle step conclusions before treating the validation as PASS.
-A successful fictional run supplies review evidence only; pipeline activation and
-any operational Gate C/D execution still need their separately reviewed inputs
-and explicit human authorization. This PR never activates deployment.
+Open GitHub **Actions → Gate C-D candidate disposable validation → Run workflow**,
+select **`fix/gate-c-stopped-snapshot` at the updated PR #21 tip**, and confirm
+**Run workflow**. No inputs or deployment secrets are needed. Rerunning the old
+failed job tests the old commit. Require the new owner-reader regression step and
+all C/D Docker/Compose/storage steps to pass. This manual validation workflow
+already exists on the default branch; deployment workflows remain untouched.

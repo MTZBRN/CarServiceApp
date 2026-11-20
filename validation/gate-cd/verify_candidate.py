@@ -4,7 +4,7 @@ from pathlib import Path
 import re
 
 CANDIDATE = Path(__file__).resolve().parents[1] / 'carservice-gate-d'
-MANIFEST_SHA256 = 'a4516d46f00cf53fe75367d42279b95241a0a5ffcc9fc886bfdc8a84f1c8afcd'
+MANIFEST_SHA256 = 'ba09e1aa63feaabc77b94c8e639aef99d6ad000ba66b741d32cdffd22a495201'
 
 
 def verify_package(directory, manifest_sha256, count):
@@ -37,7 +37,7 @@ def verify_package(directory, manifest_sha256, count):
 def verify():
     verify_package(CANDIDATE, MANIFEST_SHA256, 11)
     original = CANDIDATE.parent / 'carservice-gate-c'
-    verify_package(original, '9ac9cfc4d20947174792df10381f4f366afd61f400824a3905b55dcadffe195d', 8)
+    verify_package(original, 'a8d648c2316de103409578a998be8c52c07fc1f4b433f02647f2cd17a4d9a166', 8)
     if (original / 'gate-c.py').read_bytes() != (CANDIDATE / 'gate-c.py').read_bytes():
         raise RuntimeError('original Gate C differs from Gate D dependency')
     return CANDIDATE

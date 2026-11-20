@@ -81,5 +81,43 @@ class InternalFixtureTests(unittest.TestCase):
             with self.assertRaises(RuntimeError): self.c.inspect('frontend')
             self.row[index] = saved
 
+    def backend(self):
+        self.c.IDENTITIES = {'backend': self.c.IDENTITIES['frontend']}
+        self.c.ADDRESSES = {'backend': self.c.ADDRESSES['frontend']}
+        self.c.DATA, self.c.UPLOADS = Path('/fixture/data'), Path('/fixture/uploads')
+        self.row[2]['com.docker.compose.service'] = 'backend'
+        self.row[3:6] = ['exited', False, None]
+        self.row[8] = {}
+        self.row[6] = [dict(Type='bind', Source=str(source), Destination=dest,
+                            RW=True, Mode='rw', Propagation='rprivate') for source, dest in
+                       ((self.c.DATA, '/app/data'), (self.c.UPLOADS, '/app/uploads'))]
+        adapter.bind_internal_inspect(self.c)
+
+    def test_stopped_mount_reordering_reproduces_raw_failure_but_is_stable(self):
+        self.backend()
+        first = self.c.inspect('backend')
+        self.row[6].reverse()
+        # The previous candidate returned this raw list and failed first == second.
+        self.assertNotEqual(first['mounts'], self.row[6])
+        self.assertEqual(first, self.c.inspect('backend'))
+
+    def test_mount_details_and_lifecycle_changes_remain_visible(self):
+        self.backend()
+        first = self.c.inspect('backend')
+        self.row[6][0]['Propagation'] = 'rshared'
+        self.assertNotEqual(first, self.c.inspect('backend'))
+        self.row[6][0]['Propagation'] = 'rprivate'
+        self.row[15] = 'different-start'
+        self.assertNotEqual(first, self.c.inspect('backend'))
+
+    def test_wrong_mounts_still_refused(self):
+        self.backend()
+        for key, value in [('Source', '/wrong'), ('Destination', '/wrong'),
+                           ('RW', False), ('Type', 'volume')]:
+            saved = self.row[6][0][key]; self.row[6][0][key] = value
+            with self.assertRaisesRegex(RuntimeError, 'legacy-mounts-changed'):
+                self.c.inspect('backend')
+            self.row[6][0][key] = saved
+
 
 if __name__ == '__main__': unittest.main()

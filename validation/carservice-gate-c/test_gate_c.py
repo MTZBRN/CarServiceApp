@@ -313,6 +313,39 @@ class RecoveryTests(unittest.TestCase):
         self.m.capture_source.assert_not_called()
         self.assertEqual(self.starts(), [self.m.IDENTITIES['frontend'][0]])
 
+    def test_both_recovery_accepts_only_mount_order_changes(self):
+        self.stop()
+        row = self.d.row
+        calls = 0
+        def reordered(service):
+            nonlocal calls
+            value = row(service)
+            if service == 'backend':
+                calls += 1
+                if calls % 2: value[6].reverse()
+            return value
+        self.d.row = reordered
+        self.recover()
+        self.m.capture_source.assert_called()
+        self.assertEqual(self.starts(), [self.m.IDENTITIES[s][0] for s in ('backend', 'frontend')])
+
+    def test_changed_mount_detail_blocks_recovery_with_sanitized_code(self):
+        self.stop()
+        original = self.m.check_pair
+        stopped_calls = 0
+        def changed(*args, **kwargs):
+            nonlocal stopped_calls
+            value = original(*args, **kwargs)
+            if kwargs.get('stopped'):
+                stopped_calls += 1
+                value['backend']['mounts'][0]['Propagation'] = str(stopped_calls)
+            return value
+        self.m.check_pair = changed
+        with self.assertRaisesRegex(RuntimeError, '^stop-state-not-stable-backend-mounts$'):
+            self.recover()
+        self.m.capture_source.assert_not_called()
+        self.assertEqual(self.starts(), [])
+
     def test_backend_stopped_before_capture_uses_approved_fresh_evidence(self):
         self.stop(capture=False)
         self.a['mode'] = 'fresh-quiesced'

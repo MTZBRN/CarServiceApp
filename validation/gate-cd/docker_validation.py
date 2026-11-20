@@ -95,12 +95,10 @@ def main():
     c.DB = c.DATA / 'app.db'
     c.TARGET = d.TARGET = ROOT / 'target'
     c.BACKUPS = c.TARGET / 'backups'
-    c.SCRATCH_PARENT = ROOT / 'scratch'
-    c.SCRATCH = c.SCRATCH_PARENT / 'carserviceapp-restore-test-fictional'
     c.RECORD = ROOT / 'state' / 'gate-c'
     d.STATE = ROOT / 'state' / 'gate-d'
     d.OLD_DATA, d.OLD_UPLOADS = c.DATA, c.UPLOADS
-    for path in (c.DATA, c.UPLOADS, c.TARGET, c.SCRATCH_PARENT,
+    for path in (c.DATA, c.UPLOADS, c.TARGET,
                  c.RECORD.parent, c.RECORD.parent / 'home', c.RECORD, d.STATE):
         path.mkdir(mode=0o700)
     # Addresses retain candidate values; network is newly created and internal.
@@ -197,8 +195,9 @@ def main():
     passed('both-stopped')
     expected = d.data_view(c.DATA, c.UPLOADS, storage)
     pair = storage.backup(c.DB, c.UPLOADS, c.BACKUPS, quiesced=True)
-    storage.restore_test(pair, c.SCRATCH, max_upload_bytes=1024)
-    d.materialize(c.SCRATCH, d.TARGET, expected, storage, 'fictional-fixture')
+    with load(HERE / 'restore_fixture.py', 'restore_fixture').restore_target() as scratch:
+        storage.restore_test(pair, scratch, max_upload_bytes=1024)
+        d.materialize(scratch, d.TARGET, expected, storage, 'fictional-fixture')
     d.verify_data(d.TARGET / 'data', d.TARGET / 'uploads', expected, storage, standalone=True)
     passed('real-backup-restore-materialize-owner-reader-1654')
     journal = d.STATE / 'startup'

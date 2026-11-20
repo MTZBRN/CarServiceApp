@@ -42,6 +42,20 @@ class ModelTests(unittest.TestCase):
 
     def test_exact_pair_valid(self): self.m.validate_models(model(self.m),model(self.m,'new'))
 
+    def test_compose_2382_empty_ipam_normalization(self):
+        old, new = model(self.m), model(self.m, 'new')
+        for value in (old, new): value['networks']['workshop']['ipam'] = {}
+        self.m.validate_models(old, new)
+
+    def test_external_network_creation_settings_and_wrong_identity_refused(self):
+        for key, value in [('external', False), ('external', 1), ('name', 'wrong-network'),
+                           ('ipam', None), ('ipam', {'config': [{'subnet': '10.0.0.0/24'}]}),
+                           ('driver', 'bridge'), ('internal', True), ('labels', {})]:
+            candidate = model(self.m)
+            candidate['networks']['workshop'][key] = value
+            with self.subTest(key=key, value=value), self.assertRaisesRegex(RuntimeError, 'external-network-required'):
+                self.m.validate_model(candidate, 'old')
+
     def test_wrong_image_refused(self):
         v=model(self.m);v['services']['backend']['image']='mutable:tag'
         with self.assertRaises(RuntimeError):self.m.validate_model(v,'old')
@@ -167,7 +181,7 @@ class MaterializationTests(unittest.TestCase):
         c.execute('CREATE TABLE Parent (Id INTEGER PRIMARY KEY)')
         c.execute('CREATE TABLE Child (Pid INTEGER REFERENCES Parent(Id))')
         c.execute('INSERT INTO Child VALUES (99)');c.commit();c.close()
-        with self.assertRaisesRegex(RuntimeError,'owner-reader-integrity-failed'):self.materialize()
+        with self.assertRaisesRegex(RuntimeError,'owner-reader-database-integrity-failed'):self.materialize()
 
     def test_owner_reader_includes_committed_wal(self):
         c=sqlite3.connect(self.db)

@@ -203,7 +203,8 @@ def inspect(service):
              endpoint.get('IPAddress', '') in ('', ADDRESSES[service]) and
              endpoint.get('Gateway', '') in ('', GATEWAY), 'stopped-network-metadata-changed')
     return {'id': v[0], 'image': v[1], 'status': v[3], 'running': v[4], 'health': v[5],
-            'mounts': v[6], 'networks': v[7], 'ports': v[8], 'restart': v[10],
+            'mounts': sorted(v[6], key=lambda m: m['Destination']),
+            'networks': v[7], 'ports': v[8], 'restart': v[10],
             'started_at': v[15], 'finished_at': v[16]}
 
 
@@ -605,7 +606,13 @@ def recover(a, expected, record):
         first = check_pair(stopped=True)
         time.sleep(2)
         second = check_pair(stopped=True)
-        need(first == second, 'stop-state-not-stable')
+        if first != second:
+            # Fixed field names only: never emit paths, IDs, data or environment.
+            fields = ('id', 'image', 'status', 'running', 'health', 'mounts',
+                      'networks', 'ports', 'restart', 'started_at', 'finished_at')
+            changed = [s + '-' + k.replace('_', '-') for s in ('backend', 'frontend')
+                       for k in fields if first[s].get(k) != second[s].get(k)]
+            raise RuntimeError('stop-state-not-stable-' + '-'.join(changed or ['unknown-field']))
         check_window(a)
         if a['mode'] == 'existing-capture':
             snap = record_json(RECORD / 'source-capture.json')

@@ -1,9 +1,9 @@
 # Corrected Gate C and independent recovery — NOT APPROVED FOR VPS EXECUTION
 
-`gate-c.py`: **32,710 bytes**, SHA256:
+`gate-c.py`: **33,241 bytes**, SHA256:
 
 ```text
-f05282c07805c251b52bb6541320bbfa376759a92e9f4a1fd2fdbdf8a02a4e4e
+a0fae6538c6b64e4160041c274cc4f8662e38e93b677504f867026f0f8208989
 ```
 
 This replaces the older 23,274-byte script with fingerprint `5b235d7822f336873f602ca29e24ccb9a747cdd7f42b07afee55914e3f942686`. Do not use the older launcher. These corrections do not authorize execution. Both approval templates remain unapproved. No VPS, shared Docker daemon or application data was accessed during this correction.
@@ -87,16 +87,16 @@ Only after complete review/readiness and Gate C approval, download the exact LF 
 ```powershell
 $gateScript = Join-Path (Get-Location) 'gate-c.py'
 $gateApproval = Join-Path (Get-Location) 'gate-c-approved.json'
-$expected = 'f05282c07805c251b52bb6541320bbfa376759a92e9f4a1fd2fdbdf8a02a4e4e'
+$expected = 'a0fae6538c6b64e4160041c274cc4f8662e38e93b677504f867026f0f8208989'
 if ((Get-FileHash -LiteralPath $gateScript -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
     throw 'STOP: script fingerprint mismatch'
 }
-if ((Get-Item -LiteralPath $gateScript).Length -ne 32710) { throw 'STOP: script length mismatch' }
+if ((Get-Item -LiteralPath $gateScript).Length -ne 33241) { throw 'STOP: script length mismatch' }
 $approvalHash = (Get-FileHash -LiteralPath $gateApproval -Algorithm SHA256).Hash.ToLowerInvariant()
 Write-Output "Reviewed Gate C approval SHA256: $approvalHash"
-ssh -o BatchMode=yes gta-test 'test ! -e "$HOME/gate-c-f05282c0.py" && test ! -L "$HOME/gate-c-f05282c0.py" && test ! -e "$HOME/gate-c-approved-v2.json" && test ! -L "$HOME/gate-c-approved-v2.json"'
+ssh -o BatchMode=yes gta-test 'test ! -e "$HOME/gate-c-a0fae653.py" && test ! -L "$HOME/gate-c-a0fae653.py" && test ! -e "$HOME/gate-c-approved-v2.json" && test ! -L "$HOME/gate-c-approved-v2.json"'
 if ($LASTEXITCODE -ne 0) { throw 'STOP: remote collision or SSH error' }
-scp -o BatchMode=yes $gateScript 'gta-test:gate-c-f05282c0.py'
+scp -o BatchMode=yes $gateScript 'gta-test:gate-c-a0fae653.py'
 if ($LASTEXITCODE -ne 0) { throw 'STOP: script transfer failed' }
 scp -o BatchMode=yes $gateApproval 'gta-test:gate-c-approved-v2.json'
 if ($LASTEXITCODE -ne 0) { throw 'STOP: approval transfer failed' }
@@ -113,16 +113,16 @@ path = sys.argv[1]
 fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
 with os.fdopen(fd, "rb") as f:
     s = os.fstat(f.fileno())
-    if not stat.S_ISREG(s.st_mode) or s.st_nlink != 1 or s.st_size != 32710:
+    if not stat.S_ISREG(s.st_mode) or s.st_nlink != 1 or s.st_size != 33241:
         sys.exit("STOP: invalid script file")
     code = f.read(65537)
-expected = "f05282c07805c251b52bb6541320bbfa376759a92e9f4a1fd2fdbdf8a02a4e4e"
+expected = "a0fae6538c6b64e4160041c274cc4f8662e38e93b677504f867026f0f8208989"
 if hashlib.sha256(code).hexdigest() != expected:
     sys.exit("STOP: script fingerprint mismatch")
 sys.argv = [path] + sys.argv[2:]
 exec(compile(code, path, "exec"), {"__name__": "__main__", "__file__": path,
      "__verified_script_sha256__": expected})
-' "$HOME/gate-c-f05282c0.py" "$@"
+' "$HOME/gate-c-a0fae653.py" "$@"
 }
 ```
 

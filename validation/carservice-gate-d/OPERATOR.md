@@ -1,18 +1,18 @@
 # Gate D execution package — candidate, not execution approval
 
-`gate-d.py`: **31,451 bytes**, SHA256:
+`gate-d.py`: **33,802 bytes**, SHA256:
 
 ```text
-4dd7435c6d26578724d65e281c28c4a7cc4e5e524db7aaf8295a6a8ecb714315
+6d32022d499bd7dc6d55dcb0223f346737e8b8f283100040e73b718fe32c67fe
 ```
 
-Dependency `gate-c.py` must sit beside it unchanged, SHA256 `f05282c07805c251b52bb6541320bbfa376759a92e9f4a1fd2fdbdf8a02a4e4e`. Runtime storage helper remains `/usr/local/sbin/ops_storage.py`, SHA256 `90ddda01a6aba871c10441900506889d819571069d03f2d764c867ca9940f2dc`. `ops_storage.fixture.py` is an exact reviewed copy for local fictional tests ONLY; do not install it or execute it against application data. Gate C's original delivered files have not been modified.
+Dependency `gate-c.py` must sit beside it unchanged, SHA256 `a0fae6538c6b64e4160041c274cc4f8662e38e93b677504f867026f0f8208989`. Runtime storage helper remains `/usr/local/sbin/ops_storage.py`, SHA256 `90ddda01a6aba871c10441900506889d819571069d03f2d764c867ca9940f2dc`. `ops_storage.fixture.py` is an exact reviewed copy for local fictional tests ONLY; do not install it or execute it against application data. Gate C includes the documented mount-order correction; see ../gate-cd/FAILURE-44137909902.md.
 
 Contract: merged [MIGRATE_TEST_STORAGE.md](https://github.com/MTZBRN/CarServiceApp/blob/5200ede3b9dee3cfa7d5d4ad697029f445d91264/ops/test-deploy/MIGRATE_TEST_STORAGE.md) and the accepted Gate D preparation sheet. Existing CI, Phase 6F.3, native Compose, installed artifacts, mirror, network, capacity and overlap evidence are carried forward. No broad infrastructure audit is requested.
 
 ## One operator checklist
 
-1. **Review implementation and disposable evidence before Gate C downtime.** Accept this package, old/new recovery paths and fixture results independently. The real Docker lifecycle test must run only on a dedicated VM/isolated runner, never the production VPS daemon. Current tests are fictional filesystem/SQLite and mocked lifecycle tests; root credential-dropping, native Compose creation, real image UID access, cutover/recovery and installed preflight still need disposable validation. Do not mark `gate_d_ready` or old-path recovery verified solely because local tests pass. Final package/script hashes can be bound in Gate C's readiness record once reviewed. Gate C and Gate D execution approvals remain distinct.
+1. **Review implementation and disposable evidence before Gate C downtime.** Accept this package, old/new recovery paths and fixture results independently. The real Docker lifecycle test must run only on a dedicated VM/isolated runner, never the production VPS daemon. Current evidence includes fictional filesystem/SQLite tests and real root-to-1654 owner-reader regressions. Full corrected Gate D Compose/storage lifecycle remains pending hosted validation; operational cutover/recovery and installed preflight remain separately required. Do not mark `gate_d_ready` or old-path recovery verified solely because local tests pass. Final package/script hashes can be bound in Gate C's readiness record once reviewed. Gate C and Gate D execution approvals remain distinct.
 2. **Resolve private inputs, do not invent them.** Prepare reviewed root:root 0600 old-path baseline outside the mutable worktree; new-path baseline exactly `/etc/carservice-test-deploy/baseline/compose.json`; actual same-revision environment exactly `/etc/carservice-test-deploy/environment`; expected ordered migration-history JSON; concrete TEST-only ingress/custody/smoke/reopen steps; protected PROD before/after identity/network comparison evidence without customer data; named decision-maker and UTC windows. Bind each file by SHA256 in an operation-specific approval. Baselines must be self-contained JSON, same exact images, external existing network, normalized long-form ports/binds with `bind.create_host_path=false`, no build/env_file/includes/extends/configs/secrets/host configuration binds. Old/new baselines may differ ONLY in the two backend storage sources. Environment values must match the reviewed existing configuration; no secret is guessed or exported here.
 3. **After separately approved Gate C PASS, bind the run-specific evidence.** Populate `cutover.template.json` with original Gate C approval fingerprint, approved `gate-c-pass.json` hash, `source-capture.json` hash and pair `SHA256SUMS` hash. These values do not exist until the real Gate C run; no fake pair is supplied. The script validates the Gate C implementation fingerprint and exact original stopped IDs/images/network, restores the exact pair into fresh private scratch again, compares full history/counts/uploads and a complete private database-content digest, then exclusively materializes new storage. An approved window must include copy, initial startup, deliberate verification stop, stable verification and resumed health checks.
 4. **Approve and run `cutover` only.** Confirm closed TEST ingress, continuous custody, no competing automation, disabled GitHub gate and absent server activation/deployment markers. Use the exact authenticated launcher below. Its tty token is `APPROVE-GATE-D-CUTOVER`. Backend starts before frontend using exact immutable image IDs, `--no-deps --no-build --pull never --wait`. Both NEW containers are then deliberately stopped frontend-first/backend-second for stable full verification. They resume backend-first with health checks. Cutover PASS leaves ingress CLOSED and deployment disabled; it does not accept storage or reopen traffic. On any error, preserve journals/partial trees and use the separately approved recovery decision below; never rerun cutover into partial destinations.
@@ -57,14 +57,14 @@ This is a future OPERATOR procedure, not permission for Codex to run it. After i
 $script = Join-Path (Get-Location) 'gate-d.py'
 $dependency = Join-Path (Get-Location) 'gate-c.py'
 $approval = Join-Path (Get-Location) 'gate-d-approved.json'
-if ((Get-FileHash -LiteralPath $script -Algorithm SHA256).Hash.ToLowerInvariant() -ne '4dd7435c6d26578724d65e281c28c4a7cc4e5e524db7aaf8295a6a8ecb714315') { throw 'STOP: script fingerprint' }
-if ((Get-Item -LiteralPath $script).Length -ne 31451) { throw 'STOP: script length' }
-if ((Get-FileHash -LiteralPath $dependency -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'f05282c07805c251b52bb6541320bbfa376759a92e9f4a1fd2fdbdf8a02a4e4e') { throw 'STOP: dependency fingerprint' }
+if ((Get-FileHash -LiteralPath $script -Algorithm SHA256).Hash.ToLowerInvariant() -ne '6d32022d499bd7dc6d55dcb0223f346737e8b8f283100040e73b718fe32c67fe') { throw 'STOP: script fingerprint' }
+if ((Get-Item -LiteralPath $script).Length -ne 33802) { throw 'STOP: script length' }
+if ((Get-FileHash -LiteralPath $dependency -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'a0fae6538c6b64e4160041c274cc4f8662e38e93b677504f867026f0f8208989') { throw 'STOP: dependency fingerprint' }
 $approvalHash = (Get-FileHash -LiteralPath $approval -Algorithm SHA256).Hash.ToLowerInvariant()
 Write-Output "Reviewed operation approval SHA256: $approvalHash"
-ssh -o BatchMode=yes gta-test 'mkdir -m 0700 -- "$HOME/gate-d-4dd7435c"'
+ssh -o BatchMode=yes gta-test 'mkdir -m 0700 -- "$HOME/gate-d-6d32022d"'
 if ($LASTEXITCODE -ne 0) { throw 'STOP: directory exists or SSH failure' }
-scp -o BatchMode=yes $script $dependency $approval 'gta-test:gate-d-4dd7435c/'
+scp -o BatchMode=yes $script $dependency $approval 'gta-test:gate-d-6d32022d/'
 if ($LASTEXITCODE -ne 0) { throw 'STOP: transfer failure' }
 ssh -tt -o BatchMode=yes gta-test
 ```
@@ -81,14 +81,14 @@ path = sys.argv[1]
 fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
 with os.fdopen(fd,"rb") as f:
     s = os.fstat(f.fileno())
-    if not stat.S_ISREG(s.st_mode) or s.st_nlink != 1 or s.st_size != 31451:
+    if not stat.S_ISREG(s.st_mode) or s.st_nlink != 1 or s.st_size != 33802:
         sys.exit("STOP: invalid script file")
     code = f.read(65537)
-if hashlib.sha256(code).hexdigest() != "4dd7435c6d26578724d65e281c28c4a7cc4e5e524db7aaf8295a6a8ecb714315":
+if hashlib.sha256(code).hexdigest() != "6d32022d499bd7dc6d55dcb0223f346737e8b8f283100040e73b718fe32c67fe":
     sys.exit("STOP: script fingerprint")
 sys.argv = [path] + sys.argv[2:]
 exec(compile(code,path,"exec"),{"__name__":"__main__","__file__":path})
-' "$HOME/gate-d-4dd7435c/gate-d.py" "$@"
+' "$HOME/gate-d-6d32022d/gate-d.py" "$@"
 }
 ```
 
@@ -97,7 +97,7 @@ For initial cutover ONLY, paste the independently reviewed Windows approval fing
 ```sh
 printf 'Reviewed CUTOVER approval SHA256: '
 IFS= read -r gate_d_approval_hash
-gate_d_operator cutover --approval "$HOME/gate-d-4dd7435c/gate-d-approved.json" --approval-sha256 "$gate_d_approval_hash"
+gate_d_operator cutover --approval "$HOME/gate-d-6d32022d/gate-d-approved.json" --approval-sha256 "$gate_d_approval_hash"
 gate_d_status=$?
 printf 'Gate D exit code: %s\n' "$gate_d_status"
 ```
@@ -124,8 +124,40 @@ Interactive tokens: `APPROVE-GATE-D-CUTOVER`, `APPROVE-GATE-D-OLD-PATH-RECOVER`,
 
 ## Tests and concrete execution limits
 
-`python3 -I -B test_gate_d.py`: **34 PASS**. Fictional real SQLite tests use the exact pinned helper for backup, restore and materialization, owner-reader integrity/FK/full migration/count/upload/logical checks, committed WAL, byte/row corruption, symlink/hardlink/FIFO/dangling-link refusal, exclusive rename and partial publication. Mocked lifecycle tests cover exact flags, backend-first creation/resume, frontend-first exact-ID stop, timeout/failure/expiry refusal, old-recovery layout transitions and irreversible authority barriers. Authorization tests cover false/wrong-operation refusal and the reviewed C implementation binding. Ownership tests adapt only the fixture UID/GID/root-admission checks to the unprivileged current user; production checks remain intact.
+`python3 -I -B test_gate_d.py`: **36 PASS** locally on Ubuntu 24.04/Python 3.12 (unprivileged user). Fictional real SQLite tests use the exact pinned helper for backup, restore and materialization, owner-reader integrity/FK/full migration/count/upload/logical checks, committed WAL, byte/row corruption, symlink/hardlink/FIFO/dangling-link refusal, exclusive rename and partial publication. Mocked lifecycle tests cover exact flags, backend-first creation/resume, frontend-first exact-ID stop, timeout/failure/expiry refusal, old-recovery layout transitions and irreversible authority barriers. Authorization tests cover false/wrong-operation refusal and the reviewed C implementation binding. Ownership tests adapt only the fixture UID/GID/root-admission checks to the unprivileged current user; production checks remain intact.
 
 NOT performed: real Docker/Compose lifecycle, actual image UID 1654 traversal, root credential dropping, installed preflight, PowerShell execution, live migration/cutover/recovery, PROD/STAGING access or activation. Existing accepted tests are reused, not described as proof of these NEW branches. Real disposable validation remains required on the dedicated runner; never test by stopping live TEST or using the shared VPS daemon. A passing unit suite is not Gate C/D execution approval.
 
 All exact file hashes/byte counts are in `FILE-FINGERPRINTS.txt`. Fill only concrete private values and run-specific hashes; this package invents no secrets, private baseline digest, live replacement ID, migration list, maintenance date or incident repair.
+
+## Compose normalization compatibility
+
+The current Gate D candidate accepts only absent or empty external-network IPAM
+metadata, preserving the exact name and literal external=true. native_models
+first validates authored baselines with explicit bind.create_host_path=false,
+then restores only omitted false values in native Compose output. Explicit true
+remains forbidden. See ../gate-cd/FAILURE-44140101543.md for reproduction.
+
+
+## Owner-reader correction (run 44143882754)
+
+The host SQLite reader previously resolved proc-FD links through root-private
+ancestors and failed with SQLITE_CANTOPEN. The root child now anchors its root
+to the validated data descriptor, then clears groups and drops GID/UID before
+reading `/app.db` with normal read-only SQLite/WAL semantics. Uploads are read
+relative to their separately pinned descriptor with an owner-context fail-closed
+walk and complete inventory comparison. Host ownership and modes are unchanged.
+The pinned helper and Gate C dependency are unchanged by this correction.
+
+Ten root Linux regressions cover real credential dropping, root-private ancestors,
+committed WAL, owner-created SHM, unreadable uploads/DB, owner mismatch and error
+sanitization. See [the investigation](../gate-cd/FAILURE-44143882754.md) for local
+reproduction, hosted limits and the exact next manual validation action.
+
+Failures now identify only fixed stages: `owner-reader-namespace-failed`,
+`owner-reader-credentials-failed`, `owner-reader-uploads-failed`,
+`owner-reader-migration-history-failed`, `owner-reader-database-integrity-failed`,
+`owner-reader-logical-digest-failed`, or `owner-reader-report-failed`.
+Signal/unknown exit uses `owner-reader-signal-failed`/`owner-reader-process-failed`.
+These codes disclose no paths, environment values, SQLite rows or file inventory.
+Any failure still stops verification; it grants no recovery or deployment approval.

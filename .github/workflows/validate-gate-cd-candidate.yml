@@ -15,10 +15,16 @@ jobs:
         run: python3 -I -B validation/gate-cd/verify_candidate.py
       - name: Verify isolated fixture metadata expectations
         run: python3 -I -B validation/gate-cd/test_internal_fixture.py -v
+      - name: Verify Compose model normalization guards
+        run: python3 -I -B validation/gate-cd/test_compose_models.py -v
       - name: Run the unchanged Gate C unit test suite
         run: python3 -I -B validation/carservice-gate-c/test_gate_c.py -v
-      - name: Run the unchanged Gate D unit test suite
+      - name: Run the Gate D unit test suite
         run: python3 -I -B validation/carservice-gate-d/test_gate_d.py -v
+      - name: Verify Gate D owner reader with real credential dropping
+        run: |
+          sudo env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin HOME=/root \
+            /usr/bin/python3 -I -B validation/gate-cd/test_owner_reader.py -v
       - name: Prepare public fictional fixture image
         run: |
           set -euo pipefail
