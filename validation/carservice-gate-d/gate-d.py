@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import signal
 import sqlite3
+import sqlite3.dump  # iterdump lazily imports this; load before the child chroot.
 import stat
 import subprocess
 import sys
@@ -240,8 +241,9 @@ def publish_exclusive(source, dest):
 
 def data_view(data, uploads, storage):
     """Read application DB as its owner; never create root-owned live WAL/SHM.
-    Open trusted directory FDs before dropping credentials, so root-private host
-    ancestors need no permission changes. Only this fork reads through proc FDs.
+    SQLite resolves proc-FD links to host paths. Anchor the root child's namespace
+    to the data FD before dropping credentials, preserving private host ancestors.
+    Uploads are read relative to their separately pinned FD, also as the owner.
     """
     tree(data); tree(uploads)
     df = os.open(data, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
@@ -250,17 +252,38 @@ def data_view(data, uploads, storage):
     need(uid in (0, OWNER[0]), 'unexpected-data-owner')
     need((os.fstat(uf).st_uid, os.fstat(uf).st_gid) == (uid,gid), 'storage-owner-mismatch')
     r, w = os.pipe()
+    # Exit codes carry only fixed stage names, never exception text or data.
+    stages = {10: 'namespace', 11: 'credentials', 12: 'uploads',
+              13: 'migration-history', 14: 'database-integrity',
+              15: 'logical-digest', 16: 'report'}
     pid = os.fork()
     if pid == 0:
+        stage = 10
         try:
             os.close(r); signal.alarm(180)
-            if os.geteuid() == 0:
-                os.setgroups([]); os.setgid(gid); os.setuid(uid)
-            need(os.geteuid() == uid, 'reader-owner-mismatch')
             db = Path('/proc/self/fd') / str(df) / 'app.db'
-            up = Path('/proc/self/fd') / str(uf)
-            value = {'history':C.migration_history(db), 'counts':storage.database_info(db),
-                     'uploads':storage.inventory(up)}
+            if os.geteuid() == 0:
+                os.fchdir(df); os.chroot('.'); os.chdir('/')
+                db = Path('/app.db')
+                stage = 11
+                os.setgroups([]); os.setgid(gid); os.setuid(uid)
+            stage = 11
+            need(os.geteuid() == uid and os.getegid() == gid, 'reader-owner-mismatch')
+            stage = 12
+            os.fchdir(uf)
+            # The pinned helper's os.walk omits inaccessible directories. Fail
+            # closed in an owner-context walk before accepting its inventory.
+            entries = tree(Path('.'))
+            inventory = storage.inventory(Path('.'))
+            need({item['name'] for item in inventory} ==
+                 {rel.as_posix() for rel, st in entries if stat.S_ISREG(st.st_mode)},
+                 'owner-upload-inventory-incomplete')
+            os.fchdir(df)
+            stage = 13
+            value = {'uploads': inventory, 'history': C.migration_history(db)}
+            stage = 14
+            value['counts'] = storage.database_info(db)
+            stage = 15
             connection = sqlite3.connect(db.as_uri() + '?mode=ro', uri=True, timeout=10)
             try:
                 digest = hashlib.sha256()
@@ -269,12 +292,13 @@ def data_view(data, uploads, storage):
                 value['logical_sha256'] = digest.hexdigest()
             finally:
                 connection.close()
+            stage = 16
             raw = json.dumps(value).encode()
             while raw:
                 raw = raw[os.write(w, raw):]
             os._exit(0)
         except BaseException:
-            os._exit(1)
+            os._exit(stage)
     os.close(w); os.close(df); os.close(uf)
     content = bytearray()
     try:
@@ -283,7 +307,9 @@ def data_view(data, uploads, storage):
             need(len(content) <= 16*1024**2, 'verification-report-too-large')
     finally:
         os.close(r); _, status = os.waitpid(pid, 0)
-    need(status == 0, 'owner-reader-integrity-failed')
+    if status != 0:
+        stage = stages.get(os.WEXITSTATUS(status), 'process') if os.WIFEXITED(status) else 'signal'
+        raise RuntimeError('owner-reader-' + stage + '-failed')
     return C.decode_json(content)
 
 

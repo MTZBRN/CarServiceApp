@@ -4,7 +4,7 @@ from pathlib import Path
 import re
 
 CANDIDATE = Path(__file__).resolve().parents[1] / 'carservice-gate-d'
-MANIFEST_SHA256 = '71c7167bb6a4d239f4469b68a9d0ef5a04e162e2cc50a85197b0ef751db7283d'
+MANIFEST_SHA256 = 'ba09e1aa63feaabc77b94c8e639aef99d6ad000ba66b741d32cdffd22a495201'
 
 
 def verify_package(directory, manifest_sha256, count):

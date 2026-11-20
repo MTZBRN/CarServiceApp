@@ -181,7 +181,7 @@ class MaterializationTests(unittest.TestCase):
         c.execute('CREATE TABLE Parent (Id INTEGER PRIMARY KEY)')
         c.execute('CREATE TABLE Child (Pid INTEGER REFERENCES Parent(Id))')
         c.execute('INSERT INTO Child VALUES (99)');c.commit();c.close()
-        with self.assertRaisesRegex(RuntimeError,'owner-reader-integrity-failed'):self.materialize()
+        with self.assertRaisesRegex(RuntimeError,'owner-reader-database-integrity-failed'):self.materialize()
 
     def test_owner_reader_includes_committed_wal(self):
         c=sqlite3.connect(self.db)
