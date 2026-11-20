@@ -48,6 +48,24 @@ class OwnerReaderTests(unittest.TestCase):
     def view(self):
         return self.d.data_view(self.data, self.uploads, self.storage)
 
+    def test_fixture_scratch_passes_real_restore_and_cleans_up(self):
+        fixture = load(HERE / 'restore_fixture.py', 'restore_fixture')
+        pair = self.storage.backup(self.db, self.uploads, self.root / 'backups', quiesced=True)
+        with fixture.restore_target() as scratch:
+            self.assertEqual(scratch.parent.parent, Path('/tmp'))
+            self.assertEqual(stat.S_IMODE(scratch.parent.stat().st_mode), 0o700)
+            self.assertFalse(scratch.exists())
+            self.storage.restore_test(pair, scratch, max_upload_bytes=1024)
+            self.assertEqual((scratch / 'uploads/nested/fictional.txt').read_bytes(), b'fictional upload')
+            with self.assertRaisesRegex(RuntimeError, '^fictional materialization failure$'):
+                with fixture.restore_target() as other:
+                    self.assertNotEqual(other.parent, scratch.parent)
+                    self.storage.restore_test(pair, other, max_upload_bytes=1024)
+                    raise RuntimeError('fictional materialization failure')
+            self.assertFalse(other.parent.exists())
+            self.assertTrue(scratch.is_dir())
+        self.assertFalse(scratch.parent.exists())
+
     def test_private_ancestor_and_real_irreversible_credential_drop(self):
         original = self.storage.database_info
 
